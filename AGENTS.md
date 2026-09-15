@@ -7,12 +7,12 @@ Este projeto é a aplicação unificada de autenticação e portal multi-role (A
 - Marcas descontinuadas: Não referenciar `maestri.group` ou `v7m` em UI, layouts ou textos públicos.
 
 ## 🧭 Escopo & Responsabilidades do `app.supletivo.net.br`
+- **SEM Rotas de Registro Público**:
+  - O `app.supletivo.net.br` NÃO possui rotas de cadastro ou captação de leads (`/registro/*`). Todo cadastro público pertence 100% à Landing Page (`supletivo.net.br`).
+  - Qualquer tentativa de acesso a `/registro` deve redirecionar (HTTP 302) para `https://supletivo.net.br/registro/contato` preservando parâmetros de tracking (`?ref=`, `?utm_*`).
 - **Autenticação**:
   - `/autenticacao/login` (login direto para usuários cadastrados).
-  - `/autenticacao/otp` (validação de código OTP recebido via WhatsApp/SMS após pré-cadastro ou login).
-- **Redirecionamento de Registro**:
-  - O fluxo de cadastro inicial do público é originado nas landing pages (`supletivo.net.br/registro/contato` e `supletivo.net.br/registro/cpf`).
-  - Após validação/criação, o usuário é direcionado para `app.supletivo.net.br/autenticacao/otp`.
+  - `/autenticacao/otp` (validação de código OTP recebido via WhatsApp/SMS após pré-cadastro na LP ou login).
 - **Áreas Logadas (Multi-Role)**:
   - Aluno: `/painel`, `/matricula`, `/provas`, `/documentos`
   - Promotor / Secretaria: sub-rotas dedicadas sob controle de acesso por role.

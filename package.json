@@ -12,7 +12,10 @@
     "lint": "eslint",
     "check-types": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "checkpoint": "sh scripts/checkpoint/checkpoint.sh",
+    "checkpoint:fast": "pwsh scripts/checkpoint/checkpoint.ps1 -Tier fast",
+    "checkpoint:agent": "pwsh scripts/checkpoint/checkpoint.ps1 -Tier agent"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.5",
