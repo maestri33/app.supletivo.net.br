@@ -1,0 +1,10 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import AlunoDocCenter from '../components/interactive/AlunoDocCenter.svelte';
+
+export const prerender = true;
+---
+
+<RootLayout title="Prontuário e Documentação do Aluno — Supletivo Brasil">
+  <AlunoDocCenter client:load />
+</RootLayout>

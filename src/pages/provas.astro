@@ -1,0 +1,10 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import ExamScheduler from '../components/interactive/ExamScheduler.svelte';
+
+export const prerender = true;
+---
+
+<RootLayout title="Agendamento de Provas e Certificação — Supletivo Brasil">
+  <ExamScheduler client:load />
+</RootLayout>

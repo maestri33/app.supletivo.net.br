@@ -1,9 +1,27 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# app.supletivo.net.br — Diretrizes do Projeto
 
-# This is NOT the Next.js you know
+Este projeto é a aplicação unificada de autenticação e portal multi-role (Aluno, Promotor, Secretaria) da plataforma **Supletivo.net.br** (**Supletivo Brasil**).
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## 🏷️ Marca & Identidade
+- Marca Oficial: **Supletivo.net.br** / **Supletivo Brasil**.
+- Marcas descontinuadas: Não referenciar `maestri.group` ou `v7m` em UI, layouts ou textos públicos.
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+## 🧭 Escopo & Responsabilidades do `app.supletivo.net.br`
+- **Autenticação**:
+  - `/autenticacao/login` (login direto para usuários cadastrados).
+  - `/autenticacao/otp` (validação de código OTP recebido via WhatsApp/SMS após pré-cadastro ou login).
+- **Redirecionamento de Registro**:
+  - O fluxo de cadastro inicial do público é originado nas landing pages (`supletivo.net.br/registro/contato` e `supletivo.net.br/registro/cpf`).
+  - Após validação/criação, o usuário é direcionado para `app.supletivo.net.br/autenticacao/otp`.
+- **Áreas Logadas (Multi-Role)**:
+  - Aluno: `/painel`, `/matricula`, `/provas`, `/documentos`
+  - Promotor / Secretaria: sub-rotas dedicadas sob controle de acesso por role.
 
-<!-- END:nextjs-agent-rules -->
+## 🌐 Convenção de Idiomas e Rotas
+- **Código e APIs (100% Inglês)**: nomes de variáveis, tipos TypeScript, funções, commits, endpoints (`/api/v1/...`).
+- **Interface e Mensagens (100% PT-BR)**: textos da interface, validações de formulário, toasts, notificações.
+- **Rotas e URLs de Frontend (100% PT-BR)**: Todas as rotas do usuário final devem ser estritamente em português (`/autenticacao/login`, `/autenticacao/otp`, `/painel`, etc.).
+
+## ⚡ Arquitetura Técnica
+- **Astro 5+ (SSR)**: Zero-JS por padrão para cascas, layouts e páginas estáticas.
+- **Svelte 5 (Runes)**: Ilhas interativas (`$state`, `$derived`, `$props`, `$bindable`) sob `src/components/interactive/`. Validadas sempre com `svelte-autofixer`.

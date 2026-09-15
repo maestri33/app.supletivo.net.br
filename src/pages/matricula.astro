@@ -1,0 +1,10 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import MatriculaWizard from '../components/interactive/MatriculaWizard.svelte';
+
+export const prerender = true;
+---
+
+<RootLayout title="Envio de Documentos e Matrícula — Supletivo Brasil">
+  <MatriculaWizard client:load />
+</RootLayout>

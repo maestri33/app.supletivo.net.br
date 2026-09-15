@@ -2,7 +2,8 @@
 node_modules/
 .pnpm-store/
 
-# next.js
+# astro & next.js
+.astro/
 .next/
 out/
 

@@ -1,0 +1,10 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import LeadFunnel from '../components/interactive/LeadFunnel.svelte';
+
+export const prerender = true;
+---
+
+<RootLayout title="E-mail de Contato — Supletivo Brasil">
+  <LeadFunnel client:load initialScreen="email" />
+</RootLayout>

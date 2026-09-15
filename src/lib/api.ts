@@ -1024,3 +1024,18 @@ export function selfieAnalysisStatus(s: SelfieOut): string | null {
 export function selfieAnalysisReason(s: SelfieOut): string | null {
   return s.analysis_reason ?? s.description ?? null;
 }
+
+/* ============================ pix public ============================ */
+
+export interface PixPage {
+  amount: string;
+  is_paid: boolean;
+  qrcode_payload?: string | null;
+  qrcode_image?: string | null;
+  receipt_url?: string | null;
+}
+
+/** Lê o QR PIX pelo token do link curto. SEM auth — a página é aberta direto do WhatsApp. */
+export function getPixPage(token: string): Promise<PixPage> {
+  return request<PixPage>(`/api/v1/clients/lead/pix/${encodeURIComponent(token)}`);
+}

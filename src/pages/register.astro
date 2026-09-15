@@ -1,0 +1,9 @@
+---
+export const prerender = false;
+
+const ref = Astro.url.searchParams.get("ref")?.trim();
+if (ref) {
+  return Astro.redirect(`/?ref=${encodeURIComponent(ref)}`);
+}
+return Astro.redirect("/");
+---
