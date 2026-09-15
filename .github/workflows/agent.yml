@@ -33,11 +33,14 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name  "devagent[bot]"
-          git config user.email "devagent@v7m.org"
+          git config user.email "devagent@supletivo.net.br"
           BR="agent/issue-${ISSUE_NUM}"
           git checkout -B "$BR"
           PROMPT="Voce e um engenheiro de software. Resolva a issue #${ISSUE_NUM} deste repositorio. TITULO: ${ISSUE_TITLE} . DESCRICAO: ${ISSUE_BODY} . REGRAS: faca apenas a mudanca minima necessaria no codigo da aplicacao; NAO altere arquivos de infra/CI (.github/, Dockerfile, deploy); se possivel rode 'npm run build' pra validar antes de terminar; nao invente requisitos, na duvida faca a interpretacao mais conservadora."
           claude -p "$PROMPT" --dangerously-skip-permissions --max-turns 50
+          if [ -f "../tools/checkpoint/checkpoint.sh" ]; then
+            bash ../tools/checkpoint/checkpoint.sh agent
+          fi
           git add -A
           if git diff --cached --quiet; then
             echo "Claude nao produziu mudancas."
