@@ -26,7 +26,7 @@ const eslintConfig = defineConfig([
           selector:
             "JSXAttribute[name.name=/className|style/] Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
           message:
-            "Hardcoded hex color in JSX className/style. Use design tokens (bg-brand-*, var(--color-*)). Token files: packages/ui/src/tokens/.",
+            "Hardcoded hex color in JSX className/style. Use design tokens (var(--green), var(--yellow), var(--blue), var(--ink)). Token file: src/styles/tokens.css.",
         },
         {
           selector:

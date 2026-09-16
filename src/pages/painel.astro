@@ -1,10 +1,12 @@
 ---
 import RootLayout from '../layouts/RootLayout.astro';
-import LeadFunnel from '../components/interactive/LeadFunnel.svelte';
+import StudentDashboard from '../components/interactive/StudentDashboard.svelte';
 
-export const prerender = true;
+export const prerender = false;
 ---
 
-<RootLayout title="Painel do Lead — Supletivo Brasil">
-  <LeadFunnel client:load initialScreen="painel" />
+<RootLayout title="Painel do Aluno — Supletivo Brasil">
+  <div class="w-full flex-1 flex flex-col p-4 sm:p-6">
+    <StudentDashboard client:load />
+  </div>
 </RootLayout>

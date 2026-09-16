@@ -1,10 +1,4 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import LeadFunnel from '../components/interactive/LeadFunnel.svelte';
-
-export const prerender = true;
+export const prerender = false;
+return Astro.redirect(`https://supletivo.net.br${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Identificação por CPF — Supletivo Brasil">
-  <LeadFunnel client:load initialScreen="cpf" />
-</RootLayout>

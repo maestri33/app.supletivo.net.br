@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { getLeadSession, subscribeLeadSession } from "@/lib/funnel/lead-session";
   import { getAccessToken, subscribeStorage } from "@/lib/session";
   import { whoami } from "@/lib/api";
   import { onMount } from "svelte";
@@ -8,12 +7,7 @@
 
   onMount(() => {
     function update() {
-      const lead = getLeadSession();
       const token = getAccessToken();
-      if (lead.loggedIn && lead.name) {
-        firstName = lead.name.split(" ")[0] ?? null;
-        return;
-      }
       if (token) {
         whoami()
           .then((w) => {
@@ -21,18 +15,18 @@
               firstName = w.name.split(" ")[0] ?? null;
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            firstName = null;
+          });
       } else {
         firstName = null;
       }
     }
 
     update();
-    const unsubLead = subscribeLeadSession(update);
     const unsubStorage = subscribeStorage(update);
 
     return () => {
-      unsubLead();
       unsubStorage();
     };
   });

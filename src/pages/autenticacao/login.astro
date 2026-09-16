@@ -1,0 +1,12 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import StudentLogin from '../../components/interactive/StudentLogin.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Entrar — Supletivo Brasil">
+  <div class="w-full flex-1 flex items-center justify-center p-4">
+    <StudentLogin client:load />
+  </div>
+</RootLayout>

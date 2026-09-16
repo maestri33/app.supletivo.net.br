@@ -1,9 +1,4 @@
 ---
 export const prerender = false;
-
-const ref = Astro.url.searchParams.get("ref")?.trim();
-if (ref) {
-  return Astro.redirect(`/?ref=${encodeURIComponent(ref)}`);
-}
-return Astro.redirect("/");
+return Astro.redirect(`https://supletivo.net.br${Astro.url.search}`, 308);
 ---

@@ -11,12 +11,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@v7m/ui": [
-        "./packages/ui/src/index.ts"
-      ],
-      "@v7m/ui/*": [
-        "./packages/ui/src/*"
       ]
     }
   },

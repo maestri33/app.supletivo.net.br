@@ -1,35 +1,105 @@
-@import "@v7m/ui/tokens";
 @import "tailwindcss";
+@import "./tokens.css";
 
 /**
- * Supletivo Brasil — institutional palette from the Brazilian flag.
- * Blue = trust/structure, Green = action/progress, Yellow = thin accent only.
- *
- * ALL theme tokens resolve to CSS custom properties defined in
- * @supletivo/ui/tokens — swap them via [data-theme="staff"] to recolor
- * the entire app without touching a single component.
+ * Supletivo Brasil — Paleta Pátria Amada Refinada & Design System Canônico.
+ * Sincronizado com supletivo.net.br/DESIGN.md.
  */
-@theme {
-  --color-brand-green: var(--color-green);
-  --color-brand-green-dark: var(--color-green-dark);
-  --color-brand-green-light: var(--color-green-light);
-  --color-brand-yellow: var(--color-yellow);
-  --color-brand-blue: var(--color-blue);
-  --color-brand-blue-bright: var(--color-blue-bright);
-  --color-brand-ink: var(--color-ink);
-  --color-brand-muted: var(--color-muted);
-  --color-brand-bg: var(--color-bg);
-  --color-brand-surface: var(--color-surface);
-  --color-brand-border: var(--color-border);
-  --color-brand-danger: var(--color-danger);
-  --color-brand-danger-bg: var(--color-danger-bg);
-  --color-brand-green-bg: var(--color-green-bg);
-  --color-brand-blue-bg: var(--color-blue-bg);
 
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+/* ==========================================================================
+   FONTES LOCAIS AUTO-HOSPEDADAS (WOFF2)
+   ========================================================================== */
+@font-face {
+  font-family: 'Archivo Black';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/archivo-black-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Shell "app-like": viewport travado, sem scroll/bounce do documento. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   TAILWIND CSS V4 THEME CONFIGURATION
+   ========================================================================== */
+@theme {
+  /* Tipografia Canônica */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Archivo Black', system-ui, sans-serif;
+
+  /* Cores Canônicas (DESIGN.md) */
+  --color-green: var(--green);
+  --color-green-deep: var(--green-deep);
+  --color-yellow: var(--yellow);
+  --color-yellow-soft: var(--yellow-soft);
+  --color-blue: var(--blue);
+  --color-blue-deep: var(--blue-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-paper-soft: var(--paper-soft);
+  --color-line-light: var(--line-light);
+
+  /* Texto Secundário Auditado */
+  --color-muted-on-dark: var(--muted-on-dark);
+  --color-muted-on-light: var(--muted-on-light);
+
+  /* Feedback Semântico */
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  /* Aliases Transicionais brand-* para compatibilidade com componentes existentes */
+  --color-brand-green: var(--green);
+  --color-brand-green-dark: var(--green-deep);
+  --color-brand-green-light: var(--green);
+  --color-brand-yellow: var(--yellow);
+  --color-brand-yellow-soft: var(--yellow-soft);
+  --color-brand-blue: var(--blue);
+  --color-brand-blue-bright: var(--blue);
+  --color-brand-ink: var(--ink);
+  --color-brand-ink-soft: var(--ink-soft);
+  --color-brand-muted: var(--muted-on-light);
+  --color-brand-bg: var(--paper-soft);
+  --color-brand-surface: var(--paper);
+  --color-brand-border: var(--line-light);
+  --color-brand-danger: var(--danger);
+  --color-brand-danger-bg: var(--danger-bg);
+  --color-brand-green-bg: var(--success-bg);
+  --color-brand-blue-bg: var(--info-bg);
+}
+
+/* ==========================================================================
+   SHELL APP-LIKE & VIEWPORT LOCK
+   ========================================================================== */
 html,
 body {
   height: 100dvh;
@@ -38,7 +108,6 @@ body {
 }
 
 body {
-  /* notch/ilha em paisagem: insets laterais no shell inteiro */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   background-color: var(--color-brand-bg);
@@ -50,10 +119,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* A ÚNICA faixa que rola: entre header e footer. Os <main flex-1> das páginas
-   crescem aqui dentro — centralizam quando cabem, rolam por dentro quando não
-   cabem (o scroller fica em flex-start e o main cresce ⇒ sem o bug de clipping
-   de flex+justify-center+overflow). Barra oculta; scroll não encadeia pro body. */
+/* Seleção com contraste canônico */
+::selection {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+/* Área rolável da aplicação */
 .app-scroll {
   flex: 1 1 0%;
   min-height: 0;
@@ -64,10 +136,8 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* safe-area top/bottom: aplicada aqui só quando NÃO há header/footer na borda */
   padding-top: env(safe-area-inset-top);
   padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
-  /* Garante que inputs focados fiquem visíveis acima do footer e abaixo do header */
   scroll-padding-top: 64px;
   scroll-padding-bottom: 96px;
 }
@@ -81,13 +151,120 @@ body:has(> footer) .app-scroll {
   padding-bottom: 0.75rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  body {
-    animation: none;
+/* ==========================================================================
+   COMPONENTES GLOBAIS DE DESIGN SYSTEM (DESIGN.MD)
+   ========================================================================== */
+
+/* Botão Principal de Conversão (CTA .btn) */
+.btn {
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(1.02rem, 0.95rem + 0.4vw, 1.18rem);
+  line-height: 1.15;
+  padding: 1.05em 1.9em;
+  border-radius: var(--radius-pill);
+  background-color: var(--yellow);
+  color: var(--ink) !important; /* REGRA DE OURO: 11.8:1 WCAG AAA */
+  text-decoration: none;
+  text-align: center;
+  position: relative;
+  overflow: clip;
+  box-shadow:
+    0 12px 32px -12px rgb(255 196 0 / 0.55),
+    inset 0 -3px 0 rgb(11 18 32 / 0.16);
+  transition:
+    transform 0.18s var(--ease-out),
+    box-shadow 0.25s var(--ease-out);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 40px -14px rgb(255 196 0 / 0.7),
+    inset 0 -3px 0 rgb(11 18 32 / 0.16);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px rgb(0 39 118 / 0.85);
+}
+
+/* Varredura luminosa periódica no CTA (DESIGN.md) */
+@media (prefers-reduced-motion: no-preference) {
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      rgb(255 255 255 / 0.55) 50%,
+      transparent 62%
+    );
+    transform: translateX(-130%) skewX(-8deg);
+    animation: btn-shine 6.5s var(--ease-out) 2.2s infinite;
+    pointer-events: none;
   }
 }
 
-/* ===== Bandeira-diploma (portada da landing — DiplomaFlag) ===== */
+@keyframes btn-shine {
+  0% {
+    transform: translateX(-130%) skewX(-8deg);
+  }
+  18%,
+  100% {
+    transform: translateX(130%) skewX(-8deg);
+  }
+}
+
+/* ==========================================================================
+   GLASSMORPHISM & ANTIGRAVITY DEPTH
+   ========================================================================== */
+.glass-panel {
+  background: var(--glass-bg-dark);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-dark);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-panel-light {
+  background: var(--glass-bg-light);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-light);
+  box-shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.spatial-stage {
+  perspective: var(--perspective);
+  perspective-origin: 50% 50%;
+}
+
+.spatial-card-3d {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: box-shadow 0.3s var(--ease-out), opacity 0.65s var(--ease-out) !important;
+}
+
+.layer-z-sm { transform: translateZ(12px); }
+.layer-z-md { transform: translateZ(24px); }
+.layer-z-lg { transform: translateZ(40px); }
+
+/* ==========================================================================
+   BANDEIRA DIPLOMA (DIPLOMAFLAG)
+   ========================================================================== */
 .diploma-flag {
   filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.35));
 }
@@ -166,89 +343,61 @@ body:has(> footer) .app-scroll {
 }
 
 @keyframes df-clip {
-  0%,
-  6% {
+  0%, 6% {
     clip-path: inset(0 94% 0 0 round 12px);
     animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
   }
-  30%,
-  88% {
+  30%, 88% {
     clip-path: inset(0 0% 0 0 round 12px);
     animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
   }
-  98%,
-  100% {
+  98%, 100% {
     clip-path: inset(0 94% 0 0 round 12px);
   }
 }
 
 @keyframes df-travel {
-  0%,
-  6% {
+  0%, 6% {
     transform: translateX(0);
     animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
   }
-  30%,
-  88% {
+  30%, 88% {
     transform: translateX(488px);
     animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
   }
-  98%,
-  100% {
+  98%, 100% {
     transform: translateX(0);
   }
 }
 
 @keyframes df-shadow {
-  0%,
-  6% {
+  0%, 6% {
     transform: scaleX(0.14);
     animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
   }
-  30%,
-  88% {
+  30%, 88% {
     transform: scaleX(1);
     animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
   }
-  98%,
-  100% {
+  98%, 100% {
     transform: scaleX(0.14);
   }
 }
 
 @keyframes df-ribbon {
-  0%,
-  7% {
-    opacity: 1;
-  }
-  14%,
-  92% {
-    opacity: 0;
-  }
-  98%,
-  100% {
-    opacity: 1;
-  }
+  0%, 7% { opacity: 1; }
+  14%, 92% { opacity: 0; }
+  98%, 100% { opacity: 1; }
 }
 
 @keyframes df-check {
-  0%,
-  30% {
-    stroke-dashoffset: 1;
-  }
-  42%,
-  84% {
-    stroke-dashoffset: 0;
-  }
-  92%,
-  100% {
-    stroke-dashoffset: 1;
-  }
+  0%, 30% { stroke-dashoffset: 1; }
+  42%, 84% { stroke-dashoffset: 0; }
+  92%, 100% { stroke-dashoffset: 1; }
 }
 
 @keyframes df-stamp {
-  0%,
-  31% {
+  0%, 31% {
     opacity: 0;
     transform: scale(1.7) rotate(-14deg);
   }
@@ -262,34 +411,25 @@ body:has(> footer) .app-scroll {
   39% {
     transform: scale(1.05) rotate(-8.5deg);
   }
-  42%,
-  100% {
+  42%, 100% {
     opacity: 1;
     transform: scale(1) rotate(-8deg);
   }
 }
 
 @keyframes df-float {
-  50% {
-    transform: translateY(-9px);
-  }
+  50% { transform: translateY(-9px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .df-roll {
-    transform: translateX(488px);
-  }
-
-  .df-ribbon {
-    opacity: 0;
-  }
-
-  .df-shadow {
-    transform: none;
-  }
+  .df-roll { transform: translateX(488px); }
+  .df-ribbon { opacity: 0; }
+  .df-shadow { transform: none; }
 }
 
-/* ===== Fundo: Aurora Background (Aceternity), recolorido pra bandeira ===== */
+/* ==========================================================================
+   AURORA BACKGROUND (CALIBRADA COM TOKENS CANÔNICOS)
+   ========================================================================== */
 .aurora-wrap {
   position: fixed;
   inset: 0;
@@ -301,11 +441,11 @@ body:has(> footer) .app-scroll {
 .aurora-layer {
   --aurora: repeating-linear-gradient(
     100deg,
-    #009c3b 10%,
-    #1e6fe0 15%,
-    #38d178 20%,
-    #ffe14d 25%,
-    #1e6fe0 30%
+    var(--green) 10%,
+    var(--blue) 15%,
+    var(--green-deep) 20%,
+    var(--yellow) 25%,
+    var(--blue-deep) 30%
   );
   --streaks: repeating-linear-gradient(
     100deg,
@@ -337,80 +477,57 @@ body:has(> footer) .app-scroll {
 }
 
 @keyframes aurora {
-  from {
-    background-position: 50% 50%, 50% 50%;
-  }
-  to {
-    background-position: 350% 50%, 350% 50%;
-  }
+  from { background-position: 50% 50%, 50% 50%; }
+  to { background-position: 350% 50%, 350% 50%; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .aurora-layer::after {
-    animation: none;
-  }
-}
-
-/* ===== Transição entre passos do funil ===== */
+/* Transições de etapas */
 @media (prefers-reduced-motion: no-preference) {
-  .step-in-right {
-    animation: step-in-right 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
-  .step-in-left {
-    animation: step-in-left 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
+  .step-in-right { animation: step-in-right 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .step-in-left { animation: step-in-left 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .card-in { animation: card-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .sheet-up { animation: sheet-up 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 
 @keyframes step-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes step-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-28px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .card-in {
-    animation: card-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes card-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .sheet-up {
-    animation: sheet-up 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes sheet-up {
-  from {
-    transform: translateY(100%);
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ==========================================================================
+   KILL-SWITCH UNIVERSAL DE MOVIMENTO (ACCESSIBILITY WCAG)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  to {
-    transform: translateY(0);
+  .spatial-card-3d,
+  .layer-z-sm,
+  .layer-z-md,
+  .layer-z-lg {
+    transform: none !important;
+  }
+  .aurora-layer::after {
+    animation: none;
   }
 }

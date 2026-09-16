@@ -10,6 +10,9 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone',
   }),
+  redirects: {
+    '/login': '/autenticacao/login',
+  },
   integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],

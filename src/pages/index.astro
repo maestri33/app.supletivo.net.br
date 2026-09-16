@@ -1,10 +1,70 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import LeadFunnel from '../components/interactive/LeadFunnel.svelte';
+export const prerender = false;
 
-export const prerender = true;
+const search = Astro.url.search;
+const searchParams = Astro.url.searchParams;
+
+// Se o usuário acessou a raiz com parâmetro de afiliado ou campanha,
+// redireciona 308 permanentemente para a Landing Page oficial preservando a atribuição.
+const hasMarketingParam =
+  searchParams.has("ref") ||
+  Array.from(searchParams.keys()).some((k) => k.startsWith("utm_") || k.endsWith("clid"));
+
+if (hasMarketingParam) {
+  return Astro.redirect(`https://supletivo.net.br${search}`, 308);
+}
 ---
 
-<RootLayout title="Supletivo Brasil — conclua seus estudos">
-  <LeadFunnel client:load initialScreen="check" />
-</RootLayout>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supletivo Brasil — Plataforma do Aluno</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <script is:inline>
+      // Triagem instantânea client-side: avalia sessão no localStorage antes do paint (0ms)
+      try {
+        const raw = localStorage.getItem("supletivo.login");
+        if (raw) {
+          const session = JSON.parse(raw);
+          if (session && session.access_token) {
+            window.location.replace("/painel");
+          } else {
+            window.location.replace("/autenticacao/login");
+          }
+        } else {
+          window.location.replace("/autenticacao/login");
+        }
+      } catch (e) {
+        window.location.replace("/autenticacao/login");
+      }
+    </script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b1220;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(255, 196, 0, 0.2);
+        border-top-color: #ffc400;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="spinner" aria-label="Carregando plataforma..."></div>
+  </body>
+</html>

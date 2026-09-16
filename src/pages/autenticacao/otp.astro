@@ -1,0 +1,12 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import OtpVerification from '../../components/interactive/OtpVerification.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Verificação de Segurança — Supletivo Brasil">
+  <div class="w-full flex-1 flex items-center justify-center p-4">
+    <OtpVerification client:load />
+  </div>
+</RootLayout>

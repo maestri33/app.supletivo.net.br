@@ -8,7 +8,6 @@ RUN npm install -g pnpm@10.34.5
 FROM base AS deps
 WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY packages/ui/package.json ./packages/ui/package.json
 RUN pnpm install --frozen-lockfile
 
 # --- Fase 2: Build ---
@@ -16,7 +15,6 @@ FROM base AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
