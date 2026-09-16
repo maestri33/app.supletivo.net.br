@@ -27,10 +27,11 @@ export default defineConfig({
   webServer: (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL)
     ? undefined
     : {
-        command: `npm run dev -- --hostname 127.0.0.1 --port ${PORT}`,
+        command: `npx wrangler dev --port ${PORT} --ip 127.0.0.1`,
         env: {
           ...process.env,
           PORT: String(PORT),
+          HOST: "127.0.0.1",
           HOSTNAME: "127.0.0.1",
           URL_BACKEND: process.env.E2E_BACKEND_URL ?? "http://127.0.0.1:8001",
         },

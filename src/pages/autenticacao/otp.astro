@@ -3,6 +3,15 @@ import RootLayout from '../../layouts/RootLayout.astro';
 import OtpVerification from '../../components/interactive/OtpVerification.svelte';
 
 export const prerender = false;
+
+const id = Astro.url.searchParams.get("id");
+const tel = Astro.url.searchParams.get("tel");
+const sessionCookie = Astro.cookies.get("supletivo.session")?.value;
+
+// Se não há identificador, telefone ou cookie de sessão, redireciona para o login
+if (!id && !tel && !sessionCookie) {
+  return Astro.redirect("/autenticacao/login", 302);
+}
 ---
 
 <RootLayout title="Verificação de Segurança — Supletivo Brasil">

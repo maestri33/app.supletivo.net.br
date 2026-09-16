@@ -1,33 +1,59 @@
-name: Deploy
-# CD: ao dar push na main, o runner self-hosted DESTE servidor (CT 30102)
-# atualiza o código, rebuilda e reinicia o serviço. O build é o gate (falhou → não reinicia).
+name: Deploy app.supletivo.net.br
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-app-supletivo
   cancel-in-progress: false
+
 jobs:
   deploy:
-    runs-on: [self-hosted, app-supletivo]
+    name: Deploy to Cloudflare Workers SSR
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
-      - name: Atualiza, builda e reinicia
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SSR Application
+        run: pnpm run build
+
+      - name: Deploy to Cloudflare Workers SSR
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Acionar Oráculo Central de Versão
+        if: ${{ success() && env.CLOUDFLARE_API_TOKEN != '' }}
         run: |
-          set -e
-          cd /opt/app-supletivo
-          git fetch --all --prune
-          git reset --hard origin/main
-          # proveniência inlinada no build → exposta em /healthz
-          export GIT_SHA=$(git rev-parse --short HEAD)
-          export BUILD_AT=$(date -u +%FT%TZ)
-          which pnpm >/dev/null 2>&1 || npm i -g pnpm
-          pnpm install --frozen-lockfile
-          # Teto de heap p/ o build caber no servidor (3GB RAM + 1GB swap)
-          NODE_OPTIONS="--max-old-space-size=3200" pnpm run build
-          systemctl restart app-supletivo
-          sleep 4
-          curl -fsS -o /dev/null http://127.0.0.1:3000/
-          # healthcheck de proveniência: o SHA servido tem que bater com o que acabou de subir
-          LIVE=$(curl -fsS http://127.0.0.1:3000/healthz)
-          echo "deploy OK — app no ar — /healthz: $LIVE"
-          echo "$LIVE" | grep -q "$GIT_SHA" || { echo "ERRO: /healthz não reflete $GIT_SHA"; exit 1; }
+          curl -s -X POST https://version.v7m.live/api/version/bump \
+            -H "Content-Type: application/json" \
+            -d '{"service": "app-supletivo", "repo": "app.supletivo.net.br"}' || true
+
+      - name: Aviso de Token Cloudflare
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::warning title=Secret Pendente::CLOUDFLARE_API_TOKEN não está definida em Settings > Secrets. Build SSR concluído com sucesso; configure a secret para deploy automático no edge."

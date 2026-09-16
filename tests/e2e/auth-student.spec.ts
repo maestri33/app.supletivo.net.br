@@ -1,28 +1,36 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
-  test("deve renderizar /autenticacao/login com design system canônico", async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    await context.clearCookies();
+    await page.addInitScript(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+    });
+  });
+
+  test("deve renderizar /autenticacao/login com design system canônico e fluxo zero-button", async ({ page }) => {
     await page.goto("/autenticacao/login");
 
-    // Verifica presença do container de login e título
+    // Verifica presença do container de login e título unificado
     await expect(page.locator("h1")).toHaveText("Acesse sua conta");
-    const input = page.locator("#student-phone");
+    const input = page.locator("#phone");
     await expect(input).toBeVisible();
 
-    // Botão inicialmente desabilitado
-    const submitBtn = page.locator("button[type='submit']");
-    await expect(submitBtn).toBeDisabled();
-
-    // Digita telefone válido
+    // Digita telefone válido (11 dígitos)
     await input.fill("11987654321");
     await expect(input).toHaveValue("(11) 98765-4321");
-    await expect(submitBtn).toBeEnabled();
+
+    // Em fluxo zero-button, não existe botão de submit manual
+    await expect(page.locator("button[type='submit']")).toHaveCount(0);
   });
 
   test("deve redirecionar /autenticacao/otp para /autenticacao/login se não houver dados de sessão", async ({ page }) => {
     await page.goto("/autenticacao/otp");
     // Sem sessão salva e sem query params, deve voltar para o login
-    await page.waitForURL("/autenticacao/login");
+    await page.waitForURL("**/autenticacao/login");
     expect(page.url()).toContain("/autenticacao/login");
   });
 

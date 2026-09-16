@@ -1,12 +1,12 @@
 ---
 import RootLayout from '../layouts/RootLayout.astro';
-import StudentDashboard from '../components/interactive/StudentDashboard.svelte';
+import DynamicRoleShell from '../components/interactive/DynamicRoleShell.svelte';
 
 export const prerender = false;
 ---
 
-<RootLayout title="Painel do Aluno — Supletivo Brasil">
-  <div class="w-full flex-1 flex flex-col p-4 sm:p-6">
-    <StudentDashboard client:load />
+<RootLayout title="Portal de Acesso — Supletivo Brasil">
+  <div class="w-full flex-1 flex flex-col p-4 sm:p-6 pb-24">
+    <DynamicRoleShell client:load />
   </div>
 </RootLayout>

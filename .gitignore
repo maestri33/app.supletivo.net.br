@@ -10,6 +10,7 @@ out/
 # production
 build/
 dist/
+.wrangler/
 
 # env
 .env
