@@ -1,12 +1,13 @@
 {
   "name": "app.supletivo.net.br",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "astro dev --port 3020",
     "build": "astro build",
     "start": "node ./dist/server/entry.mjs",
     "preview": "astro preview --port 3020",
+    "design:lint": "npx -p @google/design.md designmd lint DESIGN.md",
     "check": "astro check",
     "sync": "astro sync",
     "lint": "eslint",
