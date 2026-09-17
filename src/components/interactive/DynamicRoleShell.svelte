@@ -65,11 +65,12 @@
     window.location.href = "/autenticacao/login";
   }
 
+  // 100% PT-BR na Interface e Nomenclatura conforme AGENTS.md
   const roleMeta: Record<string, { label: string; icon: string }> = {
     aluno: { label: "Aluno", icon: "🎓" },
     promotor: { label: "Promotor", icon: "💼" },
     polo: { label: "Polo", icon: "🏫" },
-    admin: { label: "Admin", icon: "🛡️" },
+    admin: { label: "Administrador", icon: "🛡️" },
   };
 </script>
 
@@ -94,8 +95,9 @@
   </div>
 {:else}
   <!-- ESTADO NÃO TRAVADO:
-       REGRA: Se o usuário tiver mais de uma role: exibe as tabs em cima para alternar os ambientes.
-       Se tiver APENAS UMA ROLE: não exibe barra de tabs em cima, renderiza direto o ambiente dele! -->
+       REGRA CANÔNICA DE TABS:
+       - Se o usuário tem mais de uma role: exibe as tabs em cima para alternar entre os ambientes que possui.
+       - Se o usuário tem APENAS UMA ROLE: NENHUMA tab é exibida no topo, entra direto no ambiente dele. -->
   <div class="w-full max-w-5xl mx-auto flex flex-col items-center gap-6">
     {#if userRoles.length > 1}
       <div class="flex items-center gap-2 p-1.5 rounded-full glass-panel border border-white/15 bg-white/5 backdrop-blur-md">
@@ -187,7 +189,7 @@
             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span class="text-xs text-white/60 uppercase font-semibold">Leads Ativos</span>
               <p class="text-2xl font-bold text-white mt-1">24</p>
-              <p className="text-xs text-emerald-400 mt-1">+3 nas últimas 24h</p>
+              <p class="text-xs text-emerald-400 mt-1">+3 nas últimas 24h</p>
             </div>
             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span class="text-xs text-white/60 uppercase font-semibold">Matrículas Confirmadas</span>
@@ -263,14 +265,7 @@
       {/if}
     </div>
 
-    <div class="text-center pt-4">
-      <button
-        type="button"
-        onclick={handleLogout}
-        class="text-xs text-white/50 hover:text-rose-400 transition-colors cursor-pointer"
-      >
-        Encerrar sessão
-      </button>
-    </div>
+    <!-- Navegação Interna Contextual do Ambiente Ativo via RoleAdaptiveNavDock -->
+    <slot {activeRole} />
   </div>
 {/if}
