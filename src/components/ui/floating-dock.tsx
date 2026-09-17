@@ -44,9 +44,15 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   dockAriaLabel = "Navegação rápida",
 }) => {
   return (
-    <nav aria-label={dockAriaLabel} data-testid="role-adaptive-dock">
-      <FloatingDockDesktop items={items} className={desktopClassName} />
-      <FloatingDockMobile items={items} className={mobileClassName} />
+    <nav
+      aria-label={dockAriaLabel}
+      data-testid="role-adaptive-dock"
+      className="fixed bottom-6 inset-x-0 z-50 pointer-events-none flex justify-center items-center"
+    >
+      <div className="pointer-events-auto">
+        <FloatingDockDesktop items={items} className={desktopClassName} />
+        <FloatingDockMobile items={items} className={mobileClassName} />
+      </div>
     </nav>
   );
 };
