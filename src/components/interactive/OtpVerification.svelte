@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { loginOtp, checkPhone, whoami, getLeadMe } from "@/lib/api";
   import { getSession, saveLogin, saveSession, getAccessToken } from "@/lib/session";
+  import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
   let digits = $state(["", "", "", "", "", ""]);
   let busy = $state(false);
@@ -9,6 +10,7 @@
   let resendCooldown = $state(45);
   let phone = $state("");
   let externalId = $state("");
+  let isRecoveryOpen = $state(false);
 
   let code = $derived(digits.join(""));
   let isComplete = $derived(code.length === 6);
@@ -250,7 +252,7 @@
     </div>
   </form>
 
-  <div class="mt-6 pt-6 border-t border-white/10 text-center">
+  <div class="mt-6 pt-6 border-t border-white/10 text-center flex flex-col items-center gap-3">
     {#if resendCooldown > 0}
       <p class="text-xs text-white/50">
         Reenviar código em <span class="font-mono text-white font-bold">{resendCooldown}s</span>
@@ -265,5 +267,22 @@
         Reenviar código via WhatsApp 💬
       </button>
     {/if}
+
+    <!-- Opção Amigável de Autoatendimento para Troca Segura de Contato (Issue #1) -->
+    <button
+      type="button"
+      onclick={() => { isRecoveryOpen = true; }}
+      data-testid="contact-recovery-trigger"
+      class="text-xs text-white/50 hover:text-white transition underline cursor-pointer"
+    >
+      Não tenho mais acesso a este número
+    </button>
   </div>
+
+  <!-- Modal de Recuperação Segura com Validação Secundária e Log de Auditoria -->
+  <ContactRecoveryModal
+    isOpen={isRecoveryOpen}
+    currentPhone={phone}
+    onClose={() => { isRecoveryOpen = false; }}
+  />
 </div>

@@ -12,7 +12,10 @@
   let phoneDigits = $derived(phone.replace(/\D/g, ""));
   let isPhoneComplete = $derived(isValidBrMobile(phoneDigits));
 
+  let mounted = $state(false);
+
   onMount(() => {
+    mounted = true;
     if (getAccessToken()) {
       window.location.replace("/painel");
     }
@@ -115,6 +118,7 @@
         </span>
         <input
           id="phone"
+          data-hydrated={mounted}
           type="tel"
           inputmode="numeric"
           autocomplete="tel"

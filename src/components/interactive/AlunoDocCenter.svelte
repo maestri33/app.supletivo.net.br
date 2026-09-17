@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { compressImage } from "@/lib/image-compression";
+  import IdentityDocumentVerifier from "./IdentityDocumentVerifier.svelte";
+  import AddressProofVerifier from "./AddressProofVerifier.svelte";
 
   interface DocItem {
     id: string;
@@ -10,8 +12,6 @@
   }
 
   let docs = $state<DocItem[]>([
-    { id: "id_card", title: "RG ou CNH (Frente e Verso)", status: "under_review" },
-    { id: "address_proof", title: "Comprovante de Residência", status: "pending" },
     { id: "birth_certificate", title: "Certidão de Nascimento/Casamento", status: "pending" },
     { id: "transcript", title: "Histórico Escolar Anterior", status: "pending" },
     { id: "military", title: "Certificado de Reservista (Opcional)", status: "pending" },
@@ -138,9 +138,20 @@
       </div>
     </div>
 
-    <!-- Lista de Documentos -->
+    <!-- Lista de Documentos Principais (Zero-Friction / IA Front) -->
+    <div class="flex flex-col gap-4">
+      <h2 class="text-sm font-bold text-white">Documentos Primários (Validação por IA)</h2>
+      
+      <!-- Componente de Verificação de Documento RG/CNH (Issue #6) -->
+      <IdentityDocumentVerifier canReceiveCnh={true} />
+
+      <!-- Componente Zero-Form de Residência (Issue #7) -->
+      <AddressProofVerifier studentName="Víctor Maestri" />
+    </div>
+
+    <!-- Outros Documentos Obrigatórios -->
     <div class="flex flex-col gap-3">
-      <h2 class="text-sm font-bold text-white">Documentos Obrigatórios</h2>
+      <h2 class="text-sm font-bold text-white">Documentos Complementares</h2>
 
       <div class="flex flex-col gap-2">
         {#each docs as doc (doc.id)}

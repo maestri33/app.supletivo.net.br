@@ -37,3 +37,6 @@ export function maskBrPhone(value: string): string {
   const breakAt = rest.length > 8 ? 5 : 4;
   return `(${ddd}) ${rest.slice(0, breakAt)}-${rest.slice(breakAt)}`;
 }
+
+/** Alias for maskBrPhone for consistent formatting. */
+export const formatPhone = maskBrPhone;

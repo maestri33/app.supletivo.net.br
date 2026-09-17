@@ -43,9 +43,10 @@ test.describe("app-supletivo · smoke", () => {
     await page.goto("/autenticacao/login");
     const phoneInput = page.locator("#phone");
     await expect(phoneInput).toBeVisible();
+    await expect(phoneInput).toHaveAttribute("data-hydrated", "true");
 
     // Digita celular com DDD (11 dígitos) — auto-avanço zero-button
-    await phoneInput.pressSequentially("11999999999", { delay: 25 });
+    await phoneInput.fill("11999999999");
     await page.waitForURL("**/autenticacao/otp**", { timeout: 15000 });
     expect(page.url()).toContain("/autenticacao/otp");
     expect(page.url()).toContain("tel=11999999999");

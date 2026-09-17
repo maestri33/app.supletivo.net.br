@@ -26,6 +26,7 @@ export interface RoleAdaptiveNavDockProps {
  * Componente Adaptativo Multi-Role & Multi-Estado.
  * Filtra e customiza dinamicamente as ações e badges do FloatingDock
  * com base no papel ativo do usuário e estado operacional.
+ * 100% aderente a AGENTS.md (Código em inglês, Interface 100% PT-BR).
  */
 export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   initialRole = "aluno",
@@ -37,19 +38,31 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   const [pendingDocsCount] = React.useState<number>(1);
   const [newLeadsCount] = React.useState<number>(3);
 
+  // Escuta trocas de ambiente disparadas pelas tabs superiores
+  React.useEffect(() => {
+    const handleRoleChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ role: UserRole }>;
+      if (customEvent.detail?.role) {
+        setRole(customEvent.detail.role);
+      }
+    };
+    window.addEventListener("supletivo:role-change", handleRoleChange);
+    return () => window.removeEventListener("supletivo:role-change", handleRoleChange);
+  }, []);
+
   // Mapeamento dinâmico de itens baseado no perfil (Role-Based Navigation)
   const items: FloatingDockItem[] = React.useMemo(() => {
     switch (role) {
       case "promotor":
         return [
           {
-            title: "Painel Promotor",
+            title: "Painel do Promotor",
             icon: <IconHome className="h-full w-full" />,
             href: "/promotor/painel",
             isActive: currentPath.startsWith("/promotor/painel"),
           },
           {
-            title: "Meus Leads",
+            title: "Meus Alunos Indicados",
             icon: <IconUsers className="h-full w-full" />,
             href: "/promotor/leads",
             badge: newLeadsCount > 0 ? newLeadsCount : null,
@@ -57,7 +70,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
             isActive: currentPath.startsWith("/promotor/leads"),
           },
           {
-            title: "Comissões",
+            title: "Minhas Comissões",
             icon: <IconCash className="h-full w-full" />,
             href: "/promotor/comissoes",
             isActive: currentPath.startsWith("/promotor/comissoes"),
@@ -77,13 +90,13 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       case "polo":
         return [
           {
-            title: "Painel Polo",
+            title: "Painel do Polo",
             icon: <IconHome className="h-full w-full" />,
             href: "/polo/painel",
             isActive: currentPath.startsWith("/polo/painel"),
           },
           {
-            title: "Matrículas",
+            title: "Conferência de Matrículas",
             icon: <IconFileText className="h-full w-full" />,
             href: "/polo/matriculas",
             isActive: currentPath.startsWith("/polo/matriculas"),
@@ -110,13 +123,13 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
             isActive: currentPath === "/admin",
           },
           {
-            title: "Usuários",
+            title: "Gestão de Usuários",
             icon: <IconUsers className="h-full w-full" />,
             href: "/admin/usuarios",
             isActive: currentPath.startsWith("/admin/usuarios"),
           },
           {
-            title: "Auditoria",
+            title: "Auditoria do Sistema",
             icon: <IconFileText className="h-full w-full" />,
             href: "/admin/auditoria",
             isActive: currentPath.startsWith("/admin/auditoria"),
@@ -138,7 +151,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
             isActive: currentPath === "/painel",
           },
           {
-            title: "Documentos",
+            title: "Documentação",
             icon: <IconFileText className="h-full w-full" />,
             href: "/documentos",
             badge: pendingDocsCount > 0 ? "!" : null,
@@ -146,13 +159,13 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
             isActive: currentPath.startsWith("/documentos"),
           },
           {
-            title: "Certificação",
+            title: "Certificação e Diploma",
             icon: <IconAward className="h-full w-full" />,
             href: "/certificados",
             isActive: currentPath.startsWith("/certificados"),
           },
           {
-            title: "Ajuda",
+            title: "Ajuda e Suporte",
             icon: <IconHelpCircle className="h-full w-full" />,
             href: "/ajuda",
             isActive: currentPath.startsWith("/ajuda"),
@@ -167,33 +180,12 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   }, [role, currentPath, pendingDocsCount, newLeadsCount, onLogout]);
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full">
-      {/* Seletor rápido de simulação de role (útil para desenvolvimento & QA) */}
-      <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--line-light)] bg-[var(--paper)]/80 backdrop-blur-sm text-xs text-[var(--ink)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-[rgba(255,255,255,0.1)]">
-        <span className="font-semibold opacity-70">Perfil Ativo:</span>
-        {(["aluno", "promotor", "polo", "admin"] as UserRole[]).map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRole(r)}
-            className={`px-2 py-0.5 rounded-md font-medium capitalize transition-colors ${
-              role === r
-                ? "bg-[var(--blue)] text-white"
-                : "hover:bg-[var(--paper-soft)] dark:hover:bg-[rgba(255,255,255,0.08)]"
-            }`}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-
-      <FloatingDock
-        items={items}
-        desktopClassName="fixed bottom-6 inset-x-0 z-50"
-        mobileClassName="fixed bottom-6 right-6 z-50"
-        dockAriaLabel={`Navegação principal do ${role}`}
-      />
-    </div>
+    <FloatingDock
+      items={items}
+      desktopClassName="fixed bottom-6 inset-x-0 z-50"
+      mobileClassName="fixed bottom-6 right-6 z-50"
+      dockAriaLabel={`Navegação principal do ${role}`}
+    />
   );
 };
 

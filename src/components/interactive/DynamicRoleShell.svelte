@@ -104,7 +104,12 @@
         {#each userRoles as r}
           <button
             type="button"
-            onclick={() => (activeRole = r)}
+            onclick={() => {
+              activeRole = r;
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("supletivo:role-change", { detail: { role: r } }));
+              }
+            }}
             class="flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer {activeRole === r ? 'bg-[var(--blue)] text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/10'}"
           >
             <span>{roleMeta[r]?.icon || "🔹"}</span>
@@ -248,7 +253,7 @@
             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span class="text-xs text-white/60 uppercase font-semibold">Oráculo de Versão</span>
               <p class="text-lg font-mono font-bold text-emerald-400 mt-1">v0.2.0-cloud</p>
-              <p class="text-xs text-white/60 mt-1">version.v7m.live conectado</p>
+              <p class="text-xs text-white/60 mt-1">Sincronizado com a rede global</p>
             </div>
             <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span class="text-xs text-white/60 uppercase font-semibold">Edge Workers</span>
