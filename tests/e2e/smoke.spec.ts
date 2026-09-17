@@ -21,13 +21,16 @@ test.describe("app-supletivo · smoke", () => {
     await expect(page).toHaveTitle(/Supletivo Brasil/i);
   });
 
-  test("aluno existente percorre telefone e OTP e segue o funil", async ({ page }) => {
+  test("redireciona para /autenticacao/login quando desautenticado", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForURL("**/autenticacao/login");
+    expect(page.url()).toContain("/autenticacao/login");
+  });
+
+  test("fluxo zero-button: telefone valido avança automaticamente para OTP", async ({ page }) => {
     const externalId = "11111111-1111-4111-8111-111111111111";
-    let checkBody: unknown;
-    let loginBody: unknown;
 
     await page.route("**/api/v1/clients/auth/check", async (route) => {
-      checkBody = route.request().postDataJSON();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -37,12 +40,26 @@ test.describe("app-supletivo · smoke", () => {
           otp_sent: true,
           otp_wait: 0,
           whatsapp: true,
-          roles: ["lead"],
+          roles: ["aluno"],
         }),
       });
     });
+
+    await page.goto("/autenticacao/login");
+    const phoneInput = page.locator("#phone");
+    await expect(phoneInput).toBeVisible();
+
+    // Digita celular com DDD (11 dígitos) — auto-avanço zero-button
+    await phoneInput.fill("11999999999");
+    await page.waitForURL("**/autenticacao/otp**", { timeout: 10000 });
+    expect(page.url()).toContain("/autenticacao/otp");
+    expect(page.url()).toContain("tel=11999999999");
+  });
+
+  test("autenticacao OTP zero-button valida 6 dígitos e direciona dinamicamente", async ({ page }) => {
+    const externalId = "11111111-1111-4111-8111-111111111111";
+
     await page.route("**/api/v1/clients/auth/login", async (route) => {
-      loginBody = route.request().postDataJSON();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -53,68 +70,44 @@ test.describe("app-supletivo · smoke", () => {
         }),
       });
     });
-    await page.route("**/api/v1/clients/whoami", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ external_id: externalId, roles: ["lead"], name: "Aluno Teste" }),
-      }),
-    );
-    await page.route("**/api/v1/clients/lead/me", (route) =>
-      route.fulfill({
+
+    await page.route("**/api/v1/clients/whoami", async (route) => {
+      await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           external_id: externalId,
-          status: "pending",
-          created_at: "2026-01-01T00:00:00Z",
-          customer: { name: "Aluno Teste" },
-          promoter: {},
-          checkout: null,
+          roles: ["aluno"],
+          name: "Aluno Teste",
         }),
-      }),
-    );
+      });
+    });
 
-    // Funil v2: o campo é "Seu WhatsApp" e AUTO-avança no 11º dígito — não há "Continuar".
-    await page.goto("/");
-    const phoneInput = page.locator("#lead-phone");
-    await phoneInput.click();
-    await phoneInput.pressSequentially("11999999999", { delay: 25 });
-
-    await expect(page).toHaveURL(/\/login(?:\?|$)/);
-    expect(checkBody).toMatchObject({ phone: "11999999999" });
-    await page.getByLabel("Dígito 1").fill("123456");
-
-    // Lead logado segue o FUNIL (próximo passo = CPF); painel é a tela de RETORNO,
-    // de quem já tem checkout gerado — não o pós-OTP de quem está no meio do caminho.
-    await expect(page).toHaveURL(/\/cpf$/);
-    await expect(page.getByRole("heading", { name: "Qual é o seu CPF?" })).toBeVisible();
-    expect(loginBody).toEqual({ external_id: externalId, otp: "123456" });
-  });
-
-  test("perfil de equipe não entra pelo ambiente do aluno", async ({ page }) => {
-    await page.route("**/api/v1/clients/auth/check", (route) =>
-      route.fulfill({
+    await page.route("**/api/v1/clients/lead/me", async (route) => {
+      await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          found: true,
-          external_id: "22222222-2222-4222-8222-222222222222",
-          otp_sent: true,
-          otp_wait: 0,
-          whatsapp: true,
-          roles: ["promoter"],
+          external_id: externalId,
+          status: "active",
+          created_at: "2026-01-01T00:00:00Z",
+          customer: { name: "Aluno Teste" },
+          promoter: {},
+          checkout: { is_paid: true },
         }),
-      }),
-    );
+      });
+    });
 
-    // Funil v2: perfil de equipe cai no modal "Acesso em outro ambiente" e fica no /.
-    await page.goto("/");
-    const phoneInput = page.locator("#lead-phone");
-    await phoneInput.click();
-    await phoneInput.pressSequentially("11988888888", { delay: 25 });
+    await page.goto(`/autenticacao/otp?id=${externalId}&tel=11999999999`);
+    await expect(page.locator("h1")).toHaveText("Digite seu código");
 
-    await expect(page.getByRole("dialog", { name: "Acesso em outro ambiente" })).toBeVisible();
-    await expect(page).toHaveURL(/\/$/);
+    // Preenche os 6 dígitos tecla a tecla
+    const otp0 = page.locator("#otp-0");
+    await otp0.click();
+    await otp0.pressSequentially("123456", { delay: 50 });
+
+    // Validação automática sem botão manual e redirecionamento para /painel
+    await page.waitForURL("**/painel", { timeout: 10000 });
+    expect(page.url()).toContain("/painel");
   });
 });

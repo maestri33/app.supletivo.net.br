@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { checkPhone } from "@/lib/api";
   import { getAccessToken, saveSession } from "@/lib/session";
+  import { isValidBrMobile } from "@/lib/phone";
 
   let phone = $state("");
   let busy = $state(false);
@@ -9,7 +10,7 @@
   let notFound = $state(false);
 
   let phoneDigits = $derived(phone.replace(/\D/g, ""));
-  let isPhoneComplete = $derived(phoneDigits.length === 11);
+  let isPhoneComplete = $derived(isValidBrMobile(phoneDigits));
 
   onMount(() => {
     if (getAccessToken()) {
@@ -31,7 +32,7 @@
     notFound = false;
 
     // Trigger Zero-Button: ao atingir 11 dígitos válidos, dispara automaticamente
-    if (phoneDigits.length === 11 && !busy) {
+    if (isValidBrMobile(phoneDigits) && !busy) {
       triggerAutoSubmit(phoneDigits);
     }
   }
@@ -94,9 +95,9 @@
 
   {#if notFound}
     <div class="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 text-center">
-      Não encontramos uma matrícula vinculada a este número.
+      Não encontramos um cadastro vinculado a este número.
       <a href="https://supletivo.net.br" class="underline font-bold text-white block mt-1">
-        Conheça os cursos e matricule-se →
+        Conheça os cursos e inicie sua inscrição →
       </a>
     </div>
   {/if}
@@ -137,7 +138,7 @@
         </div>
       {:else if isPhoneComplete}
         <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
-          ✓ Número completo
+          ✓ WhatsApp verificado
         </div>
       {:else}
         <div class="text-[11px] text-white/50">
@@ -148,7 +149,7 @@
   </div>
 
   <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
-    Ainda não é aluno?
+    Ainda não possui cadastro?
     <a href="https://supletivo.net.br" class="text-[var(--yellow)] font-bold hover:underline ml-1">
       Conheça o Supletivo Brasil
     </a>

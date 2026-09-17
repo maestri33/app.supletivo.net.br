@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { loginOtp, checkPhone, whoami } from "@/lib/api";
+  import { loginOtp, checkPhone, whoami, getLeadMe } from "@/lib/api";
   import { getSession, saveLogin, saveSession, getAccessToken } from "@/lib/session";
 
   let digits = $state(["", "", "", "", "", ""]);
@@ -125,11 +125,18 @@
       const tokens = await loginOtp(externalId, code);
       saveLogin(tokens);
 
-      // Avalia a role para direcionamento correto
+      // Avalia a role e estado para direcionamento dinâmico
       try {
-        const info = await whoami();
-        const roles = info.roles || [];
-        if (roles.includes("enrollment")) {
+        const [whoRes, leadRes] = await Promise.allSettled([
+          whoami(),
+          getLeadMe(),
+        ]);
+
+        const roles = whoRes.status === "fulfilled" ? (whoRes.value.roles || []) : [];
+        const leadStatus = leadRes.status === "fulfilled" ? leadRes.value?.status : null;
+
+        // Aluno com pendência de documentos ➔ tela de matrícula / documentos
+        if (roles.includes("enrollment") || leadStatus === "pending_documents" || leadStatus === "lead") {
           window.location.href = "/matricula";
           return;
         }
@@ -205,7 +212,7 @@
           type="text"
           inputmode="numeric"
           pattern="[0-9]*"
-          maxlength="1"
+          maxlength={i === 0 ? 6 : 1}
           autocomplete={i === 0 ? "one-time-code" : "off"}
           value={digit}
           oninput={(e) => handleInput(i, e)}
@@ -223,17 +230,24 @@
       </div>
     {/if}
 
-    <button
-      type="submit"
-      disabled={!isComplete || busy}
-      class="btn w-full disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-    >
+    <!-- Indicador Passivo Zero-Button (sem dependência de clique manual) -->
+    <div class="pt-1">
       {#if busy}
-        <span>Validando código...</span>
+        <div class="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-white/10 text-yellow text-sm font-semibold border border-yellow/30" role="status" aria-live="polite">
+          <span class="inline-block size-4 border-2 border-white/30 border-t-yellow rounded-full animate-spin"></span>
+          <span>Validando código e acessando...</span>
+        </div>
+      {:else if isComplete}
+        <div class="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-emerald-500/15 text-emerald-300 text-sm font-semibold border border-emerald-500/30" role="status" aria-live="polite">
+          <span class="inline-block size-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>Código completo. Validando...</span>
+        </div>
       {:else}
-        <span>Confirmar e Entrar →</span>
+        <div class="text-center text-xs text-white/50 py-2" aria-live="polite">
+          Validação automática instantânea ao completar os 6 dígitos
+        </div>
       {/if}
-    </button>
+    </div>
   </form>
 
   <div class="mt-6 pt-6 border-t border-white/10 text-center">

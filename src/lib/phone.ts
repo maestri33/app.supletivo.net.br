@@ -14,6 +14,15 @@ export function isValidBrPhone(value: string): boolean {
   return d.length === 10 || d.length === 11;
 }
 
+/** Strict Brazilian mobile validation for WhatsApp (11 digits: valid DDD + 9). */
+export function isValidBrMobile(value: string): boolean {
+  const d = onlyDigits(value);
+  if (d.length !== 11) return false;
+  const ddd = parseInt(d.slice(0, 2), 10);
+  if (ddd < 11 || ddd > 99 || ddd % 10 === 0) return false;
+  return d.charAt(2) === "9";
+}
+
 /**
  * Progressive mask for display while typing.
  * 11 digits -> (00) 00000-0000 · 10 digits -> (00) 0000-0000

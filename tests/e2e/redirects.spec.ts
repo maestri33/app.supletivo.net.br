@@ -43,3 +43,32 @@ test.describe("Redirecionamentos 308 de Rotas Legadas (Issue #2)", () => {
     expect(response.headers().location).toBe("https://supletivo.net.br?ref=polo-sp");
   });
 });
+
+test.describe("Recepção de Promotores e Prevenção de Ejeção Indevida (Issue #8)", () => {
+  test("deve NÃO redirecionar para a landing B2C quando role=promotor estiver presente", async ({ request }) => {
+    const response = await request.get("/?role=promotor&ref=polo-sp", { maxRedirects: 0 });
+    // Deve servir 200 (HTML da tela com client-side redirect) e NÃO 308
+    expect(response.status()).toBe(200);
+    expect(response.headers().location).toBeUndefined();
+  });
+
+  test("rota /promotor deve direcionar para /autenticacao/login?role=promotor com os parâmetros", async ({ request }) => {
+    const response = await request.get("/promotor?ref=polo-sp&utm_source=google", { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    const location = response.headers().location || "";
+    expect(location).toContain("/autenticacao/login");
+    expect(location).toContain("role=promotor");
+    expect(location).toContain("ref=polo-sp");
+    expect(location).toContain("utm_source=google");
+  });
+
+  test("rota /promotor/adesao deve direcionar para /autenticacao/login?role=promotor", async ({ request }) => {
+    const response = await request.get("/promotor/adesao?ref=polo-curitiba", { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    const location = response.headers().location || "";
+    expect(location).toContain("/autenticacao/login");
+    expect(location).toContain("role=promotor");
+    expect(location).toContain("ref=polo-curitiba");
+  });
+});
+

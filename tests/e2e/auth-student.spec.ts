@@ -43,5 +43,8 @@ test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
     // Deve haver 6 campos de OTP
     const otpInputs = page.locator("input[id^='otp-']");
     await expect(otpInputs).toHaveCount(6);
+
+    // Em fluxo zero-button, não há botão manual de submissão no OTP
+    await expect(page.locator("button[type='submit']")).toHaveCount(0);
   });
 });
