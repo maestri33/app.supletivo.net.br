@@ -28,12 +28,28 @@
 
     const saved = getSession();
 
-    externalId = urlId || saved.externalId || "";
-    phone = urlTel || saved.phone || "";
+    externalId = urlId || saved?.externalId || "";
+    phone = urlTel || saved?.phone || "";
 
     if (externalId && phone) {
       saveSession({ phone, externalId });
-    } else if (!externalId || !phone) {
+    } else if (phone && !externalId) {
+      // Auto-recuperação (Self-Healing): se o usuário chega com telefone mas sem externalId (ex.: timeout na landing)
+      busy = true;
+      checkPhone(phone)
+        .then((res) => {
+          if (res && res.external_id) {
+            externalId = res.external_id;
+            saveSession({ phone, externalId: res.external_id });
+            busy = false;
+          } else {
+            window.location.replace("/autenticacao/login");
+          }
+        })
+        .catch(() => {
+          window.location.replace("/autenticacao/login");
+        });
+    } else {
       window.location.replace("/autenticacao/login");
       return;
     }

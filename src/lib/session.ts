@@ -20,7 +20,23 @@ export function saveSession(session: SessionCache): void {
 export function getSession(): SessionCache | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(KEY);
-  if (!raw) return null;
+  if (!raw) {
+    // Check first-party cookie "supletivo.session" written across .supletivo.net.br
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)supletivo\.session=([^;]+)/);
+      if (match && match[1]) {
+        const decoded = decodeURIComponent(match[1]);
+        const parsed = JSON.parse(decoded) as SessionCache;
+        if (parsed && typeof parsed === "object" && typeof parsed.phone === "string") {
+          window.localStorage.setItem(KEY, decoded);
+          return parsed;
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
   try {
     return JSON.parse(raw) as SessionCache;
   } catch {
@@ -34,6 +50,10 @@ export function clearSession(): void {
   loginCache = { raw: null, value: null };
   window.localStorage.removeItem(KEY);
   window.localStorage.removeItem(LOGIN_KEY);
+  try {
+    document.cookie = `${KEY}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax`;
+    document.cookie = `${KEY}=;path=/;max-age=0;SameSite=Lax`;
+  } catch {}
 }
 
 const LOGIN_KEY = "supletivo.login";
