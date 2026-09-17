@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   dockAriaLabel = "Navegação rápida",
 }) => {
   return (
-    <nav aria-label={dockAriaLabel}>
+    <nav aria-label={dockAriaLabel} data-testid="role-adaptive-dock">
       <FloatingDockDesktop items={items} className={desktopClassName} />
       <FloatingDockMobile items={items} className={mobileClassName} />
     </nav>

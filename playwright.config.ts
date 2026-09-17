@@ -26,7 +26,7 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["warmup"],
-      testMatch: /(smoke|redirects|auth-student|issue-.*)\.spec\.ts/,
+      testMatch: /(smoke|redirects|auth-student|dock-navigation|issue-.*)\.spec\.ts/,
     },
   ],
   webServer: (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL)

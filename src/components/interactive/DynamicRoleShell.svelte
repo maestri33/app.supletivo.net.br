@@ -60,6 +60,18 @@
       if (typeof window !== "undefined") {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent("supletivo:role-change", { detail: { role: activeRole } }));
+          window.dispatchEvent(new CustomEvent("supletivo:lock-change", { detail: { isLocked } }));
+          if (studentRes.status === "fulfilled" && studentRes.value) {
+            window.dispatchEvent(
+              new CustomEvent("supletivo:student-state", {
+                detail: {
+                  status: studentRes.value.status,
+                  pendingDocsCount: studentRes.value.pendencies?.length ?? 0,
+                  hasPartnerUrl: !!partnerUrl,
+                },
+              })
+            );
+          }
         }, 50);
       }
     }

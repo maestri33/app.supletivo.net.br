@@ -1,17 +1,24 @@
 ---
 import AppHeader from '../components/layout/AppHeader.astro';
 import SiteFooter from '../components/layout/SiteFooter.astro';
+import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock';
 import '../styles/globals.css';
 
 interface Props {
   title?: string;
   description?: string;
+  showDock?: boolean;
 }
 
 const {
   title = "Supletivo Brasil — conclua seus estudos",
   description = "Conclua o Ensino Fundamental ou Médio pelo Supletivo Brasil. Matrícula rápida e 100% online.",
+  showDock,
 } = Astro.props;
+
+const pathname = Astro.url.pathname;
+const isPublicAuthRoute = pathname.startsWith('/autenticacao') || pathname.startsWith('/pix');
+const shouldRenderDock = showDock ?? !isPublicAuthRoute;
 ---
 
 <!doctype html>
@@ -66,6 +73,11 @@ const {
     <div class="app-scroll">
       <slot />
     </div>
+
+    <!-- Navegação Adaptativa Global (Dock Flutuante) -->
+    {shouldRenderDock && (
+      <RoleAdaptiveNavDock client:only="react" currentPath={pathname} />
+    )}
 
     <!-- Rodapé institucional Zero-JS -->
     <SiteFooter />

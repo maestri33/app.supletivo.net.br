@@ -2,18 +2,22 @@
 
 import * as React from "react";
 import { FloatingDock, type FloatingDockItem } from "@/components/ui/floating-dock";
+import { getAccessToken, clearSession } from "@/lib/session";
+import { getStudentMe } from "@/lib/api";
 import {
-  IconHome,
-  IconFileText,
-  IconAward,
-  IconCash,
-  IconUsers,
-  IconHelpCircle,
-  IconSettings,
-  IconDoorExit,
-} from "@tabler/icons-react";
+  type UserRole,
+  type StudentDockState,
+  type PromoterDockState,
+  type PoloDockState,
+  type AdminDockState,
+  type AdapterContext,
+  getStudentDockItems,
+  getPromoterDockItems,
+  getPoloDockItems,
+  getAdminDockItems,
+} from "./dock";
 
-export type UserRole = "aluno" | "promotor" | "polo" | "admin";
+export type { UserRole };
 
 export interface RoleAdaptiveNavDockProps {
   initialRole?: UserRole;
@@ -24,8 +28,11 @@ export interface RoleAdaptiveNavDockProps {
 
 /**
  * Componente Adaptativo Multi-Role & Multi-Estado.
- * Filtra e customiza dinamicamente as ações e badges do FloatingDock
- * com base no papel ativo do usuário e estado operacional.
+ * Arquitetura em camadas:
+ * 1. Casca Base Genérica (FloatingDock com animações e micro-haptics)
+ * 2. Adaptador por Perfil (aluno, promotor, polo, admin)
+ * 3. Especialização por Sub-Estado Operacional (StudentStatus, Leads, Conferência)
+ *
  * 100% aderente a AGENTS.md (Código em inglês, Interface 100% PT-BR).
  */
 export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
@@ -35,149 +42,129 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   onLogout,
 }) => {
   const [role, setRole] = React.useState<UserRole>(initialRole);
-  const [pendingDocsCount] = React.useState<number>(1);
-  const [newLeadsCount] = React.useState<number>(3);
+  const [isLocked, setIsLocked] = React.useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(true);
 
-  // Escuta trocas de ambiente disparadas pelas tabs superiores
+  // Estados operacionais de cada ambiente
+  const [studentState, setStudentState] = React.useState<StudentDockState>({
+    status: null,
+    pendingDocsCount: 0,
+    hasPartnerUrl: false,
+  });
+  const [promoterState] = React.useState<PromoterDockState>({
+    newLeadsCount: 3,
+  });
+  const [poloState] = React.useState<PoloDockState>({
+    pendingValidationCount: 5,
+  });
+  const [adminState] = React.useState<AdminDockState>({
+    systemAlertsCount: 0,
+  });
+
+  // Logout canônico
+  const handleLogout = React.useCallback(() => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      clearSession();
+      if (typeof window !== "undefined") {
+        window.location.href = "/autenticacao/login";
+      }
+    }
+  }, [onLogout]);
+
+  // Sincronização e escuta de eventos do ecossistema
   React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Se não houver token ativo no navegador, dock permanece invisível
+    const token = getAccessToken();
+    if (!token) {
+      setIsAuthenticated(false);
+      return;
+    }
+    setIsAuthenticated(true);
+
+    // Escuta troca de role disparada por tabs superiores
     const handleRoleChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ role: UserRole }>;
       if (customEvent.detail?.role) {
         setRole(customEvent.detail.role);
       }
     };
+
+    // Escuta estado de bloqueio de matrícula (paywall)
+    const handleLockChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isLocked: boolean }>;
+      if (typeof customEvent.detail?.isLocked === "boolean") {
+        setIsLocked(customEvent.detail.isLocked);
+      }
+    };
+
+    // Escuta atualização de estado operacional do aluno
+    const handleStudentStateChange = (e: Event) => {
+      const customEvent = e as CustomEvent<StudentDockState>;
+      if (customEvent.detail) {
+        setStudentState((prev: StudentDockState) => ({ ...prev, ...customEvent.detail }));
+      }
+    };
+
     window.addEventListener("supletivo:role-change", handleRoleChange);
-    return () => window.removeEventListener("supletivo:role-change", handleRoleChange);
-  }, []);
+    window.addEventListener("supletivo:lock-change", handleLockChange);
+    window.addEventListener("supletivo:student-state", handleStudentStateChange);
 
-  // Mapeamento dinâmico de itens baseado no perfil (Role-Based Navigation)
-  const items: FloatingDockItem[] = React.useMemo(() => {
-    switch (role) {
-      case "promotor":
-        return [
-          {
-            title: "Painel do Promotor",
-            icon: <IconHome className="h-full w-full" />,
-            href: "/promotor/painel",
-            isActive: currentPath.startsWith("/promotor/painel"),
-          },
-          {
-            title: "Meus Alunos Indicados",
-            icon: <IconUsers className="h-full w-full" />,
-            href: "/promotor/leads",
-            badge: newLeadsCount > 0 ? newLeadsCount : null,
-            badgeVariant: "success",
-            isActive: currentPath.startsWith("/promotor/leads"),
-          },
-          {
-            title: "Minhas Comissões",
-            icon: <IconCash className="h-full w-full" />,
-            href: "/promotor/comissoes",
-            isActive: currentPath.startsWith("/promotor/comissoes"),
-          },
-          {
-            title: "Suporte",
-            icon: <IconHelpCircle className="h-full w-full" />,
-            href: "/suporte",
-          },
-          {
-            title: "Sair",
-            icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-            onClick: onLogout,
-          },
-        ];
-
-      case "polo":
-        return [
-          {
-            title: "Painel do Polo",
-            icon: <IconHome className="h-full w-full" />,
-            href: "/polo/painel",
-            isActive: currentPath.startsWith("/polo/painel"),
-          },
-          {
-            title: "Conferência de Matrículas",
-            icon: <IconFileText className="h-full w-full" />,
-            href: "/polo/matriculas",
-            isActive: currentPath.startsWith("/polo/matriculas"),
-          },
-          {
-            title: "Configurações",
-            icon: <IconSettings className="h-full w-full" />,
-            href: "/polo/configuracoes",
-            isActive: currentPath.startsWith("/polo/configuracoes"),
-          },
-          {
-            title: "Sair",
-            icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-            onClick: onLogout,
-          },
-        ];
-
-      case "admin":
-        return [
-          {
-            title: "Visão Geral",
-            icon: <IconHome className="h-full w-full" />,
-            href: "/admin",
-            isActive: currentPath === "/admin",
-          },
-          {
-            title: "Gestão de Usuários",
-            icon: <IconUsers className="h-full w-full" />,
-            href: "/admin/usuarios",
-            isActive: currentPath.startsWith("/admin/usuarios"),
-          },
-          {
-            title: "Auditoria do Sistema",
-            icon: <IconFileText className="h-full w-full" />,
-            href: "/admin/auditoria",
-            isActive: currentPath.startsWith("/admin/auditoria"),
-          },
-          {
-            title: "Sair",
-            icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-            onClick: onLogout,
-          },
-        ];
-
-      case "aluno":
-      default:
-        return [
-          {
-            title: "Meu Curso",
-            icon: <IconHome className="h-full w-full" />,
-            href: "/painel",
-            isActive: currentPath === "/painel",
-          },
-          {
-            title: "Documentação",
-            icon: <IconFileText className="h-full w-full" />,
-            href: "/documentos",
-            badge: pendingDocsCount > 0 ? "!" : null,
-            badgeVariant: "warning",
-            isActive: currentPath.startsWith("/documentos"),
-          },
-          {
-            title: "Certificação e Diploma",
-            icon: <IconAward className="h-full w-full" />,
-            href: "/certificados",
-            isActive: currentPath.startsWith("/certificados"),
-          },
-          {
-            title: "Ajuda e Suporte",
-            icon: <IconHelpCircle className="h-full w-full" />,
-            href: "/ajuda",
-            isActive: currentPath.startsWith("/ajuda"),
-          },
-          {
-            title: "Sair",
-            icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-            onClick: onLogout,
-          },
-        ];
+    // Hidratação proativa do status do aluno se logado
+    if (!studentState.status && token) {
+      getStudentMe()
+        .then((s) => {
+          if (s) {
+            setStudentState({
+              status: s.status ?? null,
+              pendingDocsCount: s.pendencies?.length ?? 0,
+              hasPartnerUrl: !!s.platform?.url,
+            });
+          }
+        })
+        .catch(() => {
+          // Falha silenciosa em caso de rota sem acesso a studentMe
+        });
     }
-  }, [role, currentPath, pendingDocsCount, newLeadsCount, onLogout]);
+
+    return () => {
+      window.removeEventListener("supletivo:role-change", handleRoleChange);
+      window.removeEventListener("supletivo:lock-change", handleLockChange);
+      window.removeEventListener("supletivo:student-state", handleStudentStateChange);
+    };
+  }, [studentState.status]);
+
+  // Se não autenticado ou em estado travado (paywall), suprime o dock
+  if (!isAuthenticated || isLocked) {
+    return null;
+  }
+
+  const context: AdapterContext = {
+    currentPath,
+    onNavigate,
+    onLogout: handleLogout,
+  };
+
+  // Mapeamento dinâmico de itens usando o adaptador do ambiente ativo
+  let items: FloatingDockItem[] = [];
+  switch (role) {
+    case "promotor":
+      items = getPromoterDockItems(promoterState, context);
+      break;
+    case "polo":
+      items = getPoloDockItems(poloState, context);
+      break;
+    case "admin":
+      items = getAdminDockItems(adminState, context);
+      break;
+    case "aluno":
+    default:
+      items = getStudentDockItems(studentState, context);
+      break;
+  }
 
   return (
     <FloatingDock
