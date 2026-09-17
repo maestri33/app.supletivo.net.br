@@ -51,8 +51,9 @@ export function clearSession(): void {
   window.localStorage.removeItem(KEY);
   window.localStorage.removeItem(LOGIN_KEY);
   try {
-    document.cookie = `${KEY}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax`;
-    document.cookie = `${KEY}=;path=/;max-age=0;SameSite=Lax`;
+    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
+    document.cookie = `${KEY}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax${secureFlag}`;
+    document.cookie = `${KEY}=;path=/;max-age=0;SameSite=Lax${secureFlag}`;
   } catch {}
 }
 

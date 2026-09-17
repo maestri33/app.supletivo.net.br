@@ -28,8 +28,9 @@
 
     const saved = getSession();
 
+    const rawTel = urlTel || saved?.phone || "";
+    phone = rawTel.replace(/\D/g, "");
     externalId = urlId || saved?.externalId || "";
-    phone = urlTel || saved?.phone || "";
 
     if (externalId && phone) {
       saveSession({ phone, externalId });

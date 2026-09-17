@@ -4,8 +4,9 @@ export const prerender = false;
 const search = Astro.url.search;
 const searchParams = Astro.url.searchParams;
 
-// Issue #8: Se contiver role=promotor ou rota explícita de promotor, não ejetar para a LP B2C de alunos
-const isPromoterContext = searchParams.get("role") === "promotor" || searchParams.has("promotor");
+// Issue #8: Se contiver role=promotor/promoter ou rota explícita de promotor, não ejetar para a LP B2C de alunos
+const roleVal = (searchParams.get("role") ?? "").toLowerCase();
+const isPromoterContext = ["promotor", "promoter"].includes(roleVal) || searchParams.has("promotor") || searchParams.has("promoter");
 
 // Se o usuário acessou a raiz com parâmetro de afiliado ou campanha de aluno,
 // redireciona 308 permanentemente para a Landing Page oficial preservando a atribuição.
