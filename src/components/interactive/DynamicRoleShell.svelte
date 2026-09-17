@@ -57,6 +57,11 @@
       isLocked = true;
     } finally {
       loading = false;
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("supletivo:role-change", { detail: { role: activeRole } }));
+        }, 50);
+      }
     }
   });
 

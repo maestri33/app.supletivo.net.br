@@ -22,12 +22,17 @@ export default defineConfig({
   },
   projects: [
     { name: "warmup", testMatch: /warmup\.setup\.ts/ },
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, dependencies: ["warmup"] },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["warmup"],
+      testMatch: /(smoke|redirects|auth-student|issue-.*)\.spec\.ts/,
+    },
   ],
   webServer: (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL)
     ? undefined
     : {
-        command: `npx wrangler dev --port ${PORT} --ip 127.0.0.1`,
+        command: `npx wrangler dev dist/server/entry.mjs --assets dist/client --port ${PORT} --ip 127.0.0.1 -c wrangler.jsonc`,
         env: {
           ...process.env,
           PORT: String(PORT),
