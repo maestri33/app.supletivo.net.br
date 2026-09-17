@@ -226,6 +226,51 @@ export function loginOtp(externalId: string, otp: string): Promise<LoginResponse
   });
 }
 
+/** Collaborator check response shape (POST /api/v1/collaborators/auth/check). */
+export interface CollaboratorCheckResponse {
+  found: boolean;
+  registered?: boolean;
+  created?: boolean;
+  external_id?: string | null;
+  otp_sent?: boolean;
+  otp_wait?: number | null;
+  whatsapp?: boolean | null;
+  roles?: string[] | null;
+  name?: string | null;
+  masked_phone?: string | null;
+  token?: string | null;
+}
+
+/** Check or auto-capture a promoter phone. */
+export function checkCollaboratorPhone(
+  phone: string,
+  opts: { cpf?: string | null; hub?: string | null; ref?: string | null; email?: string | null } = {},
+): Promise<CollaboratorCheckResponse> {
+  const json: Record<string, unknown> = {
+    phone,
+    contato: phone,
+    send_otp: true,
+  };
+  if (opts.cpf) json.cpf = opts.cpf;
+  if (opts.hub || opts.ref) json.hub = opts.hub || opts.ref;
+  if (opts.email) json.email = opts.email;
+  return request<CollaboratorCheckResponse>("/api/v1/collaborators/auth/check", { json });
+}
+
+/** Verify the OTP for a collaborator (promoter/candidate). Flat body {external_id, otp}. */
+export function loginCollaboratorOtp(externalId: string, otp: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/v1/collaborators/auth/login", {
+    json: { external_id: externalId, otp },
+  });
+}
+
+/** Join the collaborator/promoter program for an existing user whose role is not in funnel. */
+export function joinCollaboratorOtp(externalId: string, otp: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/v1/collaborators/auth/join", {
+    json: { external_id: externalId, otp },
+  });
+}
+
 /** Affiliate refs are promoter external_ids — only a UUID is worth sending. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

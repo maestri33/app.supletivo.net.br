@@ -10,10 +10,10 @@
       "custom_domain": true
     }
   ],
-  "r2_buckets": [
+  "kv_namespaces": [
     {
-      "binding": "DOCUMENTS",
-      "bucket_name": "app-supletivo-documents"
+      "binding": "SESSION",
+      "id": "1500d22e396f41c6b26d9f17e02f678d"
     }
   ]
 }

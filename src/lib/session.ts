@@ -8,6 +8,10 @@ export interface SessionCache {
   phone: string;
   externalId: string | null;
   ref?: string | null;
+  role?: string | null;
+  cpf?: string | null;
+  email?: string | null;
+  hub?: string | null;
 }
 
 const KEY = "supletivo.session";

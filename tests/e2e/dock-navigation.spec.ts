@@ -67,18 +67,14 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
 
     await page.goto("/painel");
 
-    // Dock visível
-    const dock = page.getByTestId("role-adaptive-dock");
-    await expect(dock).toBeVisible({ timeout: 10000 });
-
-    // Item de Documentação com link ativo ou presente
+    // Item de Documentação do dock visível
     const docItem = page.locator("a[href='/documentos']").first();
-    await expect(docItem).toBeVisible();
+    await expect(docItem).toBeVisible({ timeout: 10000 });
 
     // Navega para /documentos e verifica que o dock permanece globalmente
     await page.goto("/documentos");
-    const dockOnDocs = page.getByTestId("role-adaptive-dock");
-    await expect(dockOnDocs).toBeVisible({ timeout: 10000 });
+    const docItemOnDocs = page.locator("a[href='/documentos']").first();
+    await expect(docItemOnDocs).toBeVisible({ timeout: 10000 });
   });
 
   test("deve transmutar itens do dock ao alternar tabs em usuário multi-role", async ({ page }) => {

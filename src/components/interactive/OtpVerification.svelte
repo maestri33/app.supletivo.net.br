@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { loginOtp, checkPhone, whoami, getLeadMe } from "@/lib/api";
+  import {
+    loginOtp,
+    checkPhone,
+    checkCollaboratorPhone,
+    loginCollaboratorOtp,
+    joinCollaboratorOtp,
+    whoami,
+    getLeadMe,
+  } from "@/lib/api";
   import { getSession, saveLogin, saveSession, getAccessToken } from "@/lib/session";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
@@ -10,7 +18,10 @@
   let resendCooldown = $state(45);
   let phone = $state("");
   let externalId = $state("");
+  let role = $state("");
   let isRecoveryOpen = $state(false);
+
+  let isPromoter = $derived(role === "promotor" || role === "promoter");
 
   let code = $derived(digits.join(""));
   let isComplete = $derived(code.length === 6);
@@ -25,23 +36,51 @@
     const urlParams = new URLSearchParams(window.location.search);
     const urlId = urlParams.get("id");
     const urlTel = urlParams.get("tel");
+    const urlRole = urlParams.get("role");
+    const urlRef = urlParams.get("ref");
+    const urlCpf = urlParams.get("cpf");
+    const urlEmail = urlParams.get("email");
 
     const saved = getSession();
 
     const rawTel = urlTel || saved?.phone || "";
     phone = rawTel.replace(/\D/g, "");
     externalId = urlId || saved?.externalId || "";
+    role = urlRole || saved?.role || "";
 
     if (externalId && phone) {
-      saveSession({ phone, externalId });
+      saveSession({
+        phone,
+        externalId,
+        role: role || undefined,
+        ref: urlRef || saved?.ref,
+        cpf: urlCpf || saved?.cpf,
+        email: urlEmail || saved?.email,
+      });
     } else if (phone && !externalId) {
       // Auto-recuperação (Self-Healing): se o usuário chega com telefone mas sem externalId (ex.: timeout na landing)
       busy = true;
-      checkPhone(phone)
+      const checkPromise = isPromoter
+        ? checkCollaboratorPhone(phone, {
+            cpf: urlCpf || saved?.cpf,
+            hub: urlRef || saved?.hub || saved?.ref,
+            ref: urlRef || saved?.hub || saved?.ref,
+            email: urlEmail || saved?.email,
+          })
+        : checkPhone(phone, urlRef || saved?.ref || undefined);
+
+      checkPromise
         .then((res) => {
           if (res && res.external_id) {
             externalId = res.external_id;
-            saveSession({ phone, externalId: res.external_id });
+            saveSession({
+              phone,
+              externalId: res.external_id,
+              role: role || undefined,
+              ref: urlRef || saved?.ref,
+              cpf: urlCpf || saved?.cpf,
+              email: urlEmail || saved?.email,
+            });
             busy = false;
           } else {
             window.location.replace("/autenticacao/login");
@@ -141,8 +180,32 @@
     errorMessage = null;
 
     try {
-      const tokens = await loginOtp(externalId, code);
+      let tokens;
+      if (isPromoter) {
+        try {
+          tokens = await loginCollaboratorOtp(externalId, code);
+        } catch (collabErr: any) {
+          // Fallback para /join se usuário já existe com outra role (ex: student)
+          if (
+            collabErr?.status === 403 ||
+            collabErr?.code === "NOT_IN_FUNNEL" ||
+            collabErr?.message?.includes("funil")
+          ) {
+            tokens = await joinCollaboratorOtp(externalId, code);
+          } else {
+            throw collabErr;
+          }
+        }
+      } else {
+        tokens = await loginOtp(externalId, code);
+      }
+
       saveLogin(tokens);
+
+      if (isPromoter) {
+        window.location.href = "/promotor";
+        return;
+      }
 
       // Avalia a role e estado para direcionamento dinâmico
       try {
@@ -153,6 +216,12 @@
 
         const roles = whoRes.status === "fulfilled" ? (whoRes.value.roles || []) : [];
         const leadStatus = leadRes.status === "fulfilled" ? leadRes.value?.status : null;
+
+        // Se o usuário possui perfil de promotor/candidato, direciona para o painel de promotores
+        if (roles.includes("promoter") || roles.includes("candidate")) {
+          window.location.href = "/promotor";
+          return;
+        }
 
         // Aluno com pendência de documentos ➔ tela de matrícula / documentos
         if (roles.includes("enrollment") || leadStatus === "pending_documents" || leadStatus === "lead") {
@@ -179,10 +248,19 @@
     errorMessage = null;
 
     try {
-      const res = await checkPhone(phone);
+      const saved = getSession();
+      const res = isPromoter
+        ? await checkCollaboratorPhone(phone, {
+            cpf: saved?.cpf,
+            hub: saved?.hub || saved?.ref,
+            ref: saved?.ref,
+            email: saved?.email,
+          })
+        : await checkPhone(phone, saved?.ref || undefined);
+
       if (res.external_id) {
         externalId = res.external_id;
-        saveSession({ phone, externalId: res.external_id });
+        saveSession({ ...saved, phone, externalId: res.external_id });
       }
       resendCooldown = res.otp_wait || 45;
       digits = ["", "", "", "", "", ""];
