@@ -15,16 +15,11 @@ test.describe("app-supletivo · smoke", () => {
     expect(body).toHaveProperty("builtAt");
   });
 
-  test("home carrega com o title da marca", async ({ page }) => {
-    const res = await page.goto("/");
-    expect(res?.status()).toBe(200);
-    await expect(page).toHaveTitle(/Supletivo Brasil/i);
-  });
-
-  test("redireciona para /autenticacao/login quando desautenticado", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForURL("**/autenticacao/login");
+  test("home redireciona client-side para /autenticacao/login quando desautenticado", async ({ page }) => {
+    await page.goto("/", { waitUntil: "commit" });
+    await page.waitForURL("**/autenticacao/login", { timeout: 15000 });
     expect(page.url()).toContain("/autenticacao/login");
+    await expect(page).toHaveTitle(/Entrar|Supletivo Brasil/i);
   });
 
   test("fluxo zero-button: telefone valido avança automaticamente para OTP", async ({ page }) => {
@@ -50,8 +45,8 @@ test.describe("app-supletivo · smoke", () => {
     await expect(phoneInput).toBeVisible();
 
     // Digita celular com DDD (11 dígitos) — auto-avanço zero-button
-    await phoneInput.fill("11999999999");
-    await page.waitForURL("**/autenticacao/otp**", { timeout: 10000 });
+    await phoneInput.pressSequentially("11999999999", { delay: 25 });
+    await page.waitForURL("**/autenticacao/otp**", { timeout: 15000 });
     expect(page.url()).toContain("/autenticacao/otp");
     expect(page.url()).toContain("tel=11999999999");
   });

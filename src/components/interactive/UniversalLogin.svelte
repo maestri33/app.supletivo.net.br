@@ -28,12 +28,14 @@
   function onInput(e: Event) {
     const target = e.target as HTMLInputElement;
     phone = formatPhone(target.value);
+    target.value = phone;
     errorMessage = null;
     notFound = false;
 
+    const digits = phone.replace(/\D/g, "");
     // Trigger Zero-Button: ao atingir 11 dígitos válidos, dispara automaticamente
-    if (isValidBrMobile(phoneDigits) && !busy) {
-      triggerAutoSubmit(phoneDigits);
+    if (isValidBrMobile(digits) && !busy) {
+      triggerAutoSubmit(digits);
     }
   }
 
