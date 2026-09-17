@@ -18,6 +18,7 @@ test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
     await expect(page.locator("h1")).toHaveText("Acesse sua conta");
     const input = page.locator("#phone");
     await expect(input).toBeVisible();
+    await expect(input).toHaveAttribute("data-hydrated", "true");
 
     // Digita telefone válido (11 dígitos)
     await input.fill("11987654321");
