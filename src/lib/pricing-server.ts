@@ -4,7 +4,7 @@ import type { Pricing } from "@/lib/payment";
  * Server-only. Uses URL_BACKEND (non-public env) — never import from a Client Component.
  * Direct upstream fetch (no proxy needed server-side).
  */
-const URL_BACKEND = process.env.URL_BACKEND ?? "http://backend-web:8000";
+const URL_BACKEND = process.env.URL_BACKEND ?? "https://api.supletivo.net.br";
 
 export async function getPricing(): Promise<Pricing | null> {
   try {
