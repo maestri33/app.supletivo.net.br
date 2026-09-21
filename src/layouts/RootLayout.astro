@@ -76,7 +76,7 @@ const shouldRenderDock = showDock ?? !isPublicAuthRoute;
 
     <!-- Navegação Adaptativa Global (Dock Flutuante) -->
     {shouldRenderDock && (
-      <RoleAdaptiveNavDock client:only="react" currentPath={pathname} />
+      <RoleAdaptiveNavDock client:only="react" initialRole="aluno" currentPath={pathname} />
     )}
 
     <!-- Rodapé institucional Zero-JS -->
