@@ -6,8 +6,8 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "app.supletivo.net.br",
-      "custom_domain": true
+      "pattern": "app.supletivo.net.br/*",
+      "zone_name": "supletivo.net.br"
     }
   ],
   "kv_namespaces": [

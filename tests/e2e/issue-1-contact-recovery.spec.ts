@@ -4,7 +4,7 @@ test.describe("Fluxo de Autoatendimento para Troca de Contato de Aluno (Issue #1
   test.beforeEach(async ({ page }) => {
     // Acessa a tela de OTP simulando fluxo onde o contato precisa ser alterado
     await page.goto("/autenticacao/otp?tel=11999999999&id=mock-external-id");
-    await page.waitForLoadState("domcontentloaded");
+    await page.waitForSelector("[data-hydrated='true']", { timeout: 15000 });
   });
 
   test("1. Interface exibe opção amigável 'Não tenho mais acesso a este número'", async ({ page }) => {

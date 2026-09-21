@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { compressImage } from "@/lib/image-compression";
 
   interface Props {
@@ -20,6 +21,11 @@
   let isAnalyzing = $state(false);
   let isUploading = $state(false);
   let triageError = $state<string | null>(null);
+  let mounted = $state(false);
+
+  onMount(() => {
+    mounted = true;
+  });
 
   // Armazenamento local dos arquivos
   let frontData = $state<string | null>(null);
@@ -232,6 +238,7 @@
     type="button"
     onclick={openSheet}
     data-testid="doc-verifier-status-btn"
+    data-hydrated={mounted}
     class="flex items-center justify-between w-full p-4 rounded-2xl border transition-all duration-300 backdrop-blur-xl shadow-md group {statusBadge.colorClass}"
   >
     <div class="flex items-center gap-3">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import RelationshipPicker from "./RelationshipPicker.svelte";
   import { compressImage } from "@/lib/image-compression";
 
@@ -30,6 +31,11 @@
   let isExtracting = $state(false);
   let triageError = $state<string | null>(null);
   let isRelationshipModalOpen = $state(false);
+  let mounted = $state(false);
+
+  onMount(() => {
+    mounted = true;
+  });
 
   // Dados extraídos pela IA do backend
   let extractedHolder = $state<string>("Maria Aparecida Maestri");
@@ -211,6 +217,7 @@
     type="button"
     onclick={handleMainAction}
     data-testid="address-verifier-status-btn"
+    data-hydrated={mounted}
     class="flex items-center justify-between w-full p-4 rounded-2xl border transition-all duration-300 backdrop-blur-xl shadow-md group {statusBadge.colorClass}"
   >
     <div class="flex items-center gap-3">

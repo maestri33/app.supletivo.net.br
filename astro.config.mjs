@@ -6,14 +6,14 @@ import cloudflare from '@astrojs/cloudflare';
 import node from '@astrojs/node';
 import tailwindcss from '@tailwindcss/vite';
 
-const isCloudflare = process.env.DEPLOY_TARGET === 'cloudflare';
+const isNode = process.env.DEPLOY_TARGET === 'node';
 
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
-  adapter: isCloudflare
-    ? cloudflare({ imageService: 'passthrough' })
-    : node({ mode: 'standalone' }),
+  adapter: isNode
+    ? node({ mode: 'standalone' })
+    : cloudflare({ imageService: 'passthrough' }),
   redirects: {
     '/login': {
       status: 308,

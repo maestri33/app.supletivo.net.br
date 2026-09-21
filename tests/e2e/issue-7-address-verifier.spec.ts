@@ -14,7 +14,7 @@ test.describe("Componente Zero-Form de Residência (Issue #7)", () => {
       );
     });
     await page.goto("/aluno");
-    await page.waitForLoadState("domcontentloaded");
+    await page.waitForSelector("[data-hydrated='true']", { timeout: 15000 });
   });
 
   test("1. Botão de status renderiza estado inicial Pendente (Vermelho)", async ({ page }) => {

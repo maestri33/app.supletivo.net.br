@@ -97,8 +97,10 @@ test.describe("app-supletivo · smoke", () => {
     await page.goto(`/autenticacao/otp?id=${externalId}&tel=11999999999`);
     await expect(page.locator("h1")).toHaveText("Digite seu código");
 
-    // Preenche os 6 dígitos tecla a tecla
     const otp0 = page.locator("#otp-0");
+    await expect(otp0).toHaveAttribute("data-hydrated", "true", { timeout: 15000 });
+
+    // Preenche os 6 dígitos tecla a tecla
     await otp0.click();
     await otp0.pressSequentially("123456", { delay: 50 });
 

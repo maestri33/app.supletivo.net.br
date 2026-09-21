@@ -37,6 +37,12 @@ test.describe("Redirecionamentos 308 de Rotas Legadas (Issue #2)", () => {
     expect(response.headers().location).toBe("/autenticacao/login");
   });
 
+  test("deve redirecionar /matricula legada para /documentos com 308", async ({ request }) => {
+    const response = await request.get("/matricula", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/documentos");
+  });
+
   test("deve redirecionar a raiz / para a Landing Page se contiver ?ref=", async ({ request }) => {
     const response = await request.get("/?ref=polo-sp", { maxRedirects: 0 });
     expect(response.status()).toBe(308);

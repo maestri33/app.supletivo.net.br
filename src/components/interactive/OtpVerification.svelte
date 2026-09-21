@@ -20,6 +20,7 @@
   let externalId = $state("");
   let role = $state("");
   let isRecoveryOpen = $state(false);
+  let mounted = $state(false);
 
   let isPromoter = $derived(role === "promotor" || role === "promoter");
 
@@ -27,6 +28,7 @@
   let isComplete = $derived(code.length === 6);
 
   onMount(() => {
+    mounted = true;
     if (getAccessToken()) {
       window.location.replace("/painel");
       return;
@@ -300,7 +302,7 @@
     </div>
   </div>
 
-  <form onsubmit={(e) => { e.preventDefault(); submitCode(); }} class="space-y-6">
+  <div class="space-y-6">
     <!-- Grid dos 6 dígitos -->
     <div class="flex items-center justify-between gap-2 sm:gap-3" onpaste={handlePaste}>
       {#each digits as digit, i (i)}
@@ -315,6 +317,7 @@
           oninput={(e) => handleInput(i, e)}
           onkeydown={(e) => handleKeyDown(i, e)}
           disabled={busy}
+          data-hydrated={mounted}
           class="size-12 sm:size-14 text-center text-xl sm:text-2xl font-bold font-mono rounded-xl bg-white/5 border border-white/20 text-white focus:border-yellow focus:ring-2 focus:ring-yellow/30 focus:outline-none transition shadow-inner"
         />
       {/each}
@@ -345,7 +348,7 @@
         </div>
       {/if}
     </div>
-  </form>
+  </div>
 
   <div class="mt-6 pt-6 border-t border-white/10 text-center flex flex-col items-center gap-3">
     {#if resendCooldown > 0}
@@ -368,6 +371,7 @@
       type="button"
       onclick={() => { isRecoveryOpen = true; }}
       data-testid="contact-recovery-trigger"
+      data-hydrated={mounted}
       class="text-xs text-white/50 hover:text-white transition underline cursor-pointer"
     >
       Não tenho mais acesso a este número
