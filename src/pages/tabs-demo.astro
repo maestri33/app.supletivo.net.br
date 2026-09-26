@@ -1,0 +1,12 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import TabsDemo from '../components/tabs-demo';
+
+export const prerender = false;
+---
+
+<RootLayout title="Ambientes Multi-Role (Aluno, Promotor, Coordenador) — Supletivo Brasil" showDock={false} showFooter={false}>
+  <main class="w-full flex-1 flex flex-col items-center justify-start p-0">
+    <TabsDemo client:load />
+  </main>
+</RootLayout>

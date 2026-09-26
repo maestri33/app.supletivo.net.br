@@ -1,19 +1,44 @@
-name: CI
+name: CI app.supletivo.net.br
+
 on:
   pull_request:
+    branches: [main]
   push:
     branches:
+      - main
       - 'agent/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-and-lint:
+    name: Lint & Build (Astro SSR)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Astro Check
+        run: pnpm run check
+
+      - name: Build SSR Application
+        run: pnpm run build

@@ -5,21 +5,24 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
     ".next/**",
     "out/**",
     "build/**",
+    "dist/**",
+    ".astro/**",
     "next-env.d.ts",
     "**/*.css",
     "*.js",
     "*.mjs",
     "scripts/**",
+    "tests/**",
   ]),
   {
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
       "no-restricted-syntax": [
         "warn",
         {

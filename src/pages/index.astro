@@ -1,4 +1,7 @@
 ---
+import RootLayout from '../layouts/RootLayout.astro';
+import UniversalLogin from '../components/interactive/UniversalLogin.svelte';
+
 export const prerender = false;
 
 const search = Astro.url.search;
@@ -20,37 +23,28 @@ if (hasMarketingParam) {
 }
 ---
 
-<!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Supletivo Brasil — Plataforma de Acesso</title>
-    <meta name="robots" content="noindex, nofollow" />
-    <script is:inline>
-      // Triagem instantânea client-side: avalia sessão no localStorage antes do paint (0ms)
-      try {
-        const raw = localStorage.getItem("supletivo.login");
-        if (raw) {
-          const session = JSON.parse(raw);
-          if (session && session.access_token) {
-            window.location.replace("/painel");
+<RootLayout title="Entrar — Supletivo Brasil" showDock={false}>
+  <script is:inline>
+    // Se o usuário já tiver sessão ativa, redireciona instantaneamente antes do render
+    try {
+      const raw = localStorage.getItem("supletivo.login");
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session && session.access_token) {
+          const roles = Array.isArray(session.roles) ? session.roles : [];
+          const normalized = roles.map(function(r) { return String(r).toLowerCase().trim(); });
+          if (normalized.some(function(r) { return ["coordinator", "hub", "polo", "staff", "superuser"].indexOf(r) !== -1; })) {
+            window.location.replace("/hub");
+          } else if (normalized.some(function(r) { return ["promoter", "candidate", "training", "promotor"].indexOf(r) !== -1; })) {
+            window.location.replace("/promoter");
           } else {
-            window.location.replace("/autenticacao/login");
+            window.location.replace("/student");
           }
-        } else {
-          window.location.replace("/autenticacao/login");
         }
-      } catch (e) {
-        window.location.replace("/autenticacao/login");
       }
-    </script>
-    <style>
-      body {
-        margin: 0;
-        background: #001a52;
-      }
-    </style>
-  </head>
-  <body></body>
-</html>
+    } catch (e) {}
+  </script>
+  <div class="w-full flex-1 flex items-center justify-center p-4">
+    <UniversalLogin client:load />
+  </div>
+</RootLayout>

@@ -8,12 +8,14 @@ interface Props {
   title?: string;
   description?: string;
   showDock?: boolean;
+  showFooter?: boolean;
 }
 
 const {
   title = "Supletivo Brasil — conclua seus estudos",
   description = "Conclua o Ensino Fundamental ou Médio pelo Supletivo Brasil. Matrícula rápida e 100% online.",
   showDock,
+  showFooter = true,
 } = Astro.props;
 
 const pathname = Astro.url.pathname;
@@ -80,6 +82,6 @@ const shouldRenderDock = showDock ?? !isPublicAuthRoute;
     )}
 
     <!-- Rodapé institucional Zero-JS -->
-    <SiteFooter />
+    {showFooter && <SiteFooter />}
   </body>
 </html>

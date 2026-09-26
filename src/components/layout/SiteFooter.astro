@@ -1,5 +1,8 @@
 ---
+import pkg from '../../../package.json';
+
 const year = new Date().getFullYear();
+const version = pkg.version;
 ---
 
 <footer class="relative border-t border-white/10 shadow-[var(--shadow-glass)] pb-[env(safe-area-inset-bottom)] bg-brand-ink/40 backdrop-blur-xl">
@@ -41,16 +44,14 @@ const year = new Date().getFullYear();
         Privacidade
       </a>
       <span class="text-white/40 select-none">·</span>
-      <a
-        href="https://maestri.group"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center font-semibold text-white transition hover:text-emerald-400"
-      >
-        Maestri Group
-      </a>
-      <span class="text-white/40 select-none">·</span>
       <span class="text-white/60">© {year}</span>
+      <span class="text-white/40 select-none">·</span>
+      <span
+        class="font-mono text-[10px] text-white/30 select-none tracking-tight hover:text-white/50 transition-colors"
+        title="Versão da plataforma (version.v7m.live)"
+      >
+        v{version}
+      </span>
     </nav>
 
     <div class="mt-1 flex flex-wrap items-center justify-center gap-2">

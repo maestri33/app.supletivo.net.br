@@ -35,6 +35,7 @@ export interface FloatingDockProps {
   desktopClassName?: string;
   mobileClassName?: string;
   dockAriaLabel?: string;
+  className?: string;
 }
 
 export const FloatingDock: React.FC<FloatingDockProps> = ({
@@ -42,14 +43,15 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
   desktopClassName,
   mobileClassName,
   dockAriaLabel = "Navegação rápida",
+  className,
 }) => {
   return (
     <nav
       aria-label={dockAriaLabel}
       data-testid="role-adaptive-dock"
-      className="fixed bottom-6 inset-x-0 z-50 flex justify-center items-center"
+      className={cn("fixed bottom-6 inset-x-0 z-50 flex justify-center items-center pointer-events-none", className)}
     >
-      <div>
+      <div className="pointer-events-auto">
         <FloatingDockDesktop items={items} className={desktopClassName} />
         <FloatingDockMobile items={items} className={mobileClassName} />
       </div>

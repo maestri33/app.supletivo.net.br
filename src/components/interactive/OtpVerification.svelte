@@ -10,6 +10,7 @@
     getLeadMe,
   } from "@/lib/api";
   import { getSession, saveLogin, saveSession, getAccessToken } from "@/lib/session";
+  import { getPrimaryEnvironment } from "@/lib/roles";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
   let digits = $state(["", "", "", "", "", ""]);
@@ -27,10 +28,16 @@
   let code = $derived(digits.join(""));
   let isComplete = $derived(code.length === 6);
 
-  onMount(() => {
+  onMount(async () => {
     mounted = true;
     if (getAccessToken()) {
-      window.location.replace("/painel");
+      try {
+        const who = await whoami();
+        const target = getPrimaryEnvironment(who?.roles || []);
+        window.location.replace(`/${target}`);
+      } catch {
+        window.location.replace("/student");
+      }
       return;
     }
 
@@ -85,14 +92,14 @@
             });
             busy = false;
           } else {
-            window.location.replace("/autenticacao/login");
+            window.location.replace("/");
           }
         })
         .catch(() => {
-          window.location.replace("/autenticacao/login");
+          window.location.replace("/");
         });
     } else {
-      window.location.replace("/autenticacao/login");
+      window.location.replace("/");
       return;
     }
 
@@ -204,37 +211,14 @@
 
       saveLogin(tokens);
 
-      if (isPromoter) {
-        window.location.href = "/promotor";
-        return;
-      }
-
-      // Avalia a role e estado para direcionamento dinâmico
       try {
-        const [whoRes, leadRes] = await Promise.allSettled([
-          whoami(),
-          getLeadMe(),
-        ]);
-
-        const roles = whoRes.status === "fulfilled" ? (whoRes.value.roles || []) : [];
-        const leadStatus = leadRes.status === "fulfilled" ? leadRes.value?.status : null;
-
-        // Se o usuário possui perfil de promotor/candidato, direciona para o painel de promotores
-        if (roles.includes("promoter") || roles.includes("candidate")) {
-          window.location.href = "/promotor";
-          return;
-        }
-
-        // Aluno com pendência de documentos ➔ tela de matrícula / documentos
-        if (roles.includes("enrollment") || leadStatus === "pending_documents" || leadStatus === "lead") {
-          window.location.href = "/matricula";
-          return;
-        }
+        const who = await whoami();
+        const target = getPrimaryEnvironment(who?.roles || []);
+        window.location.href = `/${target}`;
+        return;
       } catch {
-        // Segue para /painel se falhar whoami
+        window.location.href = isPromoter ? "/promoter" : "/student";
       }
-
-      window.location.href = "/painel";
     } catch (err: any) {
       errorMessage = err?.message || "Código incorreto ou expirado. Tente novamente.";
       digits = ["", "", "", "", "", ""];

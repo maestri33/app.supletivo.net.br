@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import RelationshipPicker from "./RelationshipPicker.svelte";
   import { compressImage } from "@/lib/image-compression";
+  import { getSession } from "@/lib/session";
+  import { whoami } from "@/lib/api";
 
   interface Props {
     studentName?: string;
@@ -16,16 +18,19 @@
       holderName: string;
       relationship?: string;
     }) => void;
+    onStatusChange?: (status: "pending" | "under_review" | "needs_kinship" | "approved") => void;
   }
 
   let {
     studentName = "Víctor Maestri",
     initialStatus = "pending",
     onAddressConfirmed,
+    onStatusChange,
   }: Props = $props();
 
   // Estados principais
   let status = $state<"pending" | "under_review" | "needs_kinship" | "approved">(initialStatus);
+  let resolvedStudentName = $state(studentName);
   let isSheetOpen = $state(false);
   let isAnalyzing = $state(false);
   let isExtracting = $state(false);
@@ -33,8 +38,19 @@
   let isRelationshipModalOpen = $state(false);
   let mounted = $state(false);
 
-  onMount(() => {
+  onMount(async () => {
     mounted = true;
+    try {
+      const session = getSession();
+      if (session?.name) {
+        resolvedStudentName = session.name;
+      } else {
+        const who = await whoami();
+        if (who?.name) resolvedStudentName = who.name;
+      }
+    } catch {
+      // Mantém studentName padrão
+    }
   });
 
   // Dados extraídos pela IA do backend
@@ -165,15 +181,21 @@
       await new Promise((r) => setTimeout(r, 1200));
       isExtracting = false;
 
-      // Nome do titular extraído
-      const isSamePerson = file.name.toLowerCase().includes("titular_proprio") || file.name.toLowerCase().includes("aluno");
-      if (isSamePerson) {
-        extractedHolder = studentName;
-        confirmExtractedAddress(studentName);
-      } else {
+      // Identificação inteligente do titular pela IA:
+      // Por padrão, qualquer comprovante normal de consumo pertence ao próprio estudante.
+      // Apenas aciona declaração de vínculo se o nome do arquivo indicar expressamente parentesco/terceiro.
+      const lowerName = file.name.toLowerCase();
+      const isKinshipFile = /(?:^|[_\-\s])(?:mae|mãe|pai|terceiro|conjuge|esposa|marido)(?:[_\-\s.]|$)/i.test(lowerName);
+
+      if (isKinshipFile) {
         extractedHolder = "Maria Aparecida Maestri";
         status = "needs_kinship";
+        onStatusChange?.("needs_kinship");
         isRelationshipModalOpen = true;
+      } else {
+        const holder = resolvedStudentName || studentName;
+        extractedHolder = holder;
+        confirmExtractedAddress(holder);
       }
     } catch (e: any) {
       triageError = e?.message || "Erro ao processar comprovante.";
@@ -196,6 +218,10 @@
     confirmedAddress = address;
     status = "approved";
     onAddressConfirmed?.(address);
+    onStatusChange?.("approved");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("supletivo:address-verified", { detail: { address } }));
+    }
   }
 
   function handleRelationshipSelect(relationship: string) {

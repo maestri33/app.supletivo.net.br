@@ -1,23 +1,33 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { checkPhone } from "@/lib/api";
+  import { checkPhone, whoami } from "@/lib/api";
   import { getAccessToken, saveSession } from "@/lib/session";
   import { isValidBrMobile } from "@/lib/phone";
+  import { getPrimaryEnvironment } from "@/lib/roles";
+  import UnregisteredRoleModal from "@/components/interactive/UnregisteredRoleModal.svelte";
 
   let phone = $state("");
   let busy = $state(false);
   let errorMessage = $state<string | null>(null);
   let notFound = $state(false);
+  let isRoleModalOpen = $state(false);
+  let isRoleSubmitting = $state(false);
 
   let phoneDigits = $derived(phone.replace(/\D/g, ""));
   let isPhoneComplete = $derived(isValidBrMobile(phoneDigits));
 
   let mounted = $state(false);
 
-  onMount(() => {
+  onMount(async () => {
     mounted = true;
     if (getAccessToken()) {
-      window.location.replace("/painel");
+      try {
+        const who = await whoami();
+        const target = getPrimaryEnvironment(who?.roles || []);
+        window.location.replace(`/${target}`);
+      } catch {
+        window.location.replace("/student");
+      }
     }
   });
 
@@ -34,6 +44,7 @@
     target.value = phone;
     errorMessage = null;
     notFound = false;
+    isRoleModalOpen = false;
 
     const digits = phone.replace(/\D/g, "");
     // Trigger Zero-Button: ao atingir 11 dígitos válidos, dispara automaticamente
@@ -46,6 +57,7 @@
     busy = true;
     errorMessage = null;
     notFound = false;
+    isRoleModalOpen = false;
 
     try {
       const res = await checkPhone(digits);
@@ -56,9 +68,12 @@
         return;
       }
 
+      // Se o número existe no WhatsApp mas NÃO possui cadastro no banco:
+      // Exibe modal com 2 cards para escolha: Quero ser Aluno ou Quero ser Promotor
       if (res.found === false && !res.created && !res.external_id) {
-        notFound = true;
         busy = false;
+        notFound = false;
+        isRoleModalOpen = true;
         return;
       }
 
@@ -71,6 +86,25 @@
     } catch (err: any) {
       errorMessage = err?.message || "Não foi possível conectar. Tente novamente em instantes.";
       busy = false;
+    }
+  }
+
+  function onRoleSelect(role: "aluno" | "promotor") {
+    isRoleSubmitting = true;
+    const digits = phone.replace(/\D/g, "");
+
+    if (role === "promotor") {
+      saveSession({ phone: digits, role: "promotor" });
+      const target = digits
+        ? `https://promotor.supletivo.net.br?tel=${encodeURIComponent(digits)}&modal=cadastro`
+        : "https://promotor.supletivo.net.br";
+      window.location.href = target;
+    } else {
+      saveSession({ phone: digits, role: "aluno" });
+      const target = digits
+        ? `https://supletivo.net.br?tel=${encodeURIComponent(digits)}&modal=cadastro`
+        : "https://supletivo.net.br";
+      window.location.href = target;
     }
   }
 </script>
@@ -156,8 +190,20 @@
 
   <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
     Ainda não possui cadastro?
-    <a href="https://supletivo.net.br" class="text-[var(--yellow)] font-bold hover:underline ml-1">
-      Conheça o Supletivo Brasil
-    </a>
+    <button
+      type="button"
+      onclick={() => { isRoleModalOpen = true; }}
+      class="text-[var(--yellow)] font-bold hover:underline ml-1 cursor-pointer bg-transparent border-none p-0"
+    >
+      Conheça as opções de acesso
+    </button>
   </div>
 </div>
+
+<UnregisteredRoleModal
+  isOpen={isRoleModalOpen}
+  phone={phone}
+  isSubmitting={isRoleSubmitting}
+  onClose={() => { isRoleModalOpen = false; }}
+  onSelectRole={onRoleSelect}
+/>

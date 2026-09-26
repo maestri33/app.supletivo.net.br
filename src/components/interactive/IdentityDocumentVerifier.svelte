@@ -6,12 +6,14 @@
     canReceiveCnh?: boolean;
     initialStatus?: "uncompleted" | "under_review" | "approved";
     onComplete?: (result: { type: "rg" | "cnh"; front: string; back?: string }) => void;
+    onStatusChange?: (status: "uncompleted" | "under_review" | "approved") => void;
   }
 
   let {
     canReceiveCnh = false,
     initialStatus = "uncompleted",
     onComplete,
+    onStatusChange,
   }: Props = $props();
 
   // Estados principais
@@ -92,8 +94,9 @@
 
     // Regra CNH PDF oficial
     if (selectedDocType === "cnh" && file.type === "application/pdf") {
-      // Simulação: se o nome contiver 'scan' ou 'foto', não é o PDF oficial
-      if (file.name.toLowerCase().includes("scan") || file.name.toLowerCase().includes("foto")) {
+      const lower = file.name.toLowerCase();
+      // Simulação de rejeição: se o nome contiver explicitamente 'scan' E 'foto', ou 'cnh_scan'
+      if ((lower.includes("scan") && lower.includes("foto")) || lower.includes("cnh_scan")) {
         return {
           valid: false,
           isDocument: true,
@@ -187,6 +190,7 @@
         });
         isUploading = false;
         status = "under_review";
+        onStatusChange?.("under_review");
         closeSheet();
         onComplete?.({
           type: selectedDocType,
@@ -197,6 +201,14 @@
         // Simula aprovação gradual assíncrona após análise backend
         setTimeout(() => {
           status = "approved";
+          onStatusChange?.("approved");
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("supletivo:identity-verified", {
+                detail: { type: selectedDocType },
+              })
+            );
+          }
         }, 1800);
       } else {
         // Falta o outro lado

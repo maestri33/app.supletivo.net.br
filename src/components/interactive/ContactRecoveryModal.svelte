@@ -1,5 +1,6 @@
 <script lang="ts">
   import { maskBrPhone, isValidBrMobile } from "@/lib/phone";
+  import Modal from "@/components/ui/Modal.svelte";
 
   interface Props {
     isOpen?: boolean;
@@ -102,35 +103,16 @@
   }
 </script>
 
-{#if isOpen}
-  <div
-    role="dialog"
-    aria-modal="true"
-    data-testid="contact-recovery-modal"
-    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 transition-opacity"
-  >
-    <div class="w-full max-w-lg bg-brand-surface sm:rounded-3xl rounded-t-3xl border border-white/15 p-6 sm:p-8 shadow-2xl flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-6">
-      
-      <!-- Cabeçalho -->
-      <div class="flex items-start justify-between border-b border-white/10 pb-4">
-        <div>
-          <span class="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300 uppercase tracking-wide border border-amber-500/30">
-            Segurança de Conta
-          </span>
-          <h3 class="text-xl font-black text-white mt-1.5">Atualização Segura de Contato</h3>
-          <p class="text-xs text-white/70 mt-0.5">
-            Autoatendimento para recuperação de acesso vinculado ao seu CPF.
-          </p>
-        </div>
-        <button
-          type="button"
-          onclick={resetAndClose}
-          class="size-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm font-bold"
-          aria-label="Fechar"
-        >
-          ✕
-        </button>
-      </div>
+<Modal
+  {isOpen}
+  onClose={resetAndClose}
+  eyebrow="Segurança de Conta"
+  eyebrowVariant="amber"
+  title="Atualização Segura de Contato"
+  description="Autoatendimento para recuperação de acesso vinculado ao seu CPF."
+  testId="contact-recovery-modal"
+  size="lg"
+>
 
       {#if step === "form"}
         <div class="flex flex-col gap-4">
@@ -278,6 +260,4 @@
           </button>
         </div>
       {/if}
-    </div>
-  </div>
-{/if}
+</Modal>

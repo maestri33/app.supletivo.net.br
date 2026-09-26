@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { compressImage } from "@/lib/image-compression";
+  import { getSession } from "@/lib/session";
+  import { whoami } from "@/lib/api";
   import IdentityDocumentVerifier from "./IdentityDocumentVerifier.svelte";
   import AddressProofVerifier from "./AddressProofVerifier.svelte";
 
@@ -10,6 +12,8 @@
     status: "approved" | "pending" | "under_review" | "rejected";
     rejectionReason?: string;
   }
+
+  let studentName = $state("Aluno");
 
   let docs = $state<DocItem[]>([
     { id: "birth_certificate", title: "Certidão de Nascimento/Casamento", status: "pending" },
@@ -59,7 +63,17 @@
     }, 4000);
   }
 
-  onMount(() => {
+  onMount(async () => {
+    try {
+      const session = getSession();
+      if (session?.name) {
+        studentName = session.name;
+      } else {
+        const who = await whoami();
+        if (who?.name) studentName = who.name;
+      }
+    } catch {}
+
     // Polling silencioso simulado a cada 8s
     const timer = setInterval(() => {
       // Simulação: se houver docs em revisão, aprova gradualmente
@@ -146,7 +160,7 @@
       <IdentityDocumentVerifier canReceiveCnh={true} />
 
       <!-- Componente Zero-Form de Residência (Issue #7) -->
-      <AddressProofVerifier studentName="Víctor Maestri" />
+      <AddressProofVerifier studentName={studentName} />
     </div>
 
     <!-- Outros Documentos Obrigatórios -->

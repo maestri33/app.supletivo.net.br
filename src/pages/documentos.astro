@@ -1,24 +1,12 @@
 ---
 import RootLayout from '../layouts/RootLayout.astro';
-import IdentityDocumentVerifier from '../components/interactive/IdentityDocumentVerifier.svelte';
-import AddressProofVerifier from '../components/interactive/AddressProofVerifier.svelte';
+import DocumentVerificationCenter from '../components/interactive/DocumentVerificationCenter.svelte';
 
 export const prerender = false;
 ---
 
 <RootLayout title="Central de Validação de Documentos — Supletivo Brasil">
-  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28 gap-6">
-    <div class="text-center">
-      <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/30 text-xs font-semibold text-emerald-300 mb-2">
-        Validação Automatizada de Documentos
-      </span>
-      <h1 class="text-2xl font-black text-white font-display">Documentação da Matrícula</h1>
-      <p class="text-xs text-white/70 mt-1">Envie seus documentos de identificação e residência com análise em tempo real.</p>
-    </div>
-
-    <div class="w-full flex flex-col gap-4">
-      <IdentityDocumentVerifier client:load canReceiveCnh={true} />
-      <AddressProofVerifier client:load studentName="Aluno Teste" />
-    </div>
+  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
+    <DocumentVerificationCenter client:load />
   </div>
 </RootLayout>

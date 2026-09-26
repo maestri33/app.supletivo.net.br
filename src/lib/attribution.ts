@@ -55,7 +55,7 @@ export function initAttribution(searchStr: string = typeof location !== "undefin
     }
   }
 
-  let stored = readStoredAttribution() || {};
+  const stored = readStoredAttribution() || {};
 
   // Redundância de cookies first-party (.supletivo.net.br)
   if (!current.ref && !stored.ref) {
