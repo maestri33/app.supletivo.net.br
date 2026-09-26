@@ -196,7 +196,10 @@ export function isClient(roles: string[] | null | undefined): boolean {
  * is always safe to pass through.
  */
 export function checkPhone(phone: string, ref?: string): Promise<CheckResponse> {
-  const json: { phone: string; ref?: string } = { phone };
+  const json: { phone: string; ref?: string; auto_capture: boolean } = {
+    phone,
+    auto_capture: false,
+  };
   if (ref) json.ref = ref;
   return request<CheckResponse>("/api/v1/clients/auth/check", { json });
 }

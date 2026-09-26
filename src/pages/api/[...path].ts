@@ -1,11 +1,20 @@
 import type { APIRoute } from 'astro';
+import { POST as contactRecoveryPost } from './v1/auth/recovery/contact';
 
 export const prerender = false;
 
 const URL_BACKEND = process.env.URL_BACKEND ?? 'https://api.supletivo.net.br';
 
-export const ALL: APIRoute = async ({ request, url }) => {
-  const targetUrl = new URL(url.pathname + url.search, URL_BACKEND);
+export const ALL: APIRoute = async (context) => {
+  const { request, url } = context;
+  if (url.pathname === '/api/v1/auth/recovery/contact' && request.method === 'POST') {
+    return contactRecoveryPost(context);
+  }
+  let pathname = url.pathname;
+  if (pathname.startsWith('/api/v1/auth/')) {
+    pathname = pathname.replace('/api/v1/auth/', '/api/v1/clients/auth/');
+  }
+  const targetUrl = new URL(pathname + url.search, URL_BACKEND);
 
   const headers = new Headers(request.headers);
   headers.set('host', targetUrl.host);
