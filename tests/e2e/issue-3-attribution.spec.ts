@@ -23,8 +23,8 @@ test.describe("Atribuição e Manutenção de Preço de Consultor (Issue #3)", (
     expect(withoutRef.economyBrl).toBeUndefined();
   });
 
-  test("2. Preservação de Atribuição na rota /autenticacao/login", async ({ page }) => {
-    await page.goto("/autenticacao/login?ref=consultor-123&utm_source=meta&utm_campaign=promo-eja");
+  test("2. Preservação de Atribuição na rota de login", async ({ page }) => {
+    await page.goto("/?role=promotor&ref=consultor-123&utm_source=meta&utm_campaign=promo-eja");
 
     // Avalia execução do client e persistência
     const currentUrl = new URL(page.url());

@@ -15,10 +15,9 @@ test.describe("app-supletivo · smoke", () => {
     expect(body).toHaveProperty("builtAt");
   });
 
-  test("home redireciona client-side para /autenticacao/login quando desautenticado", async ({ page }) => {
+  test("home renderiza login universal quando desautenticado", async ({ page }) => {
     await page.goto("/", { waitUntil: "commit" });
-    await page.waitForURL("**/autenticacao/login", { timeout: 15000 });
-    expect(page.url()).toContain("/autenticacao/login");
+    await expect(page.locator("h1")).toHaveText("Acesse sua conta");
     await expect(page).toHaveTitle(/Entrar|Supletivo Brasil/i);
   });
 
@@ -40,7 +39,7 @@ test.describe("app-supletivo · smoke", () => {
       });
     });
 
-    await page.goto("/autenticacao/login");
+    await page.goto("/");
     const phoneInput = page.locator("#phone");
     await expect(phoneInput).toBeVisible();
     await expect(phoneInput).toHaveAttribute("data-hydrated", "true");
@@ -104,8 +103,8 @@ test.describe("app-supletivo · smoke", () => {
     await otp0.click();
     await otp0.pressSequentially("123456", { delay: 50 });
 
-    // Validação automática sem botão manual e redirecionamento para /painel
-    await page.waitForURL("**/painel", { timeout: 10000 });
-    expect(page.url()).toContain("/painel");
+    // Validação automática sem botão manual e redirecionamento para o ambiente do aluno
+    await page.waitForURL((url) => url.pathname.includes("/student") || url.pathname.includes("/painel"), { timeout: 10000 });
+    expect(page.url()).toMatch(/\/student|\/painel/);
   });
 });
