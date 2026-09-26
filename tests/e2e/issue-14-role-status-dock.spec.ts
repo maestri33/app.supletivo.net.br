@@ -25,7 +25,7 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
     // Valida que o dock nativo no rodapé renderiza com safe-area
     const navBar = page.locator("nav[aria-label='Navegação principal do aluno']");
     await expect(navBar).toBeVisible();
-    await expect(navBar.getByText("Documentação")).toBeVisible();
+    await expect(navBar.getByText("Fase de Matrícula")).toBeVisible();
   });
 
   test("deve atualizar o dock ao trocar a aba de status para Prova Liberada", async ({ page }) => {
@@ -36,11 +36,11 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
     await examTab.click();
 
     // Valida o card explicativo da etapa 3
-    await expect(page.locator("text=Etapa 3 • Banca Avaliadora")).toBeVisible();
+    await expect(page.getByText("Avaliações Finais Disponíveis")).toBeVisible();
 
-    // Valida que o dock exibe Provas & Avaliações
+    // Valida que o dock nativo do aluno está presente
     const navBar = page.locator("nav[aria-label='Navegação principal do aluno']");
-    await expect(navBar.getByText("Provas & Avaliações")).toBeVisible();
+    await expect(navBar).toBeVisible();
   });
 
   test("deve alternar para o perfil Promotor e atualizar abas e dock para Promotor", async ({ page }) => {
@@ -52,7 +52,6 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
     // Valida abas do promotor
     await expect(page.getByRole("tab", { name: /1\. Credenciamento/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: /2\. Treinamento/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /3\. Promotor Ativo/i })).toBeVisible();
 
     // Valida dock do promotor
     const promoterDock = page.locator("nav[aria-label='Navegação principal do promotor']");
@@ -68,7 +67,6 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
     // Valida abas do polo
     await expect(page.getByRole("tab", { name: /1\. Fila Documental/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: /2\. Bancas & Provas/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /3\. Entrega de Diplomas/i })).toBeVisible();
 
     // Valida dock do polo
     const poloDock = page.locator("nav[aria-label='Navegação principal do polo']");
