@@ -1,4 +1,4 @@
-import type { AppEnvironment, StudentStatus, CandidateStatus, PromoterStatus, EnrollmentStatus } from "@/lib/roles";
+import type { AppEnvironment, StudentStatus, CandidateStatus, PromoterStatus, EnrollmentStatus } from "../../../lib/roles";
 
 export type UserRole = AppEnvironment;
 

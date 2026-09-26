@@ -41,6 +41,26 @@ export type StudentStatus =
 // Status do promotor (1 única palavra)
 export type PromoterStatus = "candidate" | "active" | "training" | "suspended";
 
+// Status do candidato a promotor
+export type CandidateStatus =
+  | "documents"
+  | "selfie"
+  | "review"
+  | "approved"
+  | "rejected"
+  | "completed"
+  | string;
+
+// Status da matrícula / enrollment
+export type EnrollmentStatus =
+  | "rg"
+  | "selfie"
+  | "address"
+  | "contract"
+  | "payment"
+  | "completed"
+  | string;
+
 // Status do hub (1 única palavra)
 export type HubStatus = "active" | "review";
 
