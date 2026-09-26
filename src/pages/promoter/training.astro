@@ -1,0 +1,28 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import PromoterTrainingView from '../../components/interactive/PromoterTrainingView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Treinamento Obrigatório (Training) — Supletivo Brasil">
+  <script is:inline>
+    // Guard de autenticação: redireciona para a raiz se deslogado
+    try {
+      const raw = localStorage.getItem("supletivo.login");
+      if (!raw) {
+        window.location.replace("/?role=promoter");
+      } else {
+        const session = JSON.parse(raw);
+        if (!session || !session.access_token) {
+          window.location.replace("/?role=promoter");
+        }
+      }
+    } catch (e) {
+      window.location.replace("/?role=promoter");
+    }
+  </script>
+  <div class="w-full flex-1 flex flex-col p-4 sm:p-6 pb-28">
+    <PromoterTrainingView client:load />
+  </div>
+</RootLayout>

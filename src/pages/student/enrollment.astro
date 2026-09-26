@@ -1,0 +1,28 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import DocumentVerificationCenter from '../../components/interactive/DocumentVerificationCenter.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Fase de Matrícula (Enrollment) — Supletivo Brasil">
+  <script is:inline>
+    // Guard de autenticação: redireciona para a raiz se deslogado
+    try {
+      const raw = localStorage.getItem("supletivo.login");
+      if (!raw) {
+        window.location.replace("/");
+      } else {
+        const session = JSON.parse(raw);
+        if (!session || !session.access_token) {
+          window.location.replace("/");
+        }
+      }
+    } catch (e) {
+      window.location.replace("/");
+    }
+  </script>
+  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
+    <DocumentVerificationCenter client:load />
+  </div>
+</RootLayout>

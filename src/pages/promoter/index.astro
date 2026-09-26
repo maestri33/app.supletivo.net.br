@@ -1,0 +1,58 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+
+export const prerender = false;
+---
+
+<RootLayout title="Portal do Promotor — Supletivo Brasil">
+  <script is:inline>
+    (async function triagePromoter() {
+      try {
+        const raw = localStorage.getItem("supletivo.login");
+        if (!raw) {
+          window.location.replace("/?role=promoter");
+          return;
+        }
+        const session = JSON.parse(raw);
+        if (!session || !session.access_token) {
+          window.location.replace("/?role=promoter");
+          return;
+        }
+
+        try {
+          const resp = await fetch("/api/v1/clients/whoami", {
+            headers: {
+              "Authorization": "Bearer " + session.access_token,
+              "Accept": "application/json"
+            }
+          });
+
+          if (resp.ok) {
+            const who = await resp.json();
+            const roles = Array.isArray(who.roles) ? who.roles : [];
+
+            if (roles.includes("candidate")) {
+              window.location.replace("/promoter/candidate");
+              return;
+            }
+            if (roles.includes("training")) {
+              window.location.replace("/promoter/training");
+              return;
+            }
+          }
+        } catch (e) {}
+
+        // Padrão: promotor ativo
+        window.location.replace("/promoter/active");
+      } catch (e) {
+        window.location.replace("/?role=promoter");
+      }
+    })();
+  </script>
+  <div class="w-full flex-1 flex items-center justify-center p-8 text-white/70">
+    <div class="flex items-center gap-3">
+      <div class="size-5 rounded-full border-2 border-[var(--yellow)] border-t-transparent animate-spin"></div>
+      <span class="text-sm font-medium">Carregando ambiente do promotor...</span>
+    </div>
+  </div>
+</RootLayout>
