@@ -17,7 +17,43 @@ export default defineConfig({
   redirects: {
     '/login': {
       status: 308,
-      destination: '/autenticacao/login',
+      destination: '/',
+    },
+    '/autenticacao/login': {
+      status: 308,
+      destination: '/',
+    },
+    '/painel': {
+      status: 308,
+      destination: '/student',
+    },
+    '/aluno': {
+      status: 308,
+      destination: '/student',
+    },
+    '/matricula': {
+      status: 308,
+      destination: '/student/enrollment',
+    },
+    '/documentos': {
+      status: 308,
+      destination: '/student/enrollment',
+    },
+    '/provas': {
+      status: 308,
+      destination: '/student/enrollment',
+    },
+    '/promotor': {
+      status: 308,
+      destination: '/promoter',
+    },
+    '/promotor/adesao': {
+      status: 308,
+      destination: '/promoter/candidate',
+    },
+    '/polo': {
+      status: 308,
+      destination: '/hub',
     },
   },
   integrations: [svelte(), react()],

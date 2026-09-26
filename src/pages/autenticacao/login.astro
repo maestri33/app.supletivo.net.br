@@ -1,12 +1,4 @@
 ---
-import RootLayout from '../../layouts/RootLayout.astro';
-import UniversalLogin from '../../components/interactive/UniversalLogin.svelte';
-
 export const prerender = false;
+return Astro.redirect(`/${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Entrar — Supletivo Brasil">
-  <div class="w-full flex-1 flex items-center justify-center p-4">
-    <UniversalLogin client:load />
-  </div>
-</RootLayout>

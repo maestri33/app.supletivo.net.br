@@ -1,12 +1,4 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import AlunoDocCenter from '../components/interactive/AlunoDocCenter.svelte';
-
-export const prerender = true;
+export const prerender = false;
+return Astro.redirect(`/student${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Prontuário e Documentação do Aluno — Supletivo Brasil">
-  <div class="w-full flex-1 flex flex-col pb-28">
-    <AlunoDocCenter client:load />
-  </div>
-</RootLayout>

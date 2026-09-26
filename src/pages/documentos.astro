@@ -1,12 +1,4 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import DocumentVerificationCenter from '../components/interactive/DocumentVerificationCenter.svelte';
-
 export const prerender = false;
+return Astro.redirect(`/student/enrollment${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Central de Validação de Documentos — Supletivo Brasil">
-  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
-    <DocumentVerificationCenter client:load />
-  </div>
-</RootLayout>

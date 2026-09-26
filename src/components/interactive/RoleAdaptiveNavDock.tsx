@@ -90,7 +90,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
     } else {
       clearSession();
       if (typeof window !== "undefined") {
-        window.location.href = "/autenticacao/login";
+        window.location.href = "/";
       }
     }
   }, [onLogout]);
@@ -211,12 +211,15 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   // Mapeamento dinâmico de itens usando o adaptador do ambiente ativo
   let items: FloatingDockItem[] = [];
   switch (activeRole) {
+    case "promoter":
     case "promotor":
       items = getPromoterDockItems(effectivePromoterState, context);
       break;
+    case "hub":
     case "polo":
       items = getPoloDockItems(effectivePoloState, context);
       break;
+    case "student":
     case "aluno":
     default:
       items = getStudentDockItems(effectiveStudentState, context);

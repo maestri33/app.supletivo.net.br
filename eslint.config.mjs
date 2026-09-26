@@ -10,6 +10,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "dist/**",
+    ".wrangler/**",
     ".astro/**",
     "next-env.d.ts",
     "**/*.css",
@@ -17,6 +18,7 @@ const eslintConfig = defineConfig([
     "*.mjs",
     "scripts/**",
     "tests/**",
+    "test-results/**",
   ]),
   {
     rules: {

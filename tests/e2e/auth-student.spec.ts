@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
+test.describe("Autenticação Canônica do Aluno na Raiz (Login Universal)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
     await page.addInitScript(() => {
@@ -11,10 +11,10 @@ test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
     });
   });
 
-  test("deve renderizar /autenticacao/login com design system canônico e fluxo zero-button", async ({ page }) => {
-    await page.goto("/autenticacao/login");
+  test("deve renderizar a raiz / com design system canônico e fluxo zero-button", async ({ page }) => {
+    await page.goto("/");
 
-    // Verifica presença do container de login e título unificado
+    // Verifica presença do container de login e título unificado na raiz
     await expect(page.locator("h1")).toHaveText("Acesse sua conta");
     const input = page.locator("#phone");
     await expect(input).toBeVisible();
@@ -28,11 +28,11 @@ test.describe("Autenticação Canônica do Aluno (Issue #2 & #3)", () => {
     await expect(page.locator("button[type='submit']")).toHaveCount(0);
   });
 
-  test("deve redirecionar /autenticacao/otp para /autenticacao/login se não houver dados de sessão", async ({ page }) => {
+  test("deve redirecionar /autenticacao/otp para a raiz / se não houver dados de sessão", async ({ page }) => {
     await page.goto("/autenticacao/otp");
-    // Sem sessão salva e sem query params, deve voltar para o login
-    await page.waitForURL("**/autenticacao/login");
-    expect(page.url()).toContain("/autenticacao/login");
+    // Sem sessão salva e sem query params, deve voltar para o login na raiz
+    await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
+    expect(new URL(page.url()).pathname).toBe("/");
   });
 
   test("deve carregar /autenticacao/otp com sucesso quando parâmetros forem fornecidos via query", async ({ page }) => {

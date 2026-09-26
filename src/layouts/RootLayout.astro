@@ -19,8 +19,15 @@ const {
 } = Astro.props;
 
 const pathname = Astro.url.pathname;
-const isPublicAuthRoute = pathname.startsWith('/autenticacao') || pathname.startsWith('/pix');
+const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix');
 const shouldRenderDock = showDock ?? !isPublicAuthRoute;
+
+let initialRole: "student" | "promoter" | "hub" = "student";
+if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
+  initialRole = "promoter";
+} else if (pathname.startsWith('/hub') || pathname.startsWith('/polo')) {
+  initialRole = "hub";
+}
 ---
 
 <!doctype html>
@@ -78,7 +85,7 @@ const shouldRenderDock = showDock ?? !isPublicAuthRoute;
 
     <!-- Navegação Adaptativa Global (Dock Flutuante) -->
     {shouldRenderDock && (
-      <RoleAdaptiveNavDock client:only="react" initialRole="aluno" currentPath={pathname} />
+      <RoleAdaptiveNavDock client:only="react" initialRole={initialRole} currentPath={pathname} />
     )}
 
     <!-- Rodapé institucional Zero-JS -->

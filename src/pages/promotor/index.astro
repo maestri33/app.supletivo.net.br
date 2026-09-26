@@ -1,9 +1,4 @@
 ---
 export const prerender = false;
-
-const search = Astro.url.search;
-const params = new URLSearchParams(search);
-params.set("role", "promotor");
-
-return Astro.redirect(`/autenticacao/login?${params.toString()}`, 307);
+return Astro.redirect(`/promoter${Astro.url.search}`, 308);
 ---

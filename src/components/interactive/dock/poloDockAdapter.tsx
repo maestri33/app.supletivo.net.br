@@ -4,77 +4,50 @@ import type { AdapterContext, PoloDockState } from "./types";
 import {
   IconHome,
   IconFileCheck,
-  IconSchool,
-  IconAward,
-  IconSettings,
+  IconHelpCircle,
   IconDoorExit,
 } from "@tabler/icons-react";
 
 /**
- * Adapter do Ambiente do Polo Regional (Coordenador de Hub).
- * Gerencia conferência documental, bancas de exames, homologações e entrega de diplomas.
+ * Adapter do Ambiente do Hub Regional (Coordenador de Polo).
+ * Gerencia conferência documental, aprovação de consultores e métricas operacionais.
  */
 export function getPoloDockItems(
   state: PoloDockState,
   ctx: AdapterContext,
 ): FloatingDockItem[] {
   const { currentPath, onLogout } = ctx;
-  const status = state.status || "pending_validation";
-  const pendingReviews = state.pendingValidationCount ?? (status === "pending_validation" ? 5 : 0);
-  const pendingExams = state.pendingExamsCount ?? (status === "pending_exams" ? 2 : 0);
-  const readyDiplomas = state.readyDiplomasCount ?? (status === "ready_diplomas" ? 4 : 0);
+  const status = state.status || "active";
+  const pendingReviews = state.pendingValidationCount ?? 5;
 
   const isReviewsActive =
+    currentPath.startsWith("/hub/review") ||
     currentPath.startsWith("/polo/matriculas") ||
     currentPath.startsWith("/polo/conferencia") ||
-    status === "pending_validation";
+    status === "review";
 
-  const isExamsActive =
-    currentPath.startsWith("/polo/provas") ||
-    status === "pending_exams";
-
-  const isDiplomasActive =
-    currentPath.startsWith("/polo/diplomas") ||
-    status === "ready_diplomas";
-
-  const isHomeActive = !isReviewsActive && !isExamsActive && !isDiplomasActive;
+  const isHomeActive = !isReviewsActive && (currentPath === "/hub" || currentPath.startsWith("/hub/active"));
 
   return [
     {
-      title: "Painel do Polo",
+      title: "Painel do Hub",
       icon: <IconHome className="h-full w-full" />,
-      href: "/polo/painel",
+      href: "/hub/active",
       isActive: isHomeActive,
     },
     {
-      title: "Fila de Conferência",
+      title: "Fila de Revisões",
       icon: <IconFileCheck className="h-full w-full" />,
-      href: "/polo/matriculas",
+      href: "/hub/review",
       badge: pendingReviews > 0 ? pendingReviews : null,
       badgeVariant: "warning",
       isActive: isReviewsActive,
     },
     {
-      title: "Bancas & Provas",
-      icon: <IconSchool className="h-full w-full" />,
-      href: "/polo/provas",
-      badge: pendingExams > 0 ? pendingExams : null,
-      badgeVariant: "info",
-      isActive: isExamsActive,
-    },
-    {
-      title: "Diplomas Oficiais",
-      icon: <IconAward className="h-full w-full" />,
-      href: "/polo/diplomas",
-      badge: readyDiplomas > 0 ? readyDiplomas : null,
-      badgeVariant: "success",
-      isActive: isDiplomasActive,
-    },
-    {
-      title: "Configurações do Polo",
-      icon: <IconSettings className="h-full w-full" />,
-      href: "/polo/configuracoes",
-      isActive: currentPath.startsWith("/polo/configuracoes"),
+      title: "Suporte Técnico",
+      icon: <IconHelpCircle className="h-full w-full" />,
+      href: "/suporte",
+      isActive: currentPath.startsWith("/suporte"),
     },
     {
       title: "Sair",
@@ -83,3 +56,5 @@ export function getPoloDockItems(
     },
   ];
 }
+
+export const getHubDockItems = getPoloDockItems;

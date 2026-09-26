@@ -1,12 +1,4 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import ExamScheduler from '../components/interactive/ExamScheduler.svelte';
-
-export const prerender = true;
+export const prerender = false;
+return Astro.redirect(`/student/enrollment${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Agendamento de Provas e Certificação — Supletivo Brasil">
-  <div class="w-full flex-1 flex flex-col pb-28">
-    <ExamScheduler client:load />
-  </div>
-</RootLayout>

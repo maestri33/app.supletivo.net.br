@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Redirecionamentos 308 de Rotas Legadas (Issue #2)", () => {
+test.describe("Redirecionamentos 308 de Rotas Legadas", () => {
   test("deve redirecionar /register para https://supletivo.net.br preservando ref", async ({ request }) => {
     const response = await request.get("/register?ref=promoter-123", { maxRedirects: 0 });
     expect(response.status()).toBe(308);
@@ -31,16 +31,28 @@ test.describe("Redirecionamentos 308 de Rotas Legadas (Issue #2)", () => {
     expect(response.headers().location).toBe("https://supletivo.net.br");
   });
 
-  test("deve redirecionar /login legado para /autenticacao/login com 308", async ({ request }) => {
+  test("deve redirecionar /login legado para a raiz / com 308", async ({ request }) => {
     const response = await request.get("/login", { maxRedirects: 0 });
     expect(response.status()).toBe(308);
-    expect(response.headers().location).toBe("/autenticacao/login");
+    expect(response.headers().location).toBe("/");
   });
 
-  test("deve redirecionar /matricula legada para /documentos com 308", async ({ request }) => {
+  test("deve redirecionar /matricula legada para /student/enrollment com 308", async ({ request }) => {
     const response = await request.get("/matricula", { maxRedirects: 0 });
     expect(response.status()).toBe(308);
-    expect(response.headers().location).toBe("/documentos");
+    expect(response.headers().location).toBe("/student/enrollment");
+  });
+
+  test("deve redirecionar /documentos para /student/enrollment com 308", async ({ request }) => {
+    const response = await request.get("/documentos", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/student/enrollment");
+  });
+
+  test("deve redirecionar /painel para /student com 308", async ({ request }) => {
+    const response = await request.get("/painel", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/student");
   });
 
   test("deve redirecionar a raiz / para a Landing Page se contiver ?ref=", async ({ request }) => {
@@ -50,31 +62,28 @@ test.describe("Redirecionamentos 308 de Rotas Legadas (Issue #2)", () => {
   });
 });
 
-test.describe("Recepção de Promotores e Prevenção de Ejeção Indevida (Issue #8)", () => {
+test.describe("Recepção de Promotores e Prevenção de Ejeção Indevida", () => {
   test("deve NÃO redirecionar para a landing B2C quando role=promotor estiver presente", async ({ request }) => {
     const response = await request.get("/?role=promotor&ref=polo-sp", { maxRedirects: 0 });
-    // Deve servir 200 (HTML da tela com client-side redirect) e NÃO 308
+    // Deve servir 200 (HTML da tela de login direto na raiz)
     expect(response.status()).toBe(200);
     expect(response.headers().location).toBeUndefined();
   });
 
-  test("rota /promotor deve direcionar para /autenticacao/login?role=promotor com os parâmetros", async ({ request }) => {
+  test("rota /promotor deve direcionar para /promoter com 308", async ({ request }) => {
     const response = await request.get("/promotor?ref=polo-sp&utm_source=google", { maxRedirects: 0 });
-    expect(response.status()).toBe(307);
+    expect(response.status()).toBe(308);
     const location = response.headers().location || "";
-    expect(location).toContain("/autenticacao/login");
-    expect(location).toContain("role=promotor");
+    expect(location).toContain("/promoter");
     expect(location).toContain("ref=polo-sp");
     expect(location).toContain("utm_source=google");
   });
 
-  test("rota /promotor/adesao deve direcionar para /autenticacao/login?role=promotor", async ({ request }) => {
+  test("rota /promotor/adesao deve direcionar para /promoter/candidate", async ({ request }) => {
     const response = await request.get("/promotor/adesao?ref=polo-curitiba", { maxRedirects: 0 });
-    expect(response.status()).toBe(307);
+    expect(response.status()).toBe(308);
     const location = response.headers().location || "";
-    expect(location).toContain("/autenticacao/login");
-    expect(location).toContain("role=promotor");
+    expect(location).toContain("/promoter/candidate");
     expect(location).toContain("ref=polo-curitiba");
   });
 });
-

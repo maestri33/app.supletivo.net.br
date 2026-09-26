@@ -1,12 +1,4 @@
 ---
-import RootLayout from '../layouts/RootLayout.astro';
-import DynamicRoleShell from '../components/interactive/DynamicRoleShell.svelte';
-
 export const prerender = false;
+return Astro.redirect(`/student${Astro.url.search}`, 308);
 ---
-
-<RootLayout title="Portal de Acesso — Supletivo Brasil">
-  <div class="w-full flex-1 flex flex-col p-4 sm:p-6 pb-28">
-    <DynamicRoleShell client:load />
-  </div>
-</RootLayout>
