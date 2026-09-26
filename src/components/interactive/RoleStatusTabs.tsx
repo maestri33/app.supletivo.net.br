@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { RoleAdaptiveNavDock } from "@/components/interactive/RoleAdaptiveNavDock";
 import type { UserRole, StudentDockState, PromoterDockState, PoloDockState } from "@/components/interactive/dock/types";
@@ -28,8 +28,13 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
   initialRole = "aluno",
   initialVariant = "bottom-bar",
 }) => {
+  const [hydrated, setHydrated] = useState(false);
   const [activeRole, setActiveRole] = useState<UserRole>(initialRole);
   const [dockVariant, setDockVariant] = useState<"bottom-bar" | "floating">(initialVariant);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   // Status ativos por perfil
   const [studentStatus, setStudentStatus] = useState<string>("awaiting_documents");
@@ -37,7 +42,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
   const [poloStatus, setPoloStatus] = useState<string>("pending_validation");
 
   // Dicionário de tabs de status para o Aluno
-  const studentTabs: TabItem[] = [
+  const studentTabs: TabItem[] = useMemo(() => [
     {
       title: "1. Envio de Documentos",
       value: "awaiting_documents",
@@ -203,10 +208,10 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
         </div>
       ),
     },
-  ];
+  ], []);
 
   // Dicionário de tabs de status para o Promotor
-  const promoterTabs: TabItem[] = [
+  const promoterTabs: TabItem[] = useMemo(() => [
     {
       title: "1. Credenciamento",
       value: "candidate",
@@ -339,10 +344,10 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
         </div>
       ),
     },
-  ];
+  ], []);
 
   // Dicionário de tabs de status para o Polo
-  const poloTabs: TabItem[] = [
+  const poloTabs: TabItem[] = useMemo(() => [
     {
       title: "1. Fila Documental",
       value: "pending_validation",
@@ -442,7 +447,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
         </div>
       ),
     },
-  ];
+  ], []);
 
   // Estado atual mapeado para o dock conforme o papel
   const studentDockState: StudentDockState = {
@@ -466,7 +471,11 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col items-center pb-32">
+    <div
+      data-testid="role-status-tabs-root"
+      data-hydrated={hydrated ? "true" : "false"}
+      className="w-full flex flex-col items-center pb-32"
+    >
       {/* Top Controls: Role Selector & Dock Variant Switcher */}
       <div className="w-full max-w-4xl px-4 py-4 space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-[#0b1220]/80 border border-white/15 backdrop-blur-xl">

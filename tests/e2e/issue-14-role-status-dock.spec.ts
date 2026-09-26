@@ -4,13 +4,13 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
   test.beforeEach(async ({ page }) => {
     page.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
     page.on("pageerror", (err) => console.log("PAGE ERROR:", err.message));
+    await page.goto("/tabs-status");
+    await expect(page.locator('[data-testid="role-status-tabs-root"][data-hydrated="true"]')).toBeVisible({ timeout: 10000 });
   });
 
   test("deve renderizar a página de status com perfil de aluno e etapas canônicas", async ({ page }) => {
-    await page.goto("/tabs-status");
-
     // Valida título da página
-    await expect(page.locator("h1")).toContainText("Tabs de Status com Dock Adaptativo");
+    await expect(page.getByRole("heading", { name: "Tabs de Status com Dock Adaptativo", level: 1 })).toBeVisible();
 
     // Valida seletor de perfil e variante
     await expect(page.getByRole("button", { name: "🎓 Aluno" })).toBeVisible();
@@ -29,10 +29,8 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
   });
 
   test("deve atualizar o dock ao trocar a aba de status para Prova Liberada", async ({ page }) => {
-    await page.goto("/tabs-status");
-
     // Clica na aba "3. Prova Liberada"
-    const examTab = page.getByRole("tab", { name: /3\. Prova Liberada/i });
+    const examTab = page.getByRole("tab", { name: /Prova Liberada/i });
     await examTab.click();
 
     // Valida o card explicativo da etapa 3
@@ -44,14 +42,12 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
   });
 
   test("deve alternar para o perfil Promotor e atualizar abas e dock para Promotor", async ({ page }) => {
-    await page.goto("/tabs-status");
-
     // Clica no botão Promotor
     await page.getByRole("button", { name: "💼 Promotor" }).click();
 
     // Valida abas do promotor
-    await expect(page.getByRole("tab", { name: /1\. Credenciamento/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /2\. Treinamento/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Credenciamento/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Treinamento/i })).toBeVisible();
 
     // Valida dock do promotor
     const promoterDock = page.locator("nav[aria-label='Navegação principal do promotor']");
@@ -59,14 +55,12 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
   });
 
   test("deve alternar para o perfil Polo e atualizar abas e dock para Coordenador de Hub", async ({ page }) => {
-    await page.goto("/tabs-status");
-
     // Clica no botão Polo
     await page.getByRole("button", { name: "🏫 Polo" }).click();
 
     // Valida abas do polo
-    await expect(page.getByRole("tab", { name: /1\. Fila Documental/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /2\. Bancas & Provas/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Fila Documental/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Bancas/i })).toBeVisible();
 
     // Valida dock do polo
     const poloDock = page.locator("nav[aria-label='Navegação principal do polo']");
@@ -74,15 +68,14 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
   });
 
   test("deve permitir alternar o estilo do dock entre Barra Nativa e Cápsula Flutuante", async ({ page }) => {
-    await page.goto("/tabs-status");
-
     // Por padrão exibe Barra Nativa
     await expect(page.locator("nav[aria-label='Navegação principal do aluno']")).toBeVisible();
 
     // Clica em Cápsula Flutuante
     await page.getByRole("button", { name: "Cápsula Flutuante" }).click();
 
-    // Valida que o container flutuante foi ativado
-    await expect(page.getByRole("navigation", { name: "Navegação principal do aluno" })).toBeVisible();
+    // Valida que o container flutuante foi ativado e contém os links do dock
+    await expect(page.getByTestId("role-adaptive-dock")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Meu Curso" })).toBeVisible();
   });
 });

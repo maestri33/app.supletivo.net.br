@@ -6,10 +6,13 @@ export const prerender = false;
 
 const id = Astro.url.searchParams.get("id");
 const tel = Astro.url.searchParams.get("tel");
+const cpf = Astro.url.searchParams.get("cpf");
+const novoTelefone = Astro.url.searchParams.get("novo_telefone") || Astro.url.searchParams.get("new_phone");
+const openRecovery = Astro.url.searchParams.get("open_recovery") === "true";
 const sessionCookie = Astro.cookies.get("supletivo.session")?.value;
 
-// Se não há identificador, telefone ou cookie de sessão, redireciona para o login
-if (!id && !tel && !sessionCookie) {
+// Se não há identificador, telefone, contexto de recuperação ou cookie de sessão, redireciona para o login
+if (!id && !tel && !cpf && !novoTelefone && !openRecovery && !sessionCookie) {
   return Astro.redirect("/autenticacao/login", 302);
 }
 ---

@@ -21,6 +21,8 @@
   let externalId = $state("");
   let role = $state("");
   let isRecoveryOpen = $state(false);
+  let recoveryCpf = $state("");
+  let recoveryNewPhone = $state("");
   let mounted = $state(false);
 
   let isPromoter = $derived(role === "promotor" || role === "promoter");
@@ -49,6 +51,18 @@
     const urlRef = urlParams.get("ref");
     const urlCpf = urlParams.get("cpf");
     const urlEmail = urlParams.get("email");
+    const urlNovoTelefone = urlParams.get("novo_telefone") || urlParams.get("new_phone");
+    const urlOpenRecovery = urlParams.get("open_recovery") === "true";
+
+    if (urlCpf) {
+      recoveryCpf = urlCpf;
+    }
+    if (urlNovoTelefone) {
+      recoveryNewPhone = urlNovoTelefone;
+    }
+    if (urlOpenRecovery || urlNovoTelefone || (urlCpf && !urlTel && !saved?.phone)) {
+      isRecoveryOpen = true;
+    }
 
     const saved = getSession();
 
@@ -98,6 +112,9 @@
         .catch(() => {
           window.location.replace("/");
         });
+    } else if (isRecoveryOpen) {
+      // Modo de autoatendimento / recuperação de conta por CPF: permanece com modal aberto
+      return;
     } else {
       window.location.replace("/");
       return;
@@ -371,6 +388,8 @@
   <ContactRecoveryModal
     isOpen={isRecoveryOpen}
     currentPhone={phone}
+    initialCpf={recoveryCpf}
+    initialNewPhone={recoveryNewPhone}
     onClose={() => { isRecoveryOpen = false; }}
   />
 </div>

@@ -310,8 +310,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   return (
     <FloatingDock
       items={items}
-      desktopClassName="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-fit"
-      mobileClassName="fixed bottom-6 right-6 z-50"
+      desktopClassName="w-fit"
       dockAriaLabel={`Navegação principal do ${activeRole}`}
     />
   );
