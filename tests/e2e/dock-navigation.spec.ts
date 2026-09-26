@@ -65,16 +65,15 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
       });
     });
 
-    await page.goto("/painel");
+    await page.goto("/student/enrollment");
 
-    // Item de Documentação do dock visível
-    const docItem = page.locator("a[href='/documentos']").first();
+    // Item de Matrícula/Documentos do dock visível
+    const docItem = page.locator("a[href='/student/enrollment']").first();
     await expect(docItem).toBeVisible({ timeout: 10000 });
 
-    // Navega para /documentos e verifica que o dock permanece globalmente
-    await page.goto("/documentos");
-    const docItemOnDocs = page.locator("a[href='/documentos']").first();
-    await expect(docItemOnDocs).toBeVisible({ timeout: 10000 });
+    // Permanece no dock globalmente
+    const homeItem = page.locator("a[href='/student']").first();
+    await expect(homeItem).toBeVisible({ timeout: 10000 });
   });
 
   test("deve transmutar itens do dock ao alternar tabs em usuário multi-role", async ({ page }) => {
@@ -133,22 +132,28 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
       });
     });
 
-    await page.goto("/painel");
+    await page.goto("/tabs-status");
 
     // As duas tabs superiores devem ser exibidas
-    const tabAluno = page.locator("button:has-text('Aluno')");
-    const tabPromotor = page.locator("button:has-text('Promotor')");
+    const tabAluno = page.getByRole("button", { name: "🎓 Aluno" });
+    const tabPromotor = page.getByRole("button", { name: "💼 Promotor" });
     await expect(tabAluno).toBeVisible({ timeout: 10000 });
     await expect(tabPromotor).toBeVisible();
 
-    // Inicialmente dock tem /documentos
-    await expect(page.locator("a[href='/documentos']").first()).toBeVisible();
+    // Inicialmente dock do aluno tem /student/enrollment
+    await expect(page.locator("a[href='/student/enrollment']").first()).toBeVisible();
 
     // Clica na tab Promotor
     await tabPromotor.click();
 
-    // O dock deve transmutar para os itens do Promotor (/promotor/leads, /promotor/comissoes)
-    await expect(page.locator("a[href='/promotor/leads']").first()).toBeVisible();
-    await expect(page.locator("a[href='/promotor/comissoes']").first()).toBeVisible();
+    // O dock deve transmutar para os itens de credenciamento do candidato (/promoter/candidate)
+    await expect(page.locator("a[href='/promoter/candidate']").first()).toBeVisible();
+
+    // Alterna para o status de Promotor Ativo
+    await page.locator("button[role='tab']:has-text('Promotor Ativo')").click();
+
+    // O dock deve transmutar para os itens do Promotor Ativo (/promoter/active e /promoter/training)
+    await expect(page.locator("a[href='/promoter/active']").first()).toBeVisible();
+    await expect(page.locator("a[href='/promoter/training']").first()).toBeVisible();
   });
 });

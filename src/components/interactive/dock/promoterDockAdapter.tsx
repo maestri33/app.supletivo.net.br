@@ -113,6 +113,7 @@ export function getPromoterDockItems(
   }
 
   // Promotor ativo regular
+  const newLeads = state.newLeadsCount ?? 0;
   return [
     {
       title: "Painel do Promotor",
@@ -121,16 +122,24 @@ export function getPromoterDockItems(
       isActive: currentPath === "/promoter" || currentPath.startsWith("/promoter/active"),
     },
     {
+      title: "Leads",
+      icon: <IconUsers className="h-full w-full" />,
+      href: "/promotor/leads",
+      badge: newLeads > 0 ? newLeads : undefined,
+      badgeVariant: "success",
+      isActive: currentPath.startsWith("/promotor/leads") || currentPath.startsWith("/promoter/leads"),
+    },
+    {
+      title: "Comissões",
+      icon: <IconCash className="h-full w-full" />,
+      href: "/promotor/comissoes",
+      isActive: currentPath.startsWith("/promotor/comissoes") || currentPath.startsWith("/promoter/comissoes"),
+    },
+    {
       title: "Treinamento",
       icon: <IconSchool className="h-full w-full" />,
       href: "/promoter/training",
       isActive: currentPath.startsWith("/promoter/training"),
-    },
-    {
-      title: "Credenciamento",
-      icon: <IconChecklist className="h-full w-full" />,
-      href: "/promoter/candidate",
-      isActive: currentPath.startsWith("/promoter/candidate"),
     },
     {
       title: "Suporte",

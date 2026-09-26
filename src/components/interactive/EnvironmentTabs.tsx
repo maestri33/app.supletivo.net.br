@@ -24,7 +24,7 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
       title: "🎓 Aluno",
       value: "aluno",
       content: (
-        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[#002776]/80 to-[#001a52]/90 shadow-2xl">
+        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[var(--blue)]/80 to-[var(--blue-deep)]/90 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 mb-2">
@@ -75,7 +75,7 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
       title: "💼 Promotor",
       value: "promotor",
       content: (
-        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[#005238]/80 to-[#002776]/80 shadow-2xl">
+        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[var(--green-deep)]/80 to-[var(--blue)]/80 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-xs font-semibold text-[var(--yellow)] mb-2">
@@ -121,7 +121,7 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
       title: "🏫 Coordenador do Polo",
       value: "polo",
       content: (
-        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[#0b1220]/90 to-[#002776]/90 shadow-2xl">
+        <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[var(--ink)]/90 to-[var(--blue)]/90 shadow-2xl">
           <div className="border-b border-white/10 pb-6 mb-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 mb-2">
               Secretaria do Polo Regional
@@ -151,13 +151,18 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
     },
   };
 
+  // Suporte canônico tanto para chaves em inglês quanto legadas em português
+  allTabsMap.student = allTabsMap.aluno;
+  allTabsMap.promoter = allTabsMap.promotor;
+  allTabsMap.hub = allTabsMap.polo;
+
   // Filtra APENAS as tabs que correspondem às roles reais do usuário
   const matchingTabs = activeRoles
     .map((r) => allTabsMap[r])
     .filter(Boolean);
 
   // Fallback: se nenhuma bateu, exibe a do aluno
-  const filteredTabs = matchingTabs.length > 0 ? matchingTabs : [allTabsMap.aluno];
+  const filteredTabs = matchingTabs.length > 0 ? matchingTabs : [allTabsMap.student || allTabsMap.aluno];
 
   // REGRA DO USUÁRIO:
   // Se o usuário tem apenas 1 role, NÃO exibe barra de navegação/tabs em cima — renderiza direto o ambiente dele!

@@ -115,7 +115,7 @@ export const Tabs: React.FC<TabsProps> = ({
         aria-orientation="horizontal"
         className={cn(
           "relative flex flex-row items-center justify-start sm:justify-center p-1.5 rounded-full",
-          "bg-[rgba(11,18,32,0.7)] backdrop-blur-md border border-white/10 shadow-[var(--shadow-glass)]",
+          "bg-[var(--ink)]/80 backdrop-blur-md border border-white/10 shadow-[var(--shadow-glass)]",
           "overflow-x-auto no-visible-scrollbar max-w-full touch-pan-x gap-1",
           tablistClassName
         )}
@@ -165,7 +165,7 @@ export const Tabs: React.FC<TabsProps> = ({
                       : { type: "spring", bounce: 0.18, duration: 0.45 }
                   }
                   className={cn(
-                    "absolute inset-0 rounded-full bg-[var(--blue)] shadow-[0_8px_20px_-4px_rgba(0,39,118,0.6)] border border-white/20",
+                    "absolute inset-0 rounded-full bg-[var(--blue)] shadow-lg shadow-[var(--blue)]/50 border border-white/20",
                     activeTabClassName
                   )}
                   style={{ zIndex: -1 }}

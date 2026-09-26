@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { checkPhone, whoami } from "@/lib/api";
-  import { getAccessToken, saveSession } from "@/lib/session";
+  import { getAccessToken, saveSession, clearSession } from "@/lib/session";
   import { isValidBrMobile } from "@/lib/phone";
   import { getPrimaryEnvironment } from "@/lib/roles";
   import UnregisteredRoleModal from "@/components/interactive/UnregisteredRoleModal.svelte";
@@ -26,7 +26,7 @@
         const target = getPrimaryEnvironment(who?.roles || []);
         window.location.replace(`/${target}`);
       } catch {
-        window.location.replace("/student");
+        clearSession();
       }
     }
   });

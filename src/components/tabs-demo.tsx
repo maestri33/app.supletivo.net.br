@@ -63,7 +63,7 @@ export function TabsDemo() {
       {/* PARTE INFERIOR: Simulador Flutuante de Perfis (Tester Dock) */}
       <aside
         aria-label="Simulador de Perfis Multi-Role"
-        className="fixed bottom-3 inset-x-0 mx-auto max-w-4xl w-[94%] z-40 p-3 rounded-2xl bg-[#0b1220]/95 border border-white/15 backdrop-blur-xl shadow-2xl"
+        className="fixed bottom-3 inset-x-0 mx-auto max-w-4xl w-[94%] z-40 p-3 rounded-2xl bg-[var(--ink)]/95 border border-white/15 backdrop-blur-xl shadow-2xl"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 px-1">
           <div className="flex items-center gap-2">

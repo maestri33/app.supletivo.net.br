@@ -9,7 +9,7 @@
     whoami,
     getLeadMe,
   } from "@/lib/api";
-  import { getSession, saveLogin, saveSession, getAccessToken } from "@/lib/session";
+  import { getSession, saveLogin, saveSession, getAccessToken, clearSession } from "@/lib/session";
   import { getPrimaryEnvironment } from "@/lib/roles";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
@@ -36,7 +36,7 @@
         const target = getPrimaryEnvironment(who?.roles || []);
         window.location.replace(`/${target}`);
       } catch {
-        window.location.replace("/student");
+        clearSession();
       }
       return;
     }
@@ -119,10 +119,15 @@
   });
 
   function focusInput(idx: number) {
-    setTimeout(() => {
-      const el = document.getElementById(`otp-${idx}`) as HTMLInputElement | null;
-      el?.focus();
-    }, 40);
+    const el = document.getElementById(`otp-${idx}`) as HTMLInputElement | null;
+    if (el) {
+      el.focus();
+    } else {
+      setTimeout(() => {
+        const fallback = document.getElementById(`otp-${idx}`) as HTMLInputElement | null;
+        fallback?.focus();
+      }, 0);
+    }
   }
 
   function handleInput(idx: number, e: Event) {
@@ -280,7 +285,7 @@
     </p>
     <div class="mt-1 flex items-center justify-center gap-2">
       <span class="font-mono font-bold text-emerald-300 text-sm">{formatDisplayPhone(phone)}</span>
-      <a href="/autenticacao/login" class="text-xs text-white/40 hover:text-white underline">
+      <a href="/" class="text-xs text-white/40 hover:text-white underline">
         Trocar
       </a>
     </div>

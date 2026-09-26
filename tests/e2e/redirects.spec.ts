@@ -55,6 +55,30 @@ test.describe("Redirecionamentos 308 de Rotas Legadas", () => {
     expect(response.headers().location).toBe("/student");
   });
 
+  test("deve redirecionar /aluno para /student com 308", async ({ request }) => {
+    const response = await request.get("/aluno", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/student");
+  });
+
+  test("deve redirecionar /provas para /student/enrollment com 308", async ({ request }) => {
+    const response = await request.get("/provas", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/student/enrollment");
+  });
+
+  test("deve redirecionar /polo para /hub com 308", async ({ request }) => {
+    const response = await request.get("/polo", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/hub");
+  });
+
+  test("deve redirecionar /autenticacao/login para / com 308", async ({ request }) => {
+    const response = await request.get("/autenticacao/login", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("/");
+  });
+
   test("deve redirecionar a raiz / para a Landing Page se contiver ?ref=", async ({ request }) => {
     const response = await request.get("/?ref=polo-sp", { maxRedirects: 0 });
     expect(response.status()).toBe(308);

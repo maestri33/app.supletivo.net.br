@@ -1,30 +1,33 @@
 # Plano de Testes E2E: Funil do Aluno, Matrícula & Bloqueios
 
 **Spec:** `specs/funnel-and-matricula.md`  
-**Seed:** `tests/e2e/seed.spec.ts`  
-**Aplicação:** `apps/aluno` (`app-supletivo` / Next.js 16)  
-**Objetivo:** Garantir a estabilidade e cobertura do funil de matrícula guiado pelo `me_dict.status`, recuperação de `409 WRONG_STATUS`, upload de documentos com IA e banner de bloqueios ativos (`/me/blocks`).
+**Testes E2E:** `tests/e2e/issue-13-role-environments-english.spec.ts`, `tests/e2e/redirects.spec.ts`, `tests/e2e/auth-student.spec.ts`  
+**Aplicação:** `app.supletivo.net.br` (Astro 5 + Svelte 5 Runes)  
+**Objetivo:** Garantir a estabilidade e cobertura do funil de acesso guiado por `roles` e status de 1 palavra em inglês, redirects 308 de rotas legadas, guards de autenticação e dock adaptativa.
 
 ---
 
-## 1. Autenticação OTP & Atribuição de Lead
+## 1. Autenticação OTP & Roteamento por Perfil
 
-### 1.1. Check de WhatsApp com Atribuição de Indicação (`?ref=...`)
-- **Pré-condição:** Usuário acessa `/?ref=11111111-1111-4111-8111-111111111111`.
+### 1.1. Login Universal na Raiz (`/`)
+- **Pré-condição:** Usuário anônimo acessa `/`.
 - **Passos:**
-  1. Verificar que o badge "Indicado por [Nome]" é exibido se o ref for válido.
-  2. Digitar número de WhatsApp no campo de telefone.
-  3. Submeter formulário (`POST /api/v1/clients/auth/check`).
-- **Resultado Esperado:** Redirecionamento suave para `/login` com timer regressivo de OTP.
-
-### 1.2. Validação de OTP e Roteamento por Roles
-- **Passos:**
-  1. Digitar o código OTP de 6 dígitos no `/login`.
-  2. Submeter (`POST /api/v1/clients/auth/login`).
+  1. Renderizar formulário universal com validação zero-button.
+  2. Digitar 11 dígitos do WhatsApp → avança automaticamente para etapa OTP.
+  3. Digitar 6 dígitos do OTP → validação automática (`POST /api/v1/auth/otp/verify`).
 - **Resultados Esperados:**
-  - Se role for `lead` → segue para `/cpf`.
-  - Se role for `enrollment` → segue para `/matricula`.
-  - Se role for `student` ou `veteran` → segue para `/aluno`.
+  - Se role for `student` com status `lead` → redireciona para `/student/lead`.
+  - Se role for `student` com status `enrollment` → redireciona para `/student/enrollment`.
+  - Se role for `promoter` com status `candidate` → redireciona para `/promoter/candidate`.
+  - Se role for `promoter` com status `training` → redireciona para `/promoter/training`.
+  - Se role for `promoter` com status `active` → redireciona para `/promoter/active`.
+  - Se role for `hub` com status `active` → redireciona para `/hub/active`.
+  - Se role for `hub` com status `review` → redireciona para `/hub/review`.
+
+### 1.2. Proteção de Rotas & Guards
+- Usuário deslogado ao tentar acessar `/student/*`, `/promoter/*` ou `/hub/*` é redirecionado para `/`.
+- Usuário logado ao acessar `/` é redirecionado para seu ambiente de maior privilégio (`hub` > `promoter` > `student`).
+
 
 ---
 
@@ -100,3 +103,19 @@
   1. Validar listagem de documentos obrigatórios (certificado, histórico escolar, etc.).
   2. Submeter tipo sanguíneo (`POST /student/blood-type`).
 - **Resultado Esperado:** Atualização do status para `exam_released` e redirecionamento para `/provas`.
+
+---
+
+## 5. Compatibilidade e Redirecionamentos Permanentes (308)
+
+### 5.1. Matriz de Redirecionamentos de Rotas Legadas
+- `/painel` → 308 `/student/enrollment` (ou rota do perfil ativo)
+- `/matricula` → 308 `/student/enrollment`
+- `/documentos` → 308 `/student/enrollment`
+- `/aluno` → 308 `/student/enrollment`
+- `/provas` → 308 `/student/enrollment`
+- `/promotor` → 308 `/promoter/candidate` (ou perfil)
+- `/polo` → 308 `/hub/active`
+- `/login` e `/autenticacao/login` → 308 `/` (preservando query params)
+- `/register`, `/cpf`, `/email`, `/planos`, `/checkout` → 308 `https://supletivo.net.br` (preservando `?ref=...` e `utm_*`)
+

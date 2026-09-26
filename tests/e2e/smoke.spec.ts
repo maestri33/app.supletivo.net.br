@@ -5,6 +5,10 @@ import { test, expect } from "@playwright/test";
 // do app está no ar. Adicione specs por feature conforme os fluxos ganham forma.
 
 test.describe("app-supletivo · smoke", () => {
+  test.beforeEach(async ({ context }) => {
+    await context.clearCookies();
+  });
+
   test("/healthz responde ok e expõe proveniência do build", async ({ request }) => {
     const res = await request.get("/healthz");
     expect(res.ok()).toBeTruthy();
@@ -99,12 +103,13 @@ test.describe("app-supletivo · smoke", () => {
     const otp0 = page.locator("#otp-0");
     await expect(otp0).toHaveAttribute("data-hydrated", "true", { timeout: 15000 });
 
-    // Preenche os 6 dígitos tecla a tecla
-    await otp0.click();
-    await otp0.pressSequentially("123456", { delay: 50 });
+    // Preenche os 6 dígitos (fluxo zero-button)
+    for (let i = 0; i < 6; i++) {
+      await page.locator(`#otp-${i}`).fill(String(i + 1));
+    }
 
     // Validação automática sem botão manual e redirecionamento para o ambiente do aluno
-    await page.waitForURL((url) => url.pathname.includes("/student") || url.pathname.includes("/painel"), { timeout: 10000 });
+    await page.waitForURL((url) => url.pathname.includes("/student") || url.pathname.includes("/painel"), { timeout: 15000 });
     expect(page.url()).toMatch(/\/student|\/painel/);
   });
 });

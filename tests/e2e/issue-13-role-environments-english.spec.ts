@@ -79,6 +79,19 @@ test.describe("Ambientes e Sub-rotas Canônicas em Inglês", () => {
     expect(page.url()).toContain("/student/enrollment");
   });
 
+  test("usuário autenticado como candidato a promotor renderiza /promoter/candidate com sucesso", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("supletivo.login", JSON.stringify({
+        access_token: "mock-candidate-token",
+        roles: ["candidate", "promoter"]
+      }));
+    });
+
+    await page.goto("/promoter/candidate");
+    await expect(page.locator("h1")).toContainText("Credenciamento de Promotor");
+    expect(page.url()).toContain("/promoter/candidate");
+  });
+
   test("usuário autenticado como promotor renderiza /promoter/active com sucesso", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("supletivo.login", JSON.stringify({
@@ -131,3 +144,5 @@ test.describe("Ambientes e Sub-rotas Canônicas em Inglês", () => {
     expect(page.url()).toContain("/hub/review");
   });
 });
+
+
