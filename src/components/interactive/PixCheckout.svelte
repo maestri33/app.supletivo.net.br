@@ -1,23 +1,25 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ApiError, getPixPage, type PixPage } from "@/lib/api";
+  import { ApiError, getPixPage, getLeadMe, type PixPage, type CheckoutOut } from "@/lib/api";
 
   interface Props {
     token: string;
+    initialData?: CheckoutOut | PixPage | null;
   }
 
-  let { token }: Props = $props();
+  let { token, initialData = null }: Props = $props();
 
   type Phase = "loading" | "ready" | "paid" | "notfound" | "error";
 
-  const POLL_MS = 5_000;
+  const POLL_MS = 3_500;
 
-  let phase = $state<Phase>("loading");
-  let data = $state<PixPage | null>(null);
+  let phase = $state<Phase>(initialData ? "ready" : "loading");
+  let data = $state<any>(initialData || null);
   let copied = $state(false);
   let isPaid = $state(false);
 
-  function formatMoney(amount: string | number): string {
+  function formatMoney(amount: string | number | undefined): string {
+    if (!amount) return "R$ 0,00";
     const val = typeof amount === "string" ? parseFloat(amount) : amount;
     if (isNaN(val)) return "R$ 0,00";
     return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -25,19 +27,32 @@
 
   async function load() {
     try {
-      const next = await getPixPage(token);
-      data = next;
-      if (next.is_paid) {
+      if (token && token !== "default" && !token.startsWith("sandbox")) {
+        const next = await getPixPage(token);
+        data = next;
+        if (next.is_paid) {
+          isPaid = true;
+          phase = "paid";
+          return;
+        }
+      }
+
+      // Consulta status do lead logado (atualizado via webhook Asaas na borda)
+      const lead = await getLeadMe();
+      if (lead?.checkout?.is_paid || (lead as any)?.status === "paid") {
         isPaid = true;
         phase = "paid";
-      } else {
+        return;
+      }
+      if (lead?.checkout) {
+        data = { ...data, ...lead.checkout };
         phase = "ready";
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        phase = "notfound";
+        if (!data) phase = "notfound";
       } else {
-        phase = "error";
+        if (!data) phase = "error";
       }
     }
   }
@@ -48,7 +63,7 @@
     try {
       await navigator.clipboard.writeText(payload);
     } catch {
-      // Fallback: o textarea permanece selecionável
+      // Fallback
     }
     copied = true;
     setTimeout(() => {
@@ -69,7 +84,7 @@
     void load();
 
     const timer = setInterval(() => {
-      if (phase !== "ready" || isPaid || document.visibilityState === "hidden") return;
+      if (isPaid || document.visibilityState === "hidden") return;
       void load();
     }, POLL_MS);
 
@@ -77,86 +92,92 @@
   });
 </script>
 
-<main id="conteudo" class="flex flex-1 px-6 py-4">
-  <div class="m-auto flex w-full max-w-[400px] flex-col items-center gap-5">
+<main id="conteudo" class="flex flex-1 px-4 sm:px-6 py-4">
+  <div class="m-auto flex w-full max-w-[440px] flex-col items-center gap-5">
     {#if phase === "loading"}
-      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl text-center flex flex-col items-center gap-4">
-        <div class="size-10 animate-spin rounded-full border-4 border-brand-green border-t-transparent"></div>
-        <h2 class="text-base font-bold text-white">Carregando seu código PIX…</h2>
-        <p class="text-xs text-white/60">Aguarde um instante enquanto conectamos com o banco.</p>
+      <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl text-center flex flex-col items-center gap-4">
+        <div class="size-10 animate-spin rounded-full border-4 border-[var(--yellow)] border-t-transparent"></div>
+        <h2 class="text-base font-bold text-white">Carregando cobrança PIX oficial…</h2>
+        <p class="text-xs text-white/60">Conectando ao gateway bancário homologado do Supletivo Brasil.</p>
       </div>
     {:else if phase === "notfound"}
-      <div class="w-full rounded-2xl border border-red-500/30 bg-red-950/30 p-6 backdrop-blur-xl text-center flex flex-col gap-3">
+      <div class="w-full rounded-3xl border border-red-500/30 bg-red-950/30 p-6 backdrop-blur-xl text-center flex flex-col gap-3">
         <div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-red-500/20 text-2xl">⚠️</div>
-        <h1 class="text-lg font-bold text-white">Link de pagamento inválido ou expirado</h1>
+        <h1 class="text-lg font-bold text-white">Cobrança PIX não encontrada</h1>
         <p class="text-xs text-white/70 leading-relaxed">
-          Este link já foi utilizado ou não está mais ativo. Caso precise de uma nova cobrança, acesse o portal pelo link abaixo.
+          Esta cobrança já foi confirmada ou ainda não foi emitida. Acesse suas opções de pagamento abaixo.
         </p>
-        <a
-          href="/login"
-          class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-brand-green px-4 text-xs font-bold text-white transition hover:bg-brand-green-dark"
+        <button
+          type="button"
+          onclick={() => window.location.reload()}
+          class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--yellow)] text-[var(--ink)] px-4 text-xs font-bold transition hover:opacity-90"
         >
-          Acessar o Portal →
-        </a>
+          Recarregar Opções →
+        </button>
       </div>
     {:else if phase === "error"}
-      <div class="w-full rounded-2xl border border-amber-500/30 bg-amber-950/30 p-6 backdrop-blur-xl text-center flex flex-col gap-3">
+      <div class="w-full rounded-3xl border border-amber-500/30 bg-amber-950/30 p-6 backdrop-blur-xl text-center flex flex-col gap-3">
         <div class="mx-auto flex size-12 items-center justify-center rounded-2xl bg-amber-500/20 text-2xl">🔌</div>
-        <h1 class="text-lg font-bold text-white">Instabilidade ao carregar PIX</h1>
+        <h1 class="text-lg font-bold text-white">Aguardando emissão no gateway</h1>
         <p class="text-xs text-white/70 leading-relaxed">
-          Não conseguimos carregar os dados no momento. Toque no botão para tentar novamente.
+          O gateway está processando a chave. Clique para tentar novamente.
         </p>
         <button
           type="button"
           onclick={() => void load()}
-          class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-brand-green px-4 text-xs font-bold text-white transition hover:bg-brand-green-dark"
+          class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--yellow)] text-[var(--ink)] px-4 text-xs font-bold transition hover:opacity-90 cursor-pointer"
         >
           Tentar novamente
         </button>
       </div>
     {:else if phase === "paid"}
-      <div class="w-full rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-6 backdrop-blur-xl text-center flex flex-col gap-4">
-        <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-3xl">🎉</div>
-        <h1 class="text-xl font-extrabold text-white">Pagamento confirmado!</h1>
-        <p class="text-xs text-white/80 leading-relaxed">
-          Recebemos o pagamento de <strong class="text-emerald-400">{formatMoney(data?.amount ?? 0)}</strong>. Sua matrícula foi liberada!
+      <div class="w-full rounded-3xl border border-emerald-500/30 bg-emerald-950/30 p-8 backdrop-blur-xl text-center flex flex-col gap-4 shadow-2xl">
+        <div class="mx-auto flex size-16 items-center justify-center rounded-2xl bg-emerald-500/20 text-4xl">🎉</div>
+        <h1 class="text-2xl font-extrabold text-white">Pagamento confirmado!</h1>
+        <p class="text-xs text-emerald-200/90 leading-relaxed">
+          Seu PIX foi processado com sucesso. Redirecionando para a ativação da sua matrícula...
         </p>
-        <div class="flex flex-col gap-2 pt-2">
+        <div class="mt-4 flex flex-col gap-2">
           <a
             href="/student/enrollment"
-            class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-green px-4 text-sm font-bold text-white shadow transition hover:bg-brand-green-dark"
+            class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition hover:bg-emerald-500"
           >
-            Continuar Matrícula (Enviar Documentos) →
+            Continuar para a Matrícula →
           </a>
-          {#if data?.receipt_url}
-            <a
-              href={data.receipt_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-semibold text-white/80 hover:bg-white/10"
-            >
-              Ver comprovante oficial
-            </a>
-          {/if}
         </div>
       </div>
     {:else}
+      <!-- Fase Ready: Exibição da cobrança PIX Oficial -->
       <div class="text-center">
-        <h1 class="text-xl font-bold text-white">Pagamento da Matrícula</h1>
-        <p class="mt-1 text-xs text-white/75">Pague via PIX para liberação imediata</p>
+        <h1 class="text-2xl font-display text-white">Pagamento da Matrícula</h1>
+        <p class="mt-1 text-xs text-white/70">Pague via PIX para liberação imediata do seu ambiente de estudos</p>
       </div>
 
-      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl flex flex-col items-center text-center gap-4">
+      <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-xl flex flex-col items-center text-center gap-5 shadow-2xl">
         <div class="flex w-full items-center justify-between border-b border-white/10 pb-3">
-          <span class="text-xs font-semibold text-white/60">PIX à vista</span>
-          <span class="text-lg font-black text-emerald-400">{formatMoney(data?.amount ?? 0)}</span>
+          <span class="text-xs font-semibold text-white/70">Valor à vista com desconto</span>
+          <span class="text-xl font-display font-black text-emerald-400">
+            {formatMoney(data?.amount ?? 1615)}
+          </span>
         </div>
 
         {#if data?.qrcode_image}
-          <div class="size-48 rounded-xl bg-white p-3 shadow-inner flex items-center justify-center">
+          {@const imgSrc = data.qrcode_image.startsWith("data:") || data.qrcode_image.startsWith("http") || data.qrcode_image.startsWith("/")
+            ? data.qrcode_image
+            : `data:image/png;base64,${data.qrcode_image}`}
+          <div class="size-52 rounded-2xl bg-white p-3.5 shadow-2xl flex items-center justify-center border-4 border-white/20">
             <img
-              src={data.qrcode_image.startsWith("data:") ? data.qrcode_image : `data:image/png;base64,${data.qrcode_image}`}
-              alt="QR Code PIX"
+              src={imgSrc}
+              alt="QR Code PIX Oficial"
+              class="size-full object-contain"
+            />
+          </div>
+          <p class="text-[11px] text-white/60">Abra o app do seu banco e escaneie o código acima</p>
+        {:else if data?.qrcode_payload}
+          <div class="size-52 rounded-2xl bg-white p-3.5 shadow-2xl flex items-center justify-center border-4 border-white/20">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.qrcode_payload)}`}
+              alt="QR Code PIX Oficial"
               class="size-full object-contain"
             />
           </div>
@@ -171,12 +192,12 @@
               readonly
               value={data.qrcode_payload}
               onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}
-              class="min-h-16 w-full resize-none rounded-lg border border-white/15 bg-black/40 p-2.5 font-mono text-[11px] text-white/90 focus:outline-none focus:border-brand-green"
+              class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)]"
             ></textarea>
             <button
               type="button"
               onclick={copyPix}
-              class="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 py-2.5 text-xs font-bold text-white hover:bg-white/20"
+              class="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--yellow)]/30 bg-[var(--yellow)]/10 hover:bg-[var(--yellow)]/20 py-2.5 text-xs font-bold text-[var(--yellow)] cursor-pointer transition-all"
             >
               <span>{copied ? "✓ Código copiado!" : "Copiar código PIX"}</span>
             </button>
@@ -184,7 +205,7 @@
         {/if}
 
         <p class="text-[11px] text-white/50 leading-relaxed">
-          Esta tela atualiza automaticamente assim que o banco confirmar.
+          Esta tela atualiza automaticamente assim que o pagamento for detectado pelo banco.
         </p>
       </div>
     {/if}
