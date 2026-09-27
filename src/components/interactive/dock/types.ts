@@ -14,6 +14,7 @@ export interface StudentDockState {
   hasPartnerUrl?: boolean;
   enrollmentStep?: EnrollmentStatus;
   isLocked?: boolean;
+  leadPhase?: "selection" | "checkout";
 }
 
 export interface PromoterDockState {

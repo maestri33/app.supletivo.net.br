@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getSession } from "@/lib/session";
-  import { setLeadCheckout, getLeadCheckoutUrl, fetchPricing, type Pricing } from "@/lib/api";
+  import { setLeadCheckout, getLeadCheckoutUrl, getLeadMe, fetchPricing, type Pricing } from "@/lib/api";
   import PixCheckout from "./PixCheckout.svelte";
 
   // 3 Caminhos do Aluno Travado:
-  // 1. "selection": Exibição dos 2 cards (PIX vs Cartão)
-  // 2. "pix": Checkout nativo inline com QR Code
-  // 3. "credit": Checkout externo via gateway oficial
+  // 1. "selection": Exibição dos 2 cards (PIX vs Cartão) - Fase 1
+  // 2. "pix": Checkout nativo inline com QR Code - Fase 2
+  // 3. "credit": Checkout externo via gateway oficial - Fase 2
   type PaywallMode = "selection" | "pix" | "credit";
 
   let mode = $state<PaywallMode>("selection");
@@ -23,11 +23,53 @@
   let creditPrice = $derived(hasRef ? "12x de R$ 99,00" : "12x de R$ 161,00");
   let discountBadge = $derived(hasRef ? "Desconto Especial de Consultor Aplicado" : null);
 
+  // Notifica o dock flutuante sobre a mudança de fase (1. Modalidade vs 2. Checkout)
+  $effect(() => {
+    if (typeof window !== "undefined") {
+      const phase = mode === "selection" ? "selection" : "checkout";
+      window.dispatchEvent(
+        new CustomEvent("supletivo:lead-wizard-phase", { detail: { phase } })
+      );
+    }
+  });
+
   onMount(() => {
     const session = getSession();
     if (session?.ref) {
       hasRef = true;
     }
+
+    // Escuta comandos acionados diretamente nos botões do Dock Wizard
+    const handleWizardStep = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: "selection" | "checkout" }>;
+      const step = customEvent.detail?.step;
+      if (step === "selection") {
+        backToSelection();
+      } else if (step === "checkout" && mode === "selection") {
+        void selectPix();
+      }
+    };
+
+    window.addEventListener("supletivo:lead-wizard-step", handleWizardStep);
+
+    // Polling ativo para detecção imediata de confirmação do pagamento
+    const pollInterval = setInterval(async () => {
+      try {
+        const lead = await getLeadMe();
+        if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+          clearInterval(pollInterval);
+          // Redireciona imediatamente para o novo ambiente do estudante: Fase de Matrícula
+          window.location.href = "/student/enrollment";
+        }
+      } catch {
+        // Silencioso em caso de polling antes de rota pronta
+      }
+    }, 3000);
+
+    return () => {
+      window.removeEventListener("supletivo:lead-wizard-step", handleWizardStep);
+      clearInterval(pollInterval);
+    };
   });
 
   async function selectPix() {

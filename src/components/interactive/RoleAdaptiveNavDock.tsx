@@ -61,10 +61,25 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(bypassAuth || true);
 
   // Estados operacionais de cada ambiente
-  const [studentState, setStudentState] = React.useState<StudentDockState>({
-    status: null,
-    pendingDocsCount: 0,
-    hasPartnerUrl: false,
+  const [studentState, setStudentState] = React.useState<StudentDockState>(() => {
+    let initialStatus: string | null = null;
+    if (typeof window !== "undefined") {
+      if (window.location.pathname.startsWith("/student/lead")) {
+        initialStatus = "lead";
+      } else if (window.location.pathname.startsWith("/student/enrollment")) {
+        initialStatus = "enrollment";
+      }
+    } else if (currentPath.startsWith("/student/lead")) {
+      initialStatus = "lead";
+    } else if (currentPath.startsWith("/student/enrollment")) {
+      initialStatus = "enrollment";
+    }
+    return {
+      status: initialStatus,
+      pendingDocsCount: 0,
+      hasPartnerUrl: false,
+      leadPhase: "selection",
+    };
   });
   const [promoterState, setPromoterState] = React.useState<PromoterDockState>({
     status: "active",
@@ -157,9 +172,18 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       }
     };
 
+    // Escuta fase do wizard de ativação do lead (modalidade vs checkout)
+    const handleLeadPhaseChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ phase: "selection" | "checkout" }>;
+      if (customEvent.detail?.phase) {
+        setStudentState((prev) => ({ ...prev, leadPhase: customEvent.detail.phase }));
+      }
+    };
+
     window.addEventListener("supletivo:role-change", handleRoleChange);
     window.addEventListener("supletivo:lock-change", handleLockChange);
     window.addEventListener("supletivo:student-state", handleStudentStateChange);
+    window.addEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
     window.addEventListener("supletivo:admin-state", handleAdminStateChange);
@@ -186,14 +210,25 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       window.removeEventListener("supletivo:role-change", handleRoleChange);
       window.removeEventListener("supletivo:lock-change", handleLockChange);
       window.removeEventListener("supletivo:student-state", handleStudentStateChange);
+      window.removeEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
       window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);
       window.removeEventListener("supletivo:polo-state", handlePoloStateChange);
       window.removeEventListener("supletivo:admin-state", handleAdminStateChange);
     };
   }, [studentState.status]);
 
-  // Se não autenticado ou em estado travado (paywall), suprime o dock
-  if (!isAuthenticated || isLocked) {
+  // Mescla estados controlados com estados internos
+  const effectiveStudentState: StudentDockState = { ...studentState, ...controlledStudentState };
+  const effectivePromoterState: PromoterDockState = { ...promoterState, ...controlledPromoterState };
+  const effectivePoloState: PoloDockState = { ...poloState, ...controlledPoloState };
+
+  // O status 'lead' do estudante opera como um wizard guia de 2 fases no dock
+  const isLeadWizard =
+    (activeRole === "student" || activeRole === "aluno") &&
+    (effectiveStudentState.status === "lead" || currentPath.startsWith("/student/lead"));
+
+  // Se não autenticado ou (bloqueado e não for o wizard do lead), suprime o dock
+  if (!isAuthenticated || (isLocked && !isLeadWizard)) {
     return null;
   }
 
@@ -202,11 +237,6 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
     onNavigate,
     onLogout: handleLogout,
   };
-
-  // Mescla estados controlados com estados internos
-  const effectiveStudentState: StudentDockState = { ...studentState, ...controlledStudentState };
-  const effectivePromoterState: PromoterDockState = { ...promoterState, ...controlledPromoterState };
-  const effectivePoloState: PoloDockState = { ...poloState, ...controlledPoloState };
 
   // Mapeamento dinâmico de itens usando o adaptador do ambiente ativo
   let items: FloatingDockItem[] = [];

@@ -8,6 +8,8 @@ import {
   IconAward,
   IconHelpCircle,
   IconDoorExit,
+  IconCreditCard,
+  IconQrcode,
 } from "@tabler/icons-react";
 
 /**
@@ -19,16 +21,44 @@ export function getStudentDockItems(
   ctx: AdapterContext,
 ): FloatingDockItem[] {
   const { currentPath, onLogout } = ctx;
-  const status = state.status || "enrollment";
+  const status = state.status || (currentPath.startsWith("/student/lead") ? "lead" : "enrollment");
+
+  // ── WIZARD GUIA EXCLUSIVO PARA ALUNO > LEAD (Estritamente 2 Fases / 2 Botões) ──
+  if (status === "lead" || currentPath.startsWith("/student/lead")) {
+    const isCheckout = state.leadPhase === "checkout";
+    return [
+      {
+        title: "1. Modalidade",
+        icon: <IconCreditCard className="h-full w-full" />,
+        onClick: () => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "selection" } })
+            );
+          }
+        },
+        isActive: !isCheckout,
+      },
+      {
+        title: "2. Checkout",
+        icon: <IconQrcode className="h-full w-full" />,
+        onClick: () => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "checkout" } })
+            );
+          }
+        },
+        isActive: isCheckout,
+      },
+    ];
+  }
 
   // Badges contextuais de Matrícula (enrollment)
   let docsBadge: string | number | null = null;
   let docsVariant: "warning" | "info" | "success" | "danger" | undefined = undefined;
 
-  if (status === "lead") {
-    docsBadge = "PIX";
-    docsVariant = "warning";
-  } else if (["rg", "address", "education", "selfie"].includes(status)) {
+  if (["rg", "address", "education", "selfie"].includes(status)) {
     docsBadge = status.toUpperCase();
     docsVariant = "warning";
   } else if (status === "awaiting_release") {
@@ -37,7 +67,7 @@ export function getStudentDockItems(
   }
 
   // Destaque ativo por status e rota
-  const isLeadActive = currentPath.startsWith("/student/lead") || status === "lead";
+  const isLeadActive = currentPath.startsWith("/student/lead");
   const isEnrollmentActive =
     currentPath.startsWith("/student/enrollment") ||
     currentPath.startsWith("/documentos") ||

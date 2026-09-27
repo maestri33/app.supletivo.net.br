@@ -56,6 +56,15 @@
     }, 2500);
   }
 
+  $effect(() => {
+    if (phase === "paid") {
+      const timer = setTimeout(() => {
+        window.location.href = "/student/enrollment";
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  });
+
   onMount(() => {
     void load();
 
@@ -114,7 +123,7 @@
         </p>
         <div class="flex flex-col gap-2 pt-2">
           <a
-            href="/matricula"
+            href="/student/enrollment"
             class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-green px-4 text-sm font-bold text-white shadow transition hover:bg-brand-green-dark"
           >
             Continuar Matrícula (Enviar Documentos) →
