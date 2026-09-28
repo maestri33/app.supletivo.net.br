@@ -14,7 +14,9 @@ export const prerender = false;
                              window.location.search.includes("demo") || 
                              window.location.hostname.includes("localhost") ||
                              !document.referrer ||
-                             document.referrer.includes("supletivo.net.br");
+                             document.referrer.includes("supletivo.net.br") ||
+                             document.referrer.includes("infinitepay.io") ||
+                             window.location.search.includes("payment=confirmed");
       if (!raw && isSandboxOrDev) {
         localStorage.setItem("supletivo.login", JSON.stringify({
           access_token: "sandbox-student-enrollment-token",

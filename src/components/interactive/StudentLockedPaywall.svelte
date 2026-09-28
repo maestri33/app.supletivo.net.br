@@ -17,7 +17,8 @@
   // 2. "preparing": Loop de espera/carregamento até o ambiente de checkout estar pronto
   // 3. "pix": Checkout nativo com QR Code e Copia-e-Cola do Asaas (Fase 2 - Botão 2 liberado e ativo)
   // 4. "profile": Completação de CPF/Email caso o perfil esteja incompleto
-  type PaywallMode = "selection" | "preparing" | "pix" | "profile";
+  // 5. "card_waiting": Espera de compensação após retorno do gateway externo InfinitePay
+  type PaywallMode = "selection" | "preparing" | "pix" | "profile" | "card_waiting";
 
   let mode = $state<PaywallMode>("selection");
   let busy = $state(false);
@@ -76,14 +77,63 @@
     // Inicialmente o checkout NÃO está pronto, botão 2 do dock permanece desabilitado
     notifyDock("selection", false, null);
 
+    // Verifica se o aluno está retornando do checkout externo da InfinitePay
+    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const isReturningFromCard =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("supletivo_pending_card_checkout") === "true" ||
+        urlParams?.has("order_nsu") ||
+        urlParams?.has("payment_return") ||
+        urlParams?.get("from") === "infinitepay" ||
+        document.referrer.includes("infinitepay.io"));
+
+    if (isReturningFromCard) {
+      mode = "preparing";
+      selectedModality = "credit_card";
+      isCheckoutReady = true;
+      preparingStep = 2;
+      preparingTitle = "Validando confirmação do pagamento...";
+      preparingMessage = "Detectamos seu retorno do checkout seguro. Consultando autorização na InfinitePay...";
+      notifyDock("checkout", true, "credit_card");
+
+      let checkAttempts = 0;
+      const maxCheckAttempts = 6;
+      const checkInterval = setInterval(async () => {
+        checkAttempts++;
+        try {
+          const lead = await getLeadMe();
+          if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+            clearInterval(checkInterval);
+            if (typeof localStorage !== "undefined") {
+              localStorage.removeItem("supletivo_pending_card_checkout");
+              localStorage.removeItem("supletivo_card_checkout_url");
+            }
+            preparingStep = 3;
+            preparingMessage = "Pagamento confirmado! Abrindo seu ambiente de matrícula...";
+            await new Promise((r) => setTimeout(r, 500));
+            window.location.href = "/student/enrollment?payment=confirmed";
+            return;
+          }
+        } catch {}
+
+        if (checkAttempts >= maxCheckAttempts) {
+          clearInterval(checkInterval);
+          mode = "card_waiting";
+        }
+      }, 1500);
+    }
+
     // Checa proativamente se já existe um checkout emitido no backend
     getLeadMe()
       .then((lead) => {
         if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
-          window.location.href = "/student/enrollment";
+          const redirectUrl = isReturningFromCard
+            ? "/student/enrollment?payment=confirmed&provider=infinitepay"
+            : "/student/enrollment?payment=confirmed";
+          window.location.href = redirectUrl;
           return;
         }
-        if (lead?.checkout) {
+        if (lead?.checkout && !isReturningFromCard) {
           const chk = lead.checkout;
           if (chk.payment_method === "pix" && (chk.qrcode_payload || chk.qrcode_image)) {
             checkoutData = chk;
@@ -106,9 +156,21 @@
       const step = customEvent.detail?.step;
       if (step === "selection") {
         backToSelection();
-      } else if (step === "checkout" && isCheckoutReady && checkoutData) {
-        mode = "pix";
-        notifyDock("checkout", true, "pix");
+      } else if (step === "checkout" && isCheckoutReady) {
+        if (selectedModality === "pix" && checkoutData) {
+          mode = "pix";
+          notifyDock("checkout", true, "pix");
+        } else if (selectedModality === "credit_card") {
+          const directUrl =
+            (checkoutData as any)?.checkout_url ||
+            (typeof localStorage !== "undefined" ? localStorage.getItem("supletivo_card_checkout_url") : null);
+          if (directUrl && mode !== "card_waiting") {
+            window.location.href = directUrl;
+          } else {
+            mode = "card_waiting";
+            notifyDock("checkout", true, "credit_card");
+          }
+        }
       }
     };
 
@@ -120,8 +182,12 @@
         const lead = await getLeadMe();
         if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
           clearInterval(pollInterval);
+          if (typeof localStorage !== "undefined") {
+            localStorage.removeItem("supletivo_pending_card_checkout");
+            localStorage.removeItem("supletivo_card_checkout_url");
+          }
           // Redireciona imediatamente para o novo ambiente do estudante: Fase de Matrícula
-          window.location.href = "/student/enrollment";
+          window.location.href = "/student/enrollment?payment=confirmed";
         }
       } catch {
         // Silencioso em caso de polling
@@ -288,10 +354,17 @@
     try {
       preparingStep = 2;
       const res = await setLeadCheckout("credit_card");
+      checkoutData = res;
 
       // 1. Link direto oficial do gateway InfinitePay
       const directUrl = res.checkout_url || res.url || res.short_url;
       if (directUrl) {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("supletivo_pending_card_checkout", "true");
+          localStorage.setItem("supletivo_card_checkout_url", directUrl);
+        }
+        isCheckoutReady = true;
+        notifyDock("checkout", true, "credit_card");
         preparingStep = 3;
         preparingMessage = "Ambiente seguro pronto! Redirecionando para a InfinitePay...";
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -310,6 +383,12 @@
           const lead = await getLeadMe();
           const targetUrl = lead?.checkout?.checkout_url || lead?.checkout?.url || lead?.checkout?.short_url;
           if (targetUrl) {
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("supletivo_pending_card_checkout", "true");
+              localStorage.setItem("supletivo_card_checkout_url", targetUrl);
+            }
+            isCheckoutReady = true;
+            notifyDock("checkout", true, "credit_card");
             preparingStep = 3;
             preparingMessage = "Ambiente seguro pronto! Redirecionando para a InfinitePay...";
             await new Promise((resolve) => setTimeout(resolve, 400));
@@ -322,6 +401,12 @@
       // Fallback para getLeadCheckoutUrl()
       const checkUrl = await getLeadCheckoutUrl();
       if (checkUrl.url) {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("supletivo_pending_card_checkout", "true");
+          localStorage.setItem("supletivo_card_checkout_url", checkUrl.url);
+        }
+        isCheckoutReady = true;
+        notifyDock("checkout", true, "credit_card");
         preparingStep = 3;
         preparingMessage = "Redirecionando para a InfinitePay...";
         await new Promise((resolve) => setTimeout(resolve, 400));
@@ -338,6 +423,27 @@
       mode = "selection";
       notifyDock("selection", isCheckoutReady, selectedModality);
       errorMessage = err?.message || "Não foi possível conectar ao checkout de cartão da InfinitePay.";
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function checkCardPaymentStatus() {
+    busy = true;
+    errorMessage = null;
+    try {
+      const lead = await getLeadMe();
+      if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem("supletivo_pending_card_checkout");
+          localStorage.removeItem("supletivo_card_checkout_url");
+        }
+        window.location.href = "/student/enrollment?payment=confirmed";
+        return;
+      }
+      errorMessage = "Pagamento ainda não confirmado pela operadora do cartão. Aguarde alguns instantes e tente novamente.";
+    } catch (err: any) {
+      errorMessage = err?.message || "Não foi possível consultar o status do pagamento no momento.";
     } finally {
       busy = false;
     }
@@ -624,6 +730,60 @@
       </div>
 
       <PixCheckout token={pixToken || "default"} initialData={checkoutData} />
+    </div>
+
+  {:else if mode === "card_waiting"}
+    <!-- Retorno da InfinitePay / Aguardando Compensação -->
+    <div class="max-w-md mx-auto p-6 sm:p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl text-center space-y-6 bg-white/[0.03]">
+      <div class="inline-flex size-14 rounded-full bg-emerald-500/20 text-emerald-400 items-center justify-center text-2xl border border-emerald-500/40">
+        💳
+      </div>
+
+      <div class="space-y-2">
+        <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider">
+          Retorno do Gateway Seguro
+        </span>
+        <h2 class="text-xl font-display text-white">Você concluiu seu pagamento?</h2>
+        <p class="text-xs text-white/70 leading-relaxed">
+          Se você concluiu o pagamento na página da InfinitePay, a operadora processa a autorização em instantes. Clique abaixo para checar a liberação da sua matrícula.
+        </p>
+      </div>
+
+      {#if errorMessage}
+        <div class="p-3 rounded-xl bg-amber-500/20 border border-amber-500/40 text-xs text-amber-200 text-center">
+          {errorMessage}
+        </div>
+      {/if}
+
+      <div class="space-y-3 pt-2">
+        <button
+          type="button"
+          onclick={checkCardPaymentStatus}
+          disabled={busy}
+          class="w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer shadow-lg disabled:opacity-50"
+        >
+          {busy ? "Verificando com o Banco..." : "✓ Já paguei, Verificar Liberação"}
+        </button>
+
+        {#if (checkoutData?.checkout_url || (typeof localStorage !== "undefined" && localStorage.getItem("supletivo_card_checkout_url")))}
+          <a
+            href={checkoutData?.checkout_url || localStorage.getItem("supletivo_card_checkout_url")}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block w-full py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+          >
+            Reabrir Página da InfinitePay ↗
+          </a>
+        {/if}
+
+        <button
+          type="button"
+          onclick={backToSelection}
+          class="w-full text-center text-xs text-white/50 hover:text-white transition-colors pt-1 cursor-pointer"
+        >
+          Escolher outra forma de pagamento
+        </button>
+      </div>
     </div>
   {/if}
 </div>

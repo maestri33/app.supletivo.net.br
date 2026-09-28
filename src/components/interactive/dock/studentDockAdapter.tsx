@@ -30,6 +30,17 @@ export function getStudentDockItems(
       state.isCheckoutReady ||
       (typeof window !== "undefined" && Boolean((window as any).__supletivoLeadCheckoutReady))
     );
+    const modality = state.selectedModality;
+    const checkoutTitle = modality === "pix"
+      ? "2. Checkout PIX"
+      : modality === "credit_card"
+        ? "2. Checkout Cartão"
+        : "2. Checkout";
+
+    const checkoutIcon = modality === "credit_card"
+      ? <IconCreditCard className="h-full w-full" />
+      : <IconQrcode className="h-full w-full" />;
+
     return [
       {
         title: "1. Modalidade",
@@ -44,8 +55,8 @@ export function getStudentDockItems(
         isActive: !isCheckout,
       },
       {
-        title: "2. Checkout",
-        icon: <IconQrcode className="h-full w-full" />,
+        title: checkoutTitle,
+        icon: checkoutIcon,
         onClick: () => {
           if (!isCheckoutReady) return;
           if (typeof window !== "undefined") {

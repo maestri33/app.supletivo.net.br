@@ -192,4 +192,40 @@ test.describe("Wizard Guia do Dock no Status Aluno > Lead (/student/lead)", () =
     await page.waitForURL(/pay\.infinitepay\.io\/mock-order-123/, { timeout: 10000 });
     expect(page.url()).toContain("pay.infinitepay.io/mock-order-123");
   });
+
+  test("deve processar o retorno da InfinitePay, verificar pagamento e avançar para o ambiente de matrícula com banner de confirmação", async ({ page }) => {
+    // Mock do backend informando que o checkout foi aprovado via webhook/gateway
+    await page.route("**/api/v1/clients/lead/me*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          external_id: "lead-returning-card-test",
+          name: "Aluno Retorno Cartão",
+          phone: "11988887777",
+          status: "paid",
+          checkout: {
+            payment_method: "credit_card",
+            provider: "infinitepay",
+            amount: "1932.00",
+            is_paid: true,
+            checkout_url: "https://pay.infinitepay.io/mock-order-123",
+          },
+        }),
+      });
+    });
+
+    // Simula retorno do checkout da InfinitePay com query param
+    await page.goto("/student/lead?from=infinitepay&order_nsu=mock-order-123");
+
+    // Deve auto-avançar para o ambiente de matrícula (/student/enrollment)
+    await page.waitForURL(/\/student\/enrollment/, { timeout: 10000 });
+    expect(page.url()).toContain("/student/enrollment");
+
+    // Verifica que o banner de celebração de pagamento confirmado via InfinitePay é exibido
+    const banner = page.getByTestId("payment-confirmed-banner");
+    await expect(banner).toBeVisible();
+    await expect(page.getByText(/Pagamento Confirmado via InfinitePay!/i)).toBeVisible();
+    await expect(page.getByText(/Matrícula Garantida/i)).toBeVisible();
+  });
 });

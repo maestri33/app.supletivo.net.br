@@ -10,11 +10,26 @@
   let studentName = $state<string>("Aluno");
   let countdown = $state(3);
   let timer: ReturnType<typeof setInterval> | null = null;
+  let showPaymentConfirmedBanner = $state(false);
 
   let bothApproved = $derived(identityStatus === "approved" && addressStatus === "approved");
 
   onMount(async () => {
     try {
+      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      if (
+        urlParams?.get("payment") === "confirmed" ||
+        urlParams?.get("status") === "paid" ||
+        urlParams?.has("order_nsu") ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("supletivo_pending_card_checkout") === "true")
+      ) {
+        showPaymentConfirmedBanner = true;
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem("supletivo_pending_card_checkout");
+          localStorage.removeItem("supletivo_card_checkout_url");
+        }
+      }
+
       const session = getSession();
       if (session?.name) {
         studentName = session.name;
@@ -51,6 +66,29 @@
 </script>
 
 <div class="w-full flex flex-col items-center gap-6">
+  <!-- Banner de Celebração de Pagamento Confirmado -->
+  {#if showPaymentConfirmedBanner}
+    <div
+      data-testid="payment-confirmed-banner"
+      class="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/10 border border-emerald-400/40 text-left flex items-start gap-3.5 shadow-xl backdrop-blur-md transition-all"
+    >
+      <div class="size-9 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 font-bold shrink-0 mt-0.5">
+        ✓
+      </div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-sm font-bold text-white">Pagamento Confirmado via InfinitePay!</h2>
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-[var(--yellow)] text-[var(--ink)]">
+            Matrícula Garantida
+          </span>
+        </div>
+        <p class="text-xs text-white/80 mt-1 leading-relaxed">
+          Seu pagamento foi confirmado com sucesso. Agora, conclua o envio da sua documentação abaixo para liberação imediata do seu acesso às aulas.
+        </p>
+      </div>
+    </div>
+  {/if}
+
   <!-- Cabeçalho Institucional -->
   <div class="text-center">
     <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/30 text-xs font-semibold text-emerald-300 mb-2">
