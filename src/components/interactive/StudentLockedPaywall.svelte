@@ -530,7 +530,7 @@
             type="button"
             onclick={selectPix}
             disabled={busy}
-            class="w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-sm uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all shadow-lg cursor-pointer disabled:opacity-50"
+            class="btn w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-sm uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all shadow-lg cursor-pointer disabled:opacity-50"
           >
             {busy && selectedModality === "pix" ? "Conectando ao PIX..." : "Pagar com PIX Oficial →"}
           </button>
@@ -760,7 +760,7 @@
           type="button"
           onclick={checkCardPaymentStatus}
           disabled={busy}
-          class="w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer shadow-lg disabled:opacity-50"
+          class="btn w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer shadow-lg disabled:opacity-50"
         >
           {busy ? "Verificando com o Banco..." : "✓ Já paguei, Verificar Liberação"}
         </button>
