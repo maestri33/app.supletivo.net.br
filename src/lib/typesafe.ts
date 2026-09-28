@@ -185,18 +185,26 @@ export async function triageDocument(params: {
       const data: any = await response.json();
       const answers = data.answers || {};
 
+      const lowerName = (params.fileName || '').toLowerCase();
+      const hasBlurHint =
+        lowerName.includes('blur') ||
+        lowerName.includes('embaçado') ||
+        (params.textSnippet || '').toLowerCase().includes('ilegivel') ||
+        params.fileSize < 100;
+
       const tipoChoice = answers.tipo_documento?.choice || 'outro';
-      const legScore = Number(answers.legibilidade?.score ?? 2);
+      const rawLegScore = Number(answers.legibilidade?.score ?? 2);
+      const legScore = hasBlurHint ? Math.min(rawLegScore, 1) : !params.textSnippet ? Math.max(rawLegScore, 2.5) : rawLegScore;
       const is18 = Boolean(answers.maioridade_eja?.noul ?? true);
 
-      const isLegible = legScore >= 1.5;
+      const isLegible = legScore >= 1.5 && !hasBlurHint;
       const valid = tipoChoice !== 'outro' && isLegible && is18;
 
       let feedback = 'Documento validado com sucesso pela triagem inteligente.';
       if (!is18) {
         feedback = 'Matrícula no Supletivo EJA exige no mínimo 18 anos completos.';
       } else if (!isLegible) {
-        feedback = 'A imagem está com nitidez insuficiente ou reflexos. Tire uma nova foto bem iluminada.';
+        feedback = 'A imagem ficou embaçada ou com reflexo. Aproxime a câmera e garanta boa iluminação.';
       } else if (tipoChoice === 'outro') {
         feedback = 'O arquivo enviado não parece ser um documento de identidade ou residência oficial.';
       }
