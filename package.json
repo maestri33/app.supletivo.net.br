@@ -2,6 +2,7 @@
   "name": "app.supletivo.net.br",
   "version": "0.0.0-sandbox.49",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "astro dev --port 3020",
     "build": "astro build",
@@ -11,6 +12,7 @@
     "sync": "astro sync",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --test test/typesafe-test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "checkpoint": "sh scripts/checkpoint/checkpoint.sh",

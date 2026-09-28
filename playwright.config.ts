@@ -4,6 +4,9 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3108);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
+const isWin = process.platform === "win32";
+const wranglerCmd = isWin ? "cmd /c npx wrangler" : "npx wrangler";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -32,7 +35,7 @@ export default defineConfig({
   webServer: (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL)
     ? undefined
     : {
-        command: `npx wrangler dev dist/server/entry.mjs --assets dist/client --port ${PORT} --ip 127.0.0.1 -c wrangler.jsonc`,
+        command: `${wranglerCmd} dev dist/server/entry.mjs --assets dist/client --port ${PORT} --ip 127.0.0.1 -c wrangler.jsonc`,
         env: {
           ...process.env,
           PORT: String(PORT),

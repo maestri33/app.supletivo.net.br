@@ -132,16 +132,45 @@
     valid: boolean;
     errorMessage?: string;
   }> {
-    await new Promise((r) => setTimeout(r, 400));
-
     const lower = file.name.toLowerCase();
 
-    // Rejeição de documento de outro tipo (ex: RG/CNH enviado no lugar de conta)
+    // Rejeição imediata de documento de identidade enviado por engano
     if (/(?:^|[_\-\s])(?:rg|cnh|identidade)(?:[_\-\s.]|$)/i.test(lower)) {
       return {
         valid: false,
         errorMessage: "Ops, isso parece um documento de identidade. Envie uma conta de consumo (luz, água, internet).",
       };
+    }
+
+    try {
+      const res = await fetch("/api/v1/academic/documents/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.docType === "rg" || data.docType === "cnh") {
+          return {
+            valid: false,
+            errorMessage: "Ops, isso parece um documento de identidade. Envie uma conta de consumo (luz, água, internet).",
+          };
+        }
+        if (!data.isLegible) {
+          return {
+            valid: false,
+            errorMessage: data.feedback || "A imagem ficou embaçada ou com baixa iluminação.",
+          };
+        }
+        return { valid: true };
+      }
+    } catch (err) {
+      console.warn("[triage:address] API call failed, using client fallback", err);
     }
 
     if (lower.includes("blur") || lower.includes("embaçado")) {
