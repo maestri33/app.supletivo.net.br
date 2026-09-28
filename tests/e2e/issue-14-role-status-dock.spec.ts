@@ -13,9 +13,10 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
     await expect(page.getByRole("heading", { name: "Tabs de Status com Dock Adaptativo", level: 1 })).toBeVisible();
 
     // Valida seletor de perfil e variante
-    await expect(page.getByRole("button", { name: "🎓 Aluno" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "💼 Promotor" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "🏫 Polo" })).toBeVisible();
+    const root = page.getByTestId("role-status-tabs-root");
+    await expect(root.getByRole("button", { name: "🎓 Aluno" })).toBeVisible();
+    await expect(root.getByRole("button", { name: "💼 Promotor" })).toBeVisible();
+    await expect(root.getByRole("button", { name: "🏫 Polo" })).toBeVisible();
 
     // Valida que as abas de status do aluno estão visíveis
     await expect(page.getByRole("tab", { name: /1\. Envio de Documentos/i })).toBeVisible();
@@ -43,7 +44,7 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
 
   test("deve alternar para o perfil Promotor e atualizar abas e dock para Promotor", async ({ page }) => {
     // Clica no botão Promotor
-    await page.getByRole("button", { name: "💼 Promotor" }).click();
+    await page.getByTestId("role-status-tabs-root").getByRole("button", { name: "💼 Promotor" }).click();
 
     // Valida abas do promotor
     await expect(page.getByRole("tab", { name: /Credenciamento/i })).toBeVisible();
@@ -56,7 +57,7 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
 
   test("deve alternar para o perfil Polo e atualizar abas e dock para Coordenador de Hub", async ({ page }) => {
     // Clica no botão Polo
-    await page.getByRole("button", { name: "🏫 Polo" }).click();
+    await page.getByTestId("role-status-tabs-root").getByRole("button", { name: "🏫 Polo" }).click();
 
     // Valida abas do polo
     await expect(page.getByRole("tab", { name: /Fila Documental/i })).toBeVisible();

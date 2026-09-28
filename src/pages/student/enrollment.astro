@@ -12,9 +12,6 @@ export const prerender = false;
       let raw = localStorage.getItem("supletivo.login");
       const isSandboxOrDev = window.location.search.includes("sandbox") || 
                              window.location.search.includes("demo") || 
-                             window.location.hostname.includes("localhost") ||
-                             !document.referrer ||
-                             document.referrer.includes("supletivo.net.br") ||
                              document.referrer.includes("infinitepay.io") ||
                              window.location.search.includes("payment=confirmed");
       if (!raw && isSandboxOrDev) {

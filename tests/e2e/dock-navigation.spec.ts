@@ -135,8 +135,9 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
     await page.goto("/tabs-status");
 
     // As duas tabs superiores devem ser exibidas
-    const tabAluno = page.getByRole("button", { name: "🎓 Aluno" });
-    const tabPromotor = page.getByRole("button", { name: "💼 Promotor" });
+    const root = page.getByTestId("role-status-tabs-root");
+    const tabAluno = root.getByRole("button", { name: "🎓 Aluno" });
+    const tabPromotor = root.getByRole("button", { name: "💼 Promotor" });
     await expect(tabAluno).toBeVisible({ timeout: 10000 });
     await expect(tabPromotor).toBeVisible();
 

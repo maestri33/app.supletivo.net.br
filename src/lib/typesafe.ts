@@ -65,15 +65,29 @@ function heuristicDocumentTriage(
     lowerSnippet.includes('ilegivel');
 
   let docType: DocumentTriageResult['docType'] = 'outro';
-  if (lowerName.includes('rg') || lowerSnippet.includes('registro geral') || lowerSnippet.includes('identidade')) {
+  if (
+    /(?:^|[_\-\s.])(?:rg|identidade)(?:[_\-\s.]|$)/i.test(lowerName) ||
+    lowerSnippet.includes('registro geral') ||
+    lowerSnippet.includes('identidade')
+  ) {
     docType = 'rg';
-  } else if (lowerName.includes('cnh') || lowerSnippet.includes('habilitacao') || lowerSnippet.includes('detran')) {
+  } else if (
+    /(?:^|[_\-\s.])(?:cnh)(?:[_\-\s.]|$)/i.test(lowerName) ||
+    lowerSnippet.includes('habilitacao') ||
+    lowerSnippet.includes('habilitação') ||
+    lowerSnippet.includes('detran')
+  ) {
     docType = 'cnh';
   } else if (
     lowerName.includes('residencia') ||
     lowerName.includes('endereco') ||
     lowerName.includes('luz') ||
     lowerName.includes('agua') ||
+    lowerName.includes('energia') ||
+    lowerName.includes('conta') ||
+    lowerName.includes('fatura') ||
+    lowerName.includes('gas') ||
+    lowerName.includes('internet') ||
     lowerSnippet.includes('consumo')
   ) {
     docType = 'comprovante_residencia';
@@ -86,7 +100,7 @@ function heuristicDocumentTriage(
   if (isInvalid) {
     feedback = 'Arquivo não reconhecido como documento oficial válido.';
   } else if (isBlur) {
-    feedback = 'A imagem está com baixa nitidez ou reflexo excessivo. Aproxime a câmera.';
+    feedback = 'A imagem ficou embaçada ou com reflexo. Aproxime a câmera e garanta boa iluminação.';
   }
 
   return {
