@@ -95,7 +95,8 @@ const FloatingDockMobile: React.FC<{
                     "shadow-[0_8px_20px_-6px_rgba(11,18,32,0.22)]",
                     item.isActive
                       ? "bg-[var(--yellow)] text-[var(--ink)] border-[var(--ink)] ring-2 ring-[var(--yellow)]/50"
-                      : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] hover:bg-[var(--paper-soft)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-[rgba(255,255,255,0.12)]"
+                      : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] hover:bg-[var(--paper-soft)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-[rgba(255,255,255,0.12)]",
+                    item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
                   )}
                   onItemClick={() => setOpen(false)}
                 >

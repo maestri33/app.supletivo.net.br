@@ -15,6 +15,8 @@ export interface StudentDockState {
   enrollmentStep?: EnrollmentStatus;
   isLocked?: boolean;
   leadPhase?: "selection" | "checkout";
+  isCheckoutReady?: boolean;
+  selectedModality?: "pix" | "credit_card" | null;
 }
 
 export interface PromoterDockState {

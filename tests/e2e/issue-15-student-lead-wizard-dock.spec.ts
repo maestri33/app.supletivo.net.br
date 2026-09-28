@@ -11,48 +11,185 @@ test.describe("Wizard Guia do Dock no Status Aluno > Lead (/student/lead)", () =
           "supletivo.login",
           JSON.stringify({
             access_token: "mock-student-token",
+            refresh_token: "mock-refresh-token",
             roles: ["student"],
             role_statuses: { student: "lead" },
           })
         );
       } catch {}
     });
+
+    // Mock do refresh para evitar deslogar em caso de 401
+    await page.route("**/api/v1/clients/auth/refresh*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          access_token: "mock-student-token",
+          refresh_token: "mock-refresh-token",
+          token_type: "bearer",
+        }),
+      });
+    });
+
+    // Mock de whoami para estabilidade de sessão
+    await page.route("**/api/v1/clients/whoami*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          roles: ["student"],
+          active_role: "student",
+          user: { name: "Aluno Teste", external_id: "lead-12345" },
+        }),
+      });
+    });
+
+    // Mock padrão do lead para ambiente de teste isolado
+    await page.route("**/api/v1/clients/lead/me*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          external_id: "lead-12345",
+          status: "lead",
+          created_at: new Date().toISOString(),
+          customer: { name: "Aluno Teste", phone: "11999999999", email: "aluno@teste.com" },
+          promoter: {},
+          checkout: null,
+        }),
+      });
+    });
   });
 
-  test("dock deve renderizar como wizard guia com exatamente 2 botões para status lead", async ({ page }) => {
+  test("dock deve renderizar como wizard guia com botão 2 desabilitado inicialmente", async ({ page }) => {
     await page.goto("/student/lead");
     await expect(page.locator("h1").first()).toBeVisible();
 
     // Valida que o dock nativo no rodapé renderizou
-    const navBar = page.locator("nav[aria-label='Navegação principal do student'], nav[aria-label='Navegação principal do aluno']");
+    const navBar = page.locator(
+      "nav[aria-label='Navegação principal do student'], nav[aria-label='Navegação principal do aluno']"
+    );
     await expect(navBar).toBeVisible();
 
     // Valida que existem estritamente as duas fases: 1. Modalidade e 2. Checkout
-    await expect(navBar.getByText("1. Modalidade")).toBeVisible();
-    await expect(navBar.getByText("2. Checkout")).toBeVisible();
-
-    // Valida que opções padrão de navegação (Meu Curso, Sair, etc.) NÃO estão presentes no dock em lead
-    await expect(navBar.getByText("Meu Curso")).toHaveCount(0);
-    await expect(navBar.getByText("Sair")).toHaveCount(0);
-  });
-
-  test("deve alternar a fase ativa entre 1. Modalidade e 2. Checkout", async ({ page }) => {
-    await page.goto("/student/lead");
-    const navBar = page.locator("nav[aria-label='Navegação principal do student'], nav[aria-label='Navegação principal do aluno']");
-    await expect(navBar).toBeVisible();
-
-    // Inicialmente na Fase 1 (Modalidade)
     const btnModalidade = navBar.getByRole("button", { name: /1\. Modalidade/i });
     const btnCheckout = navBar.getByRole("button", { name: /2\. Checkout/i });
 
     await expect(btnModalidade).toBeVisible();
     await expect(btnCheckout).toBeVisible();
 
-    // Ao clicar em 'Pagar com PIX' na página central, avança para a Fase 2 (Checkout)
-    const pixButton = page.getByRole("button", { name: /Pagar com PIX/i });
-    if (await pixButton.isVisible()) {
-      await pixButton.click();
-      await page.waitForTimeout(500);
-    }
+    // REGRA DE OURO: O segundo botão NÃO deve estar disponível inicialmente
+    await expect(btnCheckout).toBeDisabled();
+
+    // Valida que opções padrão de navegação (Meu Curso, Sair, etc.) NÃO estão presentes no dock em lead
+    await expect(navBar.getByText("Meu Curso")).toHaveCount(0);
+    await expect(navBar.getByText("Sair")).toHaveCount(0);
+  });
+
+  test("deve entrar em loop de preparação ao escolher PIX e habilitar botão 2 do dock quando pronto", async ({ page }) => {
+    // Intercepta a criação do checkout PIX com simulação realista e delay
+    await page.route("**/api/v1/clients/lead/checkout*", async (route) => {
+      await new Promise((r) => setTimeout(r, 600));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          payment_method: "pix",
+          provider: "asaas",
+          amount: "999.00",
+          is_paid: false,
+          qrcode_payload: "00020126580014br.gov.bcb.pix0136mock-pix-payload-test-1234567890",
+          qrcode_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          short_url: "https://supletivo.net.br/pix/mock-token-123",
+          checkout_url: "https://supletivo.net.br/pix/mock-token-123",
+        }),
+      });
+    });
+
+    await page.route("**/api/v1/clients/lead/pix/*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          amount: "999.00",
+          is_paid: false,
+          qrcode_payload: "00020126580014br.gov.bcb.pix0136mock-pix-payload-test-1234567890",
+          qrcode_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        }),
+      });
+    });
+
+    await page.goto("/student/lead");
+    const navBar = page.locator(
+      "nav[aria-label='Navegação principal do student'], nav[aria-label='Navegação principal do aluno']"
+    );
+    await expect(navBar).toBeVisible();
+
+    const btnModalidade = navBar.getByRole("button", { name: /1\. Modalidade/i });
+    const btnCheckout = navBar.getByRole("button", { name: /2\. Checkout/i });
+
+    // Inicialmente bloqueado
+    await expect(btnCheckout).toBeDisabled();
+
+    // Clica no card PIX Oficial
+    const btnPix = page.getByRole("button", { name: /Pagar com PIX Oficial/i });
+    await expect(btnPix).toBeVisible();
+    await btnPix.click();
+
+    // Aguarda conclusão do loop e transição para o checkout PIX
+    await expect(btnCheckout).toBeEnabled({ timeout: 10000 });
+    await expect(page.getByText(/PIX Bancário Oficial/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Copiar código PIX/i })).toBeVisible();
+
+    // Testa navegação de retorno via Dock: clica em '1. Modalidade'
+    await btnModalidade.click();
+    await expect(page.getByText(/Conclua sua matrícula para liberar as aulas/i)).toBeVisible();
+
+    // Botão 2 continua habilitado permitindo ao aluno retornar ao checkout gerado
+    await expect(btnCheckout).toBeEnabled();
+
+    // Clica em '2. Checkout' no Dock para voltar à visualização do PIX
+    await btnCheckout.click();
+    await expect(page.getByText(/PIX Bancário Oficial/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Copiar código PIX/i })).toBeVisible();
+  });
+
+  test("deve entrar em loop ao escolher Cartão e redirecionar para URL externa da InfinitePay", async ({ page }) => {
+    // Intercepta a criação do checkout de Cartão com simulação InfinitePay
+    await page.route("**/api/v1/clients/lead/checkout*", async (route) => {
+      await new Promise((r) => setTimeout(r, 400));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          payment_method: "credit_card",
+          provider: "infinitepay",
+          amount: "1932.00",
+          is_paid: false,
+          checkout_url: "https://pay.infinitepay.io/mock-order-123",
+          short_url: "https://supletivo.net.br/pix/mock-order-123",
+        }),
+      });
+    });
+
+    // Intercepta navegação externa para o domínio InfinitePay
+    await page.route("**/pay.infinitepay.io/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<html><body>InfinitePay Checkout Mock</body></html>",
+      });
+    });
+
+    await page.goto("/student/lead");
+    const btnCredit = page.getByRole("button", { name: /Pagar no Cartão \(InfinitePay\)/i });
+    await expect(btnCredit).toBeVisible();
+
+    // Aguarda o redirecionamento de saída para a InfinitePay
+    await btnCredit.click();
+    await page.waitForURL(/pay\.infinitepay\.io\/mock-order-123/, { timeout: 10000 });
+    expect(page.url()).toContain("pay.infinitepay.io/mock-order-123");
   });
 });

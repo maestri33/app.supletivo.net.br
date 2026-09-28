@@ -79,6 +79,8 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       pendingDocsCount: 0,
       hasPartnerUrl: false,
       leadPhase: "selection",
+      isCheckoutReady: false,
+      selectedModality: null,
     };
   });
   const [promoterState, setPromoterState] = React.useState<PromoterDockState>({
@@ -180,10 +182,32 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       }
     };
 
+    // Escuta estado de prontidão e modalidade do checkout do lead
+    const handleLeadCheckoutStatus = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        ready: boolean;
+        phase?: "selection" | "checkout";
+        modality?: "pix" | "credit_card" | null;
+      }>;
+      if (customEvent.detail) {
+        if (typeof window !== "undefined") {
+          (window as any).__supletivoLeadCheckoutReady = customEvent.detail.ready;
+        }
+        setStudentState((prev) => ({
+          ...prev,
+          isCheckoutReady: customEvent.detail.ready,
+          leadPhase: customEvent.detail.phase ?? prev.leadPhase,
+          selectedModality:
+            customEvent.detail.modality !== undefined ? customEvent.detail.modality : prev.selectedModality,
+        }));
+      }
+    };
+
     window.addEventListener("supletivo:role-change", handleRoleChange);
     window.addEventListener("supletivo:lock-change", handleLockChange);
     window.addEventListener("supletivo:student-state", handleStudentStateChange);
     window.addEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
+    window.addEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
     window.addEventListener("supletivo:admin-state", handleAdminStateChange);
@@ -194,11 +218,12 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       getStudentMe()
         .then((s) => {
           if (s) {
-            setStudentState({
-              status: s.status ?? null,
-              pendingDocsCount: s.pendencies?.length ?? 0,
-              hasPartnerUrl: !!s.platform?.url,
-            });
+            setStudentState((prev) => ({
+              ...prev,
+              status: s.status ?? prev.status ?? null,
+              pendingDocsCount: s.pendencies?.length ?? prev.pendingDocsCount ?? 0,
+              hasPartnerUrl: Boolean(s.platform?.url),
+            }));
           }
         })
         .catch(() => {
@@ -211,6 +236,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       window.removeEventListener("supletivo:lock-change", handleLockChange);
       window.removeEventListener("supletivo:student-state", handleStudentStateChange);
       window.removeEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
+      window.removeEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
       window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);
       window.removeEventListener("supletivo:polo-state", handlePoloStateChange);
       window.removeEventListener("supletivo:admin-state", handleAdminStateChange);

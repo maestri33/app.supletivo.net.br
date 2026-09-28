@@ -26,6 +26,10 @@ export function getStudentDockItems(
   // ── WIZARD GUIA EXCLUSIVO PARA ALUNO > LEAD (Estritamente 2 Fases / 2 Botões) ──
   if (status === "lead" || currentPath.startsWith("/student/lead")) {
     const isCheckout = state.leadPhase === "checkout";
+    const isCheckoutReady = Boolean(
+      state.isCheckoutReady ||
+      (typeof window !== "undefined" && Boolean((window as any).__supletivoLeadCheckoutReady))
+    );
     return [
       {
         title: "1. Modalidade",
@@ -43,6 +47,7 @@ export function getStudentDockItems(
         title: "2. Checkout",
         icon: <IconQrcode className="h-full w-full" />,
         onClick: () => {
+          if (!isCheckoutReady) return;
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "checkout" } })
@@ -50,6 +55,7 @@ export function getStudentDockItems(
           }
         },
         isActive: isCheckout,
+        disabled: !isCheckoutReady,
       },
     ];
   }
