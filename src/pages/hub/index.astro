@@ -19,6 +19,25 @@ export const prerender = false;
           return;
         }
 
+        // Confere se o usuário tem a permissão de polo/coordenador antes de acessar
+        try {
+          const whoResp = await fetch("/api/v1/clients/whoami", {
+            headers: {
+              "Authorization": "Bearer " + session.access_token,
+              "Accept": "application/json"
+            }
+          });
+          if (whoResp.ok) {
+            const who = await whoResp.json();
+            const roles = Array.isArray(who.roles) ? who.roles : [];
+            const hasHubRole = roles.some((r) => ["coordinator", "hub", "polo"].includes(r));
+            if (!hasHubRole) {
+              window.location.replace("/student");
+              return;
+            }
+          }
+        } catch (e) {}
+
         try {
           const resp = await fetch("/api/v1/leadership/reviews", {
             headers: {

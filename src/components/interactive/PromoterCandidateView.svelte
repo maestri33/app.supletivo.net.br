@@ -16,6 +16,15 @@
     mounted = true;
     try {
       const who = await whoami();
+      const status = who?.role_statuses?.promoter;
+      if (status === "active") {
+        window.location.replace("/promoter/active");
+        return;
+      }
+      if (status === "training") {
+        window.location.replace("/promoter/training");
+        return;
+      }
       if (who?.name) promoterName = who.name;
     } catch {
       const session = getSession();

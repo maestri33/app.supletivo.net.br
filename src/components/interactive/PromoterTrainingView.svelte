@@ -14,6 +14,11 @@
     mounted = true;
     try {
       const who = await whoami();
+      const status = who?.role_statuses?.promoter;
+      if (status === "candidate") {
+        window.location.replace("/promoter/candidate");
+        return;
+      }
       if (who?.name) promoterName = who.name;
     } catch (e) {}
 

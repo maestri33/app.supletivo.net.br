@@ -3,7 +3,7 @@
 import * as React from "react";
 import { FloatingDock, type FloatingDockItem } from "@/components/ui/floating-dock";
 import { getAccessToken, clearSession } from "@/lib/session";
-import { getStudentMe } from "@/lib/api";
+import { getStudentMe, whoami, getEnrollmentMe } from "@/lib/api";
 import {
   type UserRole,
   type StudentDockState,
@@ -197,20 +197,35 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
     // Hidratação proativa do status do aluno se logado
     const currentToken = getAccessToken();
     if (!studentState.status && currentToken) {
-      getStudentMe()
-        .then((s) => {
-          if (s) {
+      whoami()
+        .then((w) => {
+          const stStatus = w.role_statuses?.student;
+          if (stStatus === "enrollment") {
             setStudentState((prev) => ({
               ...prev,
-              status: s.status ?? prev.status ?? null,
-              pendingDocsCount: s.pendencies?.length ?? prev.pendingDocsCount ?? 0,
-              hasPartnerUrl: Boolean(s.platform?.url),
+              status: "enrollment",
             }));
+          } else if (stStatus === "lead") {
+            setStudentState((prev) => ({
+              ...prev,
+              status: "lead",
+            }));
+          } else if (stStatus === "student" || (Array.isArray(w.roles) && w.roles.includes("student"))) {
+            getStudentMe()
+              .then((s) => {
+                if (s) {
+                  setStudentState((prev) => ({
+                    ...prev,
+                    status: s.status ?? prev.status ?? null,
+                    pendingDocsCount: s.pendencies?.length ?? prev.pendingDocsCount ?? 0,
+                    hasPartnerUrl: Boolean(s.platform?.url),
+                  }));
+                }
+              })
+              .catch(() => {});
           }
         })
-        .catch(() => {
-          // Falha silenciosa em caso de rota sem acesso a studentMe
-        });
+        .catch(() => {});
     }
 
     return () => {

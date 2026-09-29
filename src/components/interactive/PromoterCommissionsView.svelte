@@ -33,6 +33,15 @@
   onMount(async () => {
     try {
       const who = await whoami();
+      const status = who?.role_statuses?.promoter;
+      if (status === "candidate") {
+        window.location.replace("/promoter/candidate");
+        return;
+      }
+      if (status === "training") {
+        window.location.replace("/promoter/training");
+        return;
+      }
       if (who?.name) promoterName = who.name;
       if ((who as any)?.pix_key) pixKey = (who as any).pix_key;
       if ((who as any)?.pix_key_type) pixType = String((who as any).pix_key_type).toUpperCase();

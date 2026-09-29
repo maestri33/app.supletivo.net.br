@@ -29,13 +29,14 @@ export const prerender = false;
 
           if (resp.ok) {
             const who = await resp.json();
+            const promoterStatus = who.role_statuses?.promoter;
             const roles = Array.isArray(who.roles) ? who.roles : [];
 
-            if (roles.includes("candidate")) {
+            if (promoterStatus === "candidate" || (!promoterStatus && roles.includes("candidate"))) {
               window.location.replace("/promoter/candidate");
               return;
             }
-            if (roles.includes("training")) {
+            if (promoterStatus === "training" || (!promoterStatus && roles.includes("training"))) {
               window.location.replace("/promoter/training");
               return;
             }

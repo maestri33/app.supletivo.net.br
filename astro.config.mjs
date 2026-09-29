@@ -63,6 +63,18 @@ export default defineConfig({
       status: 308,
       destination: '/hub',
     },
+    '/hub/index': {
+      status: 308,
+      destination: '/hub',
+    },
+    '/promoter/index': {
+      status: 308,
+      destination: '/promoter',
+    },
+    '/student/index': {
+      status: 308,
+      destination: '/student',
+    },
   },
   integrations: [svelte(), react()],
   vite: {

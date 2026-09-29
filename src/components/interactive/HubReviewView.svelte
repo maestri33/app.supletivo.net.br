@@ -18,8 +18,17 @@
   onMount(async () => {
     try {
       const who = await whoami();
+      const roles = Array.isArray(who?.roles) ? who.roles : [];
+      const isHub = roles.some((r: string) => ["coordinator", "hub", "polo"].includes(r));
+      if (!isHub) {
+        window.location.replace("/student");
+        return;
+      }
       if (who?.name) coordinatorName = who.name;
-    } catch (e) {}
+    } catch (e) {
+      window.location.replace("/student");
+      return;
+    }
 
     try {
       const data = await requestAuth<any>("/api/v1/leadership/reviews");

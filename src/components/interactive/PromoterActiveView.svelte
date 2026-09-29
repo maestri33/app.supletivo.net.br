@@ -22,6 +22,15 @@
   onMount(async () => {
     try {
       const who = await whoami();
+      const status = who?.role_statuses?.promoter;
+      if (status === "candidate") {
+        window.location.replace("/promoter/candidate");
+        return;
+      }
+      if (status === "training") {
+        window.location.replace("/promoter/training");
+        return;
+      }
       if (who?.name) promoterName = who.name;
       if (who?.external_id) externalId = who.external_id;
     } catch (e) {}
