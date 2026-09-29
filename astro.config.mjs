@@ -51,6 +51,14 @@ export default defineConfig({
       status: 308,
       destination: '/promoter/candidate',
     },
+    '/promotor/leads': {
+      status: 308,
+      destination: '/promoter/leads',
+    },
+    '/promotor/comissoes': {
+      status: 308,
+      destination: '/promoter/comissoes',
+    },
     '/polo': {
       status: 308,
       destination: '/hub',

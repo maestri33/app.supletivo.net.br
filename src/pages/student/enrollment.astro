@@ -5,38 +5,7 @@ import DocumentVerificationCenter from '../../components/interactive/DocumentVer
 export const prerender = false;
 ---
 
-<RootLayout title="Fase de Matrícula (Enrollment) — Supletivo Brasil">
-  <script is:inline>
-    // Guard de autenticação com suporte à avaliação interativa em sandbox
-    try {
-      let raw = localStorage.getItem("supletivo.login");
-      const isSandboxOrDev = window.location.search.includes("sandbox") || 
-                             window.location.search.includes("demo") || 
-                             document.referrer.includes("infinitepay.io") ||
-                             window.location.search.includes("payment=confirmed");
-      if (!raw && isSandboxOrDev) {
-        localStorage.setItem("supletivo.login", JSON.stringify({
-          access_token: "sandbox-student-enrollment-token",
-          token_type: "bearer",
-          roles: ["student", "promoter"],
-          role_statuses: { student: "enrollment", promoter: "candidate" }
-        }));
-        localStorage.setItem("supletivo_active_role", "student");
-        raw = localStorage.getItem("supletivo.login");
-      }
-
-      if (!raw) {
-        window.location.replace("/");
-      } else {
-        const session = JSON.parse(raw);
-        if (!session || !session.access_token) {
-          window.location.replace("/");
-        }
-      }
-    } catch (e) {
-      window.location.replace("/");
-    }
-  </script>
+<RootLayout title="Fase de Matrícula — Supletivo Brasil">
   <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
     <DocumentVerificationCenter client:load />
   </div>

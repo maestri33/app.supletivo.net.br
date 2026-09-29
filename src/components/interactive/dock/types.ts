@@ -34,9 +34,3 @@ export interface PoloDockState {
   readyDiplomasCount?: number;
 }
 
-export interface AdminDockState {
-  status?: string;
-  systemAlertsCount?: number;
-  hubsCount?: number;
-  isOracleSynced?: boolean;
-}

@@ -114,7 +114,7 @@ export const ENVIRONMENT_META: Record<
 export function getPrimaryEnvironment(backendRoles: string[] = []): CanonicalEnvironment {
   const normalized = backendRoles.map((r) => r.toLowerCase().trim());
 
-  if (normalized.some((r) => ["coordinator", "hub", "polo", "staff", "superuser"].includes(r))) {
+  if (normalized.some((r) => ["coordinator", "hub", "polo", "staff", "superuser", "admin"].includes(r))) {
     return "hub";
   }
   if (normalized.some((r) => ["promoter", "candidate", "training", "promotor"].includes(r))) {
@@ -132,7 +132,7 @@ export function normalizeUserRoles(backendRoles: string[] = []): CanonicalEnviro
   for (const rawRole of backendRoles) {
     const role = rawRole.toLowerCase().trim();
 
-    if (["coordinator", "hub_coordinator", "coordinator_hub", "polo", "hub", "staff", "superuser"].includes(role)) {
+    if (["coordinator", "hub_coordinator", "coordinator_hub", "polo", "hub", "staff", "superuser", "admin"].includes(role)) {
       envSet.add("hub");
     } else if (["candidate", "promoter", "training", "promotor"].includes(role)) {
       envSet.add("promoter");

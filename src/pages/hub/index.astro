@@ -4,7 +4,7 @@ import RootLayout from '../../layouts/RootLayout.astro';
 export const prerender = false;
 ---
 
-<RootLayout title="Secretaria de Polo (Hub) — Supletivo Brasil">
+<RootLayout title="Secretaria de Polo — Supletivo Brasil" requireAuth={false}>
   <script is:inline>
     (async function triageHub() {
       try {
@@ -29,7 +29,14 @@ export const prerender = false;
 
           if (resp.ok) {
             const data = await resp.json();
-            const totalPending = (data.total_pending ?? 0) || (data.rg_reviews?.length || 0);
+            const queuesCount =
+              (Array.isArray(data.enrollment_rg) ? data.enrollment_rg.length : 0) +
+              (Array.isArray(data.enrollment_selfie) ? data.enrollment_selfie.length : 0) +
+              (Array.isArray(data.candidate_document) ? data.candidate_document.length : 0) +
+              (Array.isArray(data.candidate_selfie) ? data.candidate_selfie.length : 0) +
+              (Array.isArray(data.student_documents) ? data.student_documents.length : 0) +
+              (Array.isArray(data.candidates_awaiting_approval) ? data.candidates_awaiting_approval.length : 0);
+            const totalPending = queuesCount || (data.total_pending ?? 0);
             if (totalPending > 0) {
               window.location.replace("/hub/review");
               return;

@@ -22,20 +22,14 @@
     const status = roleStatuses[roleId];
     if (roleId === "student") {
       if (status === "lead") return "/student/lead";
-      if (status === "enrollment") return "/student/enrollment";
-      if (status === "active") return "/student/active";
-      if (status === "veteran") return "/student/veteran";
-      return "/student/lead";
+      return "/student/enrollment";
     }
     if (roleId === "promoter") {
       if (status === "candidate") return "/promoter/candidate";
       if (status === "training") return "/promoter/training";
-      if (status === "active") return "/promoter/active";
-      if (status === "suspended") return "/promoter/suspended";
-      return "/promoter/candidate";
+      return "/promoter/active";
     }
     if (roleId === "hub") {
-      if (status === "active") return "/hub/active";
       if (status === "review") return "/hub/review";
       return "/hub/active";
     }
@@ -72,29 +66,32 @@
 
         // Filtra as roles do usuário (excluindo admin conforme regra)
         const matched = ALL_ROLES.filter((r) => rolesList.includes(r.id));
-        if (matched.length > 0) {
-          userRoles = matched;
-        } else {
-          // Fallback para role detectada na URL se lista vazia
-          userRoles = ALL_ROLES.filter((r) => r.id === currentRole);
-        }
+        userRoles = matched;
       } else {
-        // Modo sandbox/preview: se não houver login salvo, exibe pelo menos Aluno
-        userRoles = ALL_ROLES.filter((r) => r.id === currentRole);
+        userRoles = [];
       }
     } catch {
-      userRoles = ALL_ROLES.filter((r) => r.id === currentRole);
+      userRoles = [];
     }
 
     isLoaded = true;
   });
+  const STATUS_LABELS_PT: Record<string, string> = {
+    lead: "Ativação",
+    enrollment: "Matrícula",
+    candidate: "Credenciamento",
+    training: "Treinamento",
+    active: "Ativo",
+    review: "Revisão",
+  };
 </script>
 
-{#if isLoaded && userRoles.length > 0}
+{#if isLoaded && userRoles.length > 1}
   <nav aria-label="Seleção de Perfil" class="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
     {#each userRoles as role (role.id)}
       {@const isActive = currentRole === role.id}
       {@const status = roleStatuses[role.id]}
+      {@const statusLabel = status ? (STATUS_LABELS_PT[status.toLowerCase()] || status) : null}
       <button
         type="button"
         onclick={() => handleSwitchRole(role.id)}
@@ -105,9 +102,9 @@
       >
         <span class="text-sm">{role.icon}</span>
         <span>{role.label}</span>
-        {#if status}
+        {#if statusLabel}
           <span class="text-[9px] uppercase tracking-wider font-semibold opacity-75 px-1 rounded {isActive ? 'bg-black/25 text-white' : 'bg-white/10 text-white/60'}">
-            {status}
+            {statusLabel}
           </span>
         {/if}
       </button>

@@ -144,7 +144,7 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
  * cleared so guards send the user back to the funnel start.
  * Single-flight mutex eliminates concurrent 401 refresh race conditions.
  */
-async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const token = getAccessToken();
   if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
   try {
@@ -222,10 +222,12 @@ export interface LoginResponse {
   token_type: string;
 }
 
-/** Verify the OTP for a known client. Flat body {external_id, otp}. */
-export function loginOtp(externalId: string, otp: string): Promise<LoginResponse> {
+/** Verify the OTP for a known client. Flat body {external_id, otp, phone?}. */
+export function loginOtp(externalId: string, otp: string, phone?: string): Promise<LoginResponse> {
+  const payload: Record<string, string> = { external_id: externalId, otp };
+  if (phone) payload.phone = phone;
   return request<LoginResponse>("/api/v1/clients/auth/login", {
-    json: { external_id: externalId, otp },
+    json: payload,
   });
 }
 
@@ -260,10 +262,16 @@ export function checkCollaboratorPhone(
   return request<CollaboratorCheckResponse>("/api/v1/collaborators/auth/check", { json });
 }
 
-/** Verify the OTP for a collaborator (promoter/candidate). Flat body {external_id, otp}. */
-export function loginCollaboratorOtp(externalId: string, otp: string): Promise<LoginResponse> {
+/** Verify the OTP for a collaborator (promoter/candidate). Flat body {external_id, otp, phone?}. */
+export function loginCollaboratorOtp(
+  externalId: string,
+  otp: string,
+  phone?: string,
+): Promise<LoginResponse> {
+  const payload: Record<string, string> = { external_id: externalId, otp };
+  if (phone) payload.phone = phone;
   return request<LoginResponse>("/api/v1/collaborators/auth/login", {
-    json: { external_id: externalId, otp },
+    json: payload,
   });
 }
 

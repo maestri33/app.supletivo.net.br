@@ -3,8 +3,7 @@
  *
  * Provides sub-400ms cognitive triage for:
  * 1. Document verification & legibility (RG, CNH, Comprovante de Residência)
- * 2. Academic Essay authenticity, AI-generation detection & EJA suitability
- * 3. Bulletproof fail-safe heuristic fallback (< 2ms)
+ * 2. Bulletproof fail-safe heuristic fallback (< 2ms)
  */
 
 export interface DocumentTriageResult {
@@ -14,16 +13,6 @@ export interface DocumentTriageResult {
   legibilityScore: number; // 0 to 3
   isLegible: boolean;
   is18Plus: boolean;
-  feedback: string;
-  source: 'typesafe_systemone' | 'heuristic_fallback';
-  latencyMs: number;
-}
-
-export interface EssayEvaluationResult {
-  isAiGenerated: boolean;
-  aiProbability: number;
-  authenticityScore: number; // 0 to 3
-  onTopic: boolean;
   feedback: string;
   source: 'typesafe_systemone' | 'heuristic_fallback';
   latencyMs: number;
@@ -64,6 +53,12 @@ function heuristicDocumentTriage(
     lowerName.includes('embaçado') ||
     lowerSnippet.includes('ilegivel');
 
+  const isUnderageHint =
+    lowerSnippet.includes('menor de 18') ||
+    lowerSnippet.includes('2010') ||
+    lowerSnippet.includes('2011') ||
+    lowerSnippet.includes('2012');
+
   let docType: DocumentTriageResult['docType'] = 'outro';
   if (
     /(?:^|[_\-\s.])(?:rg|identidade)(?:[_\-\s.]|$)/i.test(lowerName) ||
@@ -94,10 +89,13 @@ function heuristicDocumentTriage(
   }
 
   const isLegible = !isBlur && !isInvalid;
-  const valid = !isInvalid && isLegible && docType !== 'outro';
+  const is18Plus = !isUnderageHint;
+  const valid = !isInvalid && isLegible && docType !== 'outro' && is18Plus;
 
   let feedback = 'Documento validado com sucesso.';
-  if (isInvalid) {
+  if (!is18Plus) {
+    feedback = 'Matrícula no Supletivo EJA exige no mínimo 18 anos completos.';
+  } else if (isInvalid) {
     feedback = 'Arquivo não reconhecido como documento oficial válido.';
   } else if (isBlur) {
     feedback = 'A imagem ficou embaçada ou com reflexo. Aproxime a câmera e garanta boa iluminação.';
@@ -109,7 +107,7 @@ function heuristicDocumentTriage(
     confidence: valid ? 0.85 : 0.4,
     legibilityScore: isBlur ? 1 : valid ? 3 : 0,
     isLegible,
-    is18Plus: true, // Default heuristic for enrolled candidates
+    is18Plus,
     feedback,
     source: 'heuristic_fallback',
     latencyMs: Date.now() - startTime,
@@ -195,7 +193,8 @@ export async function triageDocument(params: {
       const tipoChoice = answers.tipo_documento?.choice || 'outro';
       const rawLegScore = Number(answers.legibilidade?.score ?? 2);
       const legScore = hasBlurHint ? Math.min(rawLegScore, 1) : !params.textSnippet ? Math.max(rawLegScore, 2.5) : rawLegScore;
-      const is18 = Boolean(answers.maioridade_eja?.noul ?? true);
+      const rawNoul = answers.maioridade_eja?.noul;
+      const is18 = typeof rawNoul === 'number' ? rawNoul >= 0.5 : Boolean(rawNoul ?? true);
 
       const isLegible = legScore >= 1.5 && !hasBlurHint;
       const valid = tipoChoice !== 'outro' && isLegible && is18;
@@ -227,153 +226,4 @@ export async function triageDocument(params: {
   }
 
   return heuristicDocumentTriage(params.fileName, params.fileSize, params.fileType, params.textSnippet, startTime);
-}
-
-/**
- * Avaliação cognitiva de redações/dissertações da EJA
- */
-export async function evaluateEssay(params: {
-  text: string;
-  themePrompt?: string;
-}): Promise<EssayEvaluationResult> {
-  const startTime = Date.now();
-  const apiKey = getApiKey();
-  const cleanText = (params.text || '').trim();
-
-  // Heurística instantânea se sem texto
-  if (!cleanText || cleanText.length < 20) {
-    return {
-      isAiGenerated: false,
-      aiProbability: 0.0,
-      authenticityScore: 0,
-      onTopic: false,
-      feedback: 'Texto muito curto para avaliação dissertativa. Escreva pelo menos 3 linhas.',
-      source: 'heuristic_fallback',
-      latencyMs: Date.now() - startTime,
-    };
-  }
-
-  // Heurística local anti-ChatGPT
-  const aiPhrases = [
-    'em suma',
-    'em conclusão',
-    'é importante ressaltar',
-    'vale destacar',
-    'como modelo de linguagem',
-    'no cerne da questão',
-    'em primeiro lugar, vale ressaltar',
-  ];
-  const lower = cleanText.toLowerCase();
-  const matchedPhrases = aiPhrases.filter((p) => lower.includes(p));
-  const heuristicAiProb = Math.min(0.95, matchedPhrases.length * 0.35);
-
-  if (!apiKey) {
-    const isAi = heuristicAiProb >= 0.7;
-    return {
-      isAiGenerated: isAi,
-      aiProbability: heuristicAiProb,
-      authenticityScore: isAi ? 0.5 : 2.5,
-      onTopic: true,
-      feedback: isAi
-        ? 'Atenção: A redação possui padrões típicos de texto automatizado por IA. Escreva com suas próprias palavras.'
-        : 'Texto autêntico e bem redigido.',
-      source: 'heuristic_fallback',
-      latencyMs: Date.now() - startTime,
-    };
-  }
-
-  const prompt = `Tema da Redação: ${params.themePrompt || 'Desafios da Educação de Jovens e Adultos no Brasil'}\n\nTexto do Aluno:\n${cleanText}`;
-
-  const payload = {
-    model: 'jev-latest',
-    state: prompt.slice(0, 3000),
-    questions: {
-      is_ai_generated: {
-        type: 'noul',
-        instructions: 'O texto aparenta ter sido gerado integralmente por Inteligência Artificial (ChatGPT/Claude/LLM)?',
-        criteria: {
-          true: 'Texto excessivamente formal, frases prontas, simetria sintética, marcas de LLM',
-          false: 'Escrita humana genuína, estilo pessoal com naturalidade ou marcas de vivência do aluno EJA',
-        },
-      },
-      eja_voice_authenticity: {
-        type: 'score',
-        instructions: 'Nível de autenticidade da voz do aluno adulto (EJA):',
-        criteria: [
-          '0 - Artificial / Cola descarada de IA',
-          '1 - Genérico / Cópia de modelo pronto da internet',
-          '2 - Bom / Redação autêntica com argumentação própria',
-          '3 - Excelente / Relato rico, argumentação madura e autêntica',
-        ],
-      },
-      tema_pertinente: {
-        type: 'noul',
-        instructions: 'O texto aborda de fato o tema proposto para a dissertação?',
-        criteria: {
-          true: 'O texto discute o tema proposto de forma coerente',
-          false: 'Fuga total ao tema ou texto desconexo',
-        },
-      },
-    },
-  };
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TYPESAFE_TIMEOUT_MS);
-
-    const response = await fetch(TYPESAFE_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data: any = await response.json();
-      const answers = data.answers || {};
-
-      const isAi = Boolean(answers.is_ai_generated?.noul ?? false);
-      const aiProb = Number(answers.is_ai_generated?.probability ?? (isAi ? 0.9 : 0.1));
-      const authScore = Number(answers.eja_voice_authenticity?.score ?? 2);
-      const onTopic = Boolean(answers.tema_pertinente?.noul ?? true);
-
-      let feedback = 'Redação autêntica e pertinente ao tema!';
-      if (!onTopic) {
-        feedback = 'Atenção: O texto fugiu ao tema proposto. Revise sua resposta.';
-      } else if (isAi || aiProb > 0.65) {
-        feedback = 'Identificamos indícios de uso de Inteligência Artificial. Por favor, redija a resposta com suas próprias palavras.';
-      } else if (authScore >= 2) {
-        feedback = 'Excelente redação! Argumentação autêntica de perfil EJA aprovada.';
-      }
-
-      return {
-        isAiGenerated: isAi || aiProb > 0.65,
-        aiProbability: aiProb,
-        authenticityScore: authScore,
-        onTopic,
-        feedback,
-        source: 'typesafe_systemone',
-        latencyMs: Date.now() - startTime,
-      };
-    }
-  } catch (err) {
-    console.warn('[typesafe:essay] Request failed or timed out, using fallback:', err);
-  }
-
-  const isAi = heuristicAiProb >= 0.7;
-  return {
-    isAiGenerated: isAi,
-    aiProbability: heuristicAiProb,
-    authenticityScore: isAi ? 0.5 : 2.5,
-    onTopic: true,
-    feedback: isAi
-      ? 'Atenção: A redação possui padrões típicos de texto automatizado por IA. Escreva com suas próprias palavras.'
-      : 'Texto autêntico e bem redigido.',
-    source: 'heuristic_fallback',
-    latencyMs: Date.now() - startTime,
-  };
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami } from "@/lib/api";
-  import { getAccessToken } from "@/lib/session";
+  import { whoami, requestAuth } from "@/lib/api";
 
   interface PromoterLead {
     external_id: string;
@@ -25,44 +24,6 @@
       : "https://supletivo.net.br"
   );
 
-  const mockLeads: PromoterLead[] = [
-    {
-      external_id: "lead-01",
-      name: "Mariana Albuquerque Souza",
-      phone: "11988887766",
-      status: "paid",
-      created_at: "2026-09-25T14:32:00Z",
-    },
-    {
-      external_id: "lead-02",
-      name: "Lucas Fernandes Ramos",
-      phone: "21977776655",
-      status: "checkout",
-      created_at: "2026-09-24T18:10:00Z",
-    },
-    {
-      external_id: "lead-03",
-      name: "Beatriz Cristina Mendes",
-      phone: "31966665544",
-      status: "paid",
-      created_at: "2026-09-23T11:45:00Z",
-    },
-    {
-      external_id: "lead-04",
-      name: "Carlos Eduardo da Silva",
-      phone: "43999990001",
-      status: "started",
-      created_at: "2026-09-22T09:20:00Z",
-    },
-    {
-      external_id: "lead-05",
-      name: "Fernanda Lima de Oliveira",
-      phone: "11955554433",
-      status: "paid",
-      created_at: "2026-09-21T16:05:00Z",
-    },
-  ];
-
   onMount(async () => {
     try {
       const who = await whoami();
@@ -71,25 +32,12 @@
     } catch {}
 
     try {
-      const token = getAccessToken();
-      const resp = await fetch("/api/v1/collaborators/promoter/leads", {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          Accept: "application/json",
-        },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (Array.isArray(data) && data.length > 0) {
-          leads = data;
-        } else {
-          leads = mockLeads;
-        }
-      } else {
-        leads = mockLeads;
+      const data = await requestAuth<PromoterLead[]>("/api/v1/collaborators/promoter/leads");
+      if (Array.isArray(data)) {
+        leads = data;
       }
     } catch {
-      leads = mockLeads;
+      leads = [];
     } finally {
       loading = false;
     }
@@ -128,7 +76,7 @@
   let pendingCount = $derived(
     leads.filter((l) => l.status === "checkout" || l.status === "started").length
   );
-  let totalCommissions = $derived(paidCount * 150);
+  let totalCommissions = $derived(paidCount * 100 + Math.floor(paidCount / 5) * 500);
 
   function formatStatusBadge(status: string) {
     switch (status) {
@@ -136,9 +84,9 @@
       case "enrolled":
         return { label: "Matriculado / Pago", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
       case "checkout":
-        return { label: "Checkout Iniciado", bg: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
+        return { label: "Pagamento Iniciado", bg: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
       default:
-        return { label: "Lead Captado", bg: "bg-blue-500/20 text-blue-300 border-blue-500/40" };
+        return { label: "Indicado Captado", bg: "bg-blue-500/20 text-blue-300 border-blue-500/40" };
     }
   }
 
@@ -163,13 +111,13 @@
 
 <div class="w-full max-w-5xl mx-auto p-4 sm:p-6 text-white space-y-6">
   <!-- Cabeçalho -->
-  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-[#005238]/90 to-[#002776]/90 shadow-2xl">
+  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-xs font-semibold text-[var(--yellow)] mb-2">
           Gestão de Captação
         </div>
-        <h1 class="text-2xl sm:text-3xl font-display text-white">Meus Indicados & Leads</h1>
+        <h1 class="text-2xl sm:text-3xl font-display text-white">Meus Indicados</h1>
         <p class="text-xs sm:text-sm text-white/70 mt-1">
           Acompanhe o funil de matrículas dos alunos que acessaram pelo seu link oficial.
         </p>
@@ -187,7 +135,7 @@
           onclick={copyReferralLink}
           class="btn inline-flex items-center gap-2 text-xs py-2.5 px-5 font-bold uppercase tracking-wider text-[var(--ink)] cursor-pointer"
         >
-          {copied ? "✓ Copiado!" : "Copiar Link ?ref 🔗"}
+          {copied ? "✓ Copiado!" : "Copiar Link de Indicação 🔗"}
         </button>
       </div>
     </div>
@@ -195,7 +143,7 @@
     <!-- Métricas Consolidadas -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-[11px] text-white/60 uppercase font-semibold">Total de Leads</span>
+        <span class="text-[11px] text-white/60 uppercase font-semibold">Total de Indicados</span>
         <p class="text-2xl sm:text-3xl font-bold text-white mt-1">{totalCount}</p>
         <p class="text-[11px] text-white/50 mt-1">Cadastrados no funil</p>
       </div>
@@ -209,7 +157,7 @@
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-[11px] text-white/60 uppercase font-semibold">Aguardando Pagamento</span>
         <p class="text-2xl sm:text-3xl font-bold text-amber-300 mt-1">{pendingCount}</p>
-        <p class="text-[11px] text-amber-300/70 mt-1">Em fase de checkout</p>
+        <p class="text-[11px] text-amber-300/70 mt-1">Em fase de pagamento</p>
       </div>
 
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
@@ -217,7 +165,7 @@
         <p class="text-2xl sm:text-3xl font-bold text-[var(--yellow)] mt-1">
           R$ {totalCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
         </p>
-        <p class="text-[11px] text-[var(--yellow)]/70 mt-1">R$ 150 por matrícula</p>
+        <p class="text-[11px] text-[var(--yellow)]/70 mt-1">R$ 100 + bônus R$ 500/5</p>
       </div>
     </div>
   </div>
@@ -256,6 +204,8 @@
 
     <div class="relative w-full sm:w-72">
       <input
+        id="leads-search"
+        data-hydrated="true"
         type="text"
         placeholder="Buscar por nome ou WhatsApp..."
         bind:value={searchQuery}
@@ -264,7 +214,7 @@
     </div>
   </div>
 
-  <!-- Lista de Leads -->
+  <!-- Lista de Indicados -->
   <div class="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-md overflow-hidden shadow-xl">
     {#if loading}
       <div class="p-12 text-center text-white/60">
@@ -273,7 +223,7 @@
       </div>
     {:else if filteredLeads.length === 0}
       <div class="p-12 text-center text-white/60">
-        <p class="text-base font-semibold text-white/80">Nenhum lead encontrado</p>
+        <p class="text-base font-semibold text-white/80">Nenhum indicado encontrado</p>
         <p class="text-xs text-white/50 mt-1">Compartilhe seu link exclusivo para captar novos alunos.</p>
       </div>
     {:else}
@@ -308,7 +258,7 @@
                   </span>
                 </td>
                 <td class="p-4 font-bold {lead.status === 'paid' || lead.status === 'enrolled' ? 'text-emerald-400' : 'text-white/40'}">
-                  {lead.status === 'paid' || lead.status === 'enrolled' ? 'R$ 150,00' : 'R$ 0,00'}
+                  {lead.status === 'paid' || lead.status === 'enrolled' ? 'R$ 100,00' : 'R$ 0,00'}
                 </td>
                 <td class="p-4 pr-6 text-right">
                   {#if lead.phone}

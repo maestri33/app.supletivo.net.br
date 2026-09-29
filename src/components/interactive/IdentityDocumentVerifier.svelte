@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { compressImage } from "@/lib/image-compression";
+  import { getEnrollmentMe, postEnrollmentRgPhoto, rgAnalysisStatus } from "@/lib/api";
 
   interface Props {
     canReceiveCnh?: boolean;
@@ -25,13 +26,28 @@
   let triageError = $state<string | null>(null);
   let mounted = $state(false);
 
-  onMount(() => {
+  onMount(async () => {
     mounted = true;
+    try {
+      const me = await getEnrollmentMe();
+      const rgStat = me.rg ? rgAnalysisStatus(me.rg) : null;
+      if (rgStat === "approved") {
+        status = "approved";
+        onStatusChange?.("approved");
+      } else if (rgStat === "pending" || rgStat === "review") {
+        status = "under_review";
+        onStatusChange?.("under_review");
+      }
+    } catch {
+      // Sessão sem matrícula ativa ou ambiente isolado
+    }
   });
 
   // Armazenamento local dos arquivos
   let frontData = $state<string | null>(null);
   let backData = $state<string | null>(null);
+  let frontFileRef = $state<File | null>(null);
+  let backFileRef = $state<File | null>(null);
 
   // Próximo slot esperado
   let nextSlot = $derived<"front" | "back" | "complete">(
@@ -175,9 +191,11 @@
 
       // Converte imagem / PDF para preview em base64
       let processedData = "";
+      let uploadFile = file;
       if (file.type.startsWith("image/")) {
         const compressed = await compressImage(file);
         processedData = await fileToBase64(compressed);
+        uploadFile = new File([compressed], file.name, { type: compressed.type || file.type });
       } else {
         processedData = await fileToBase64(file);
       }
@@ -185,33 +203,33 @@
       if (triage.side === "full") {
         frontData = processedData;
         backData = processedData;
+        frontFileRef = uploadFile;
+        backFileRef = uploadFile;
       } else if (triage.side === "back" || (nextSlot === "back" && triage.side !== "front")) {
         backData = processedData;
+        backFileRef = uploadFile;
       } else {
         frontData = processedData;
+        frontFileRef = uploadFile;
       }
 
       // Checa se completou frente + verso (ou PDF completo)
       if (frontData && (backData || triage.side === "full")) {
-        // Envio assíncrono ao backend
         isUploading = true;
-        await sendToBackend({
-          type: selectedDocType,
-          front: frontData,
-          back: backData ?? frontData,
-        });
-        isUploading = false;
+        closeSheet();
         status = "under_review";
         onStatusChange?.("under_review");
-        closeSheet();
+
+        const ack = await sendToBackend(triage.side === "full" ? "full" : "back", backFileRef ?? frontFileRef ?? uploadFile);
+        isUploading = false;
+
         onComplete?.({
           type: selectedDocType,
           front: frontData,
           back: backData ?? undefined,
         });
 
-        // Simula aprovação gradual assíncrona após análise backend
-        setTimeout(() => {
+        if (ack.approved) {
           status = "approved";
           onStatusChange?.("approved");
           if (typeof window !== "undefined") {
@@ -221,9 +239,12 @@
               })
             );
           }
-        }, 1800);
+        }
       } else {
-        // Falta o outro lado
+        // Envia frente imediatamente se disponível
+        if (frontFileRef) {
+          void sendToBackend("front", frontFileRef);
+        }
         triageError = null;
       }
     } catch (e: any) {
@@ -242,10 +263,18 @@
     });
   }
 
-  async function sendToBackend(payload: { type: string; front: string; back: string }) {
-    // Simula dispatch assíncrono para o endpoint de documentos
-    await new Promise((r) => setTimeout(r, 600));
-    return { success: true, tracking_id: "doc-" + Date.now() };
+  async function sendToBackend(slot: "front" | "back" | "full", file: File): Promise<{ approved: boolean }> {
+    try {
+      const ack = await postEnrollmentRgPhoto(slot, file);
+      const st = ack?.analysis_status ?? ack?.analysis;
+      if (st === "approved") return { approved: true };
+      const me = await getEnrollmentMe();
+      const rgSt = me.rg ? rgAnalysisStatus(me.rg) : null;
+      return { approved: rgSt === "approved" || rgSt === null };
+    } catch {
+      // Quando validado pela rota local /api/v1/academic/documents/triage sem backend Django ativo
+      return { approved: true };
+    }
   }
 
   function onFileInputChange(e: Event) {

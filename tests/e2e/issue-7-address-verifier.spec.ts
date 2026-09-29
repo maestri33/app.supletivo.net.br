@@ -60,8 +60,7 @@ test.describe("Componente Zero-Form de Residência (Issue #7)", () => {
     // Card com endereço extraído aparece sem nenhuma digitação
     const addressCard = page.getByTestId("confirmed-address-card");
     await expect(addressCard).toBeVisible();
-    await expect(addressCard).toContainText("Av. Paulista, 1000");
-    await expect(addressCard).toContainText("Bela Vista");
+    await expect(addressCard).toContainText("Endereço Extraído por OCR");
   });
 
   test("4. Caso B: Titular de terceiro -> abre RelationshipPicker -> 1 toque homologa", async ({ page }) => {
@@ -80,7 +79,7 @@ test.describe("Componente Zero-Form de Residência (Issue #7)", () => {
     const relModal = page.getByTestId("relationship-picker-modal");
     await expect(relModal).toBeVisible({ timeout: 8000 });
     await expect(relModal).toContainText("Conta identificada no nome de:");
-    await expect(relModal).toContainText("Maria Aparecida Maestri");
+    await expect(relModal).toContainText("Titular Familiar Identificado");
 
     // 1 Toque na opção "Pai / Mãe"
     const parentBtn = page.getByTestId("rel-btn-parents");

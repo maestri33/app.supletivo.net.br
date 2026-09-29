@@ -9,7 +9,14 @@
     whoami,
     getLeadMe,
   } from "@/lib/api";
-  import { getSession, saveLogin, saveSession, getAccessToken, clearSession } from "@/lib/session";
+  import {
+    getSession,
+    saveLogin,
+    saveSession,
+    getAccessToken,
+    clearSession,
+    clearLogin,
+  } from "@/lib/session";
   import { getPrimaryEnvironment } from "@/lib/roles";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
@@ -32,18 +39,8 @@
 
   onMount(async () => {
     mounted = true;
-    if (getAccessToken()) {
-      try {
-        const who = await whoami();
-        const target = getPrimaryEnvironment(who?.roles || []);
-        window.location.replace(`/${target}`);
-      } catch {
-        clearSession();
-      }
-      return;
-    }
 
-    // Lê parâmetros da URL ou recupera da sessão salva
+    // Lê parâmetros da URL ou recupera da sessão salva PRIMEIRO
     const urlParams = new URLSearchParams(window.location.search);
     const urlId = urlParams.get("id");
     const urlTel = urlParams.get("tel");
@@ -54,6 +51,24 @@
     const urlNovoTelefone = urlParams.get("novo_telefone") || urlParams.get("new_phone");
     const urlOpenRecovery = urlParams.get("open_recovery") === "true";
 
+    const saved = getSession();
+
+    if (getAccessToken()) {
+      if (urlId || urlTel) {
+        // Usuário chegou com novo desafio OTP explícito na URL; descarta JWT antigo sem apagar supletivo.session
+        clearLogin();
+      } else {
+        try {
+          const who = await whoami();
+          const target = getPrimaryEnvironment(who?.roles || []);
+          window.location.replace(`/${target}`);
+          return;
+        } catch {
+          clearLogin();
+        }
+      }
+    }
+
     if (urlCpf) {
       recoveryCpf = urlCpf;
     }
@@ -63,8 +78,6 @@
     if (urlOpenRecovery || urlNovoTelefone || (urlCpf && !urlTel && !saved?.phone)) {
       isRecoveryOpen = true;
     }
-
-    const saved = getSession();
 
     const rawTel = urlTel || saved?.phone || "";
     phone = rawTel.replace(/\D/g, "");
@@ -214,7 +227,7 @@
       let tokens;
       if (isPromoter) {
         try {
-          tokens = await loginCollaboratorOtp(externalId, code);
+          tokens = await loginCollaboratorOtp(externalId, code, phone);
         } catch (collabErr: any) {
           // Fallback para /join se usuário já existe com outra role (ex: student)
           if (
@@ -228,7 +241,20 @@
           }
         }
       } else {
-        tokens = await loginOtp(externalId, code);
+        try {
+          tokens = await loginOtp(externalId, code, phone);
+        } catch (clientErr: any) {
+          // Fallback transparente se o usuário for colaborador puro (promoter/candidate/coordinator) entrando via login universal
+          if (
+            clientErr?.status === 403 ||
+            clientErr?.code === "NOT_IN_FUNNEL" ||
+            clientErr?.message?.includes("funil")
+          ) {
+            tokens = await loginCollaboratorOtp(externalId, code, phone);
+          } else {
+            throw clientErr;
+          }
+        }
       }
 
       saveLogin(tokens);

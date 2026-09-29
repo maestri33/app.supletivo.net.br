@@ -9,7 +9,6 @@ import {
   IconChecklist,
   IconSchool,
   IconAward,
-  IconUsers,
   IconCash,
   IconFileCheck,
   IconAlertTriangle,
@@ -239,7 +238,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
             <IconAlertTriangle className="size-5 shrink-0 mt-0.5 text-amber-400" />
             <div>
               <strong className="font-semibold block mb-0.5">Comportamento do Dock:</strong>
-              O Dock fica restrito a <strong className="text-white">Credenciamento</strong>, Suporte e Sair. As abas de Leads e Comissões ficam ocultas até a homologação.
+              O Dock fica restrito a <strong className="text-white">Credenciamento</strong> e Sair. As abas de Leads e Comissões ficam ocultas até a homologação.
             </div>
           </div>
         </div>
@@ -305,7 +304,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
             <IconCircleCheck className="size-5 shrink-0 mt-0.5 text-emerald-400" />
             <div>
               <strong className="font-semibold block mb-0.5">Comportamento do Dock:</strong>
-              O Dock libera todos os itens operacionais: <strong className="text-white">Painel</strong>, <strong className="text-white">Leads</strong> (com badge dinâmico de 3 novos leads), <strong className="text-white">Comissões & PIX</strong>, Suporte e Logout.
+              O Dock libera todos os itens operacionais: <strong className="text-white">Painel</strong>, <strong className="text-white">Leads</strong>, <strong className="text-white">Comissões & PIX</strong>, <strong className="text-white">Treinamento</strong> e Logout.
             </div>
           </div>
         </div>
@@ -478,7 +477,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
     >
       {/* Top Controls: Role Selector & Dock Variant Switcher */}
       <div className="w-full max-w-4xl px-4 py-4 space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-[#0b1220]/80 border border-white/15 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-ink/80 border border-white/15 backdrop-blur-xl">
           {/* Seletor de Role */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-white/60">Perfil:</span>

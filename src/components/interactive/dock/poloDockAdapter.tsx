@@ -4,7 +4,6 @@ import type { AdapterContext, PoloDockState } from "./types";
 import {
   IconHome,
   IconFileCheck,
-  IconHelpCircle,
   IconDoorExit,
 } from "@tabler/icons-react";
 
@@ -18,19 +17,17 @@ export function getPoloDockItems(
 ): FloatingDockItem[] {
   const { currentPath, onLogout } = ctx;
   const status = state.status || "active";
-  const pendingReviews = state.pendingValidationCount ?? 5;
+  const pendingReviews = state.pendingValidationCount ?? 0;
 
   const isReviewsActive =
     currentPath.startsWith("/hub/review") ||
-    currentPath.startsWith("/polo/matriculas") ||
-    currentPath.startsWith("/polo/conferencia") ||
     status === "review";
 
   const isHomeActive = !isReviewsActive && (currentPath === "/hub" || currentPath.startsWith("/hub/active"));
 
   return [
     {
-      title: "Painel do Hub",
+      title: "Painel do Polo",
       icon: <IconHome className="h-full w-full" />,
       href: "/hub/active",
       isActive: isHomeActive,
@@ -42,12 +39,6 @@ export function getPoloDockItems(
       badge: pendingReviews > 0 ? pendingReviews : null,
       badgeVariant: "warning",
       isActive: isReviewsActive,
-    },
-    {
-      title: "Suporte Técnico",
-      icon: <IconHelpCircle className="h-full w-full" />,
-      href: "/suporte",
-      isActive: currentPath.startsWith("/suporte"),
     },
     {
       title: "Sair",

@@ -9,6 +9,7 @@ interface Props {
   description?: string;
   showDock?: boolean;
   showFooter?: boolean;
+  requireAuth?: boolean;
 }
 
 const {
@@ -16,11 +17,14 @@ const {
   description = "Conclua o Ensino Fundamental ou Médio pelo Supletivo Brasil. Matrícula rápida e 100% online.",
   showDock,
   showFooter = true,
+  requireAuth,
 } = Astro.props;
 
-const pathname = Astro.url.pathname;
+const pathname = Astro.url.pathname.replace(/\/+$/, '') || '/';
 const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix');
+const isTriageIndexRoute = pathname === '/student' || pathname === '/promoter' || pathname === '/hub';
 const shouldRenderDock = showDock ?? !isPublicAuthRoute;
+const shouldGuardAuth = requireAuth ?? (!isPublicAuthRoute && !isTriageIndexRoute);
 
 let initialRole: "student" | "promoter" | "hub" = "student";
 if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
@@ -28,6 +32,7 @@ if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
 } else if (pathname.startsWith('/hub') || pathname.startsWith('/polo')) {
   initialRole = "hub";
 }
+const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
 ---
 
 <!doctype html>
@@ -61,6 +66,23 @@ if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
     <link rel="icon" href="/favicon.ico" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {shouldGuardAuth && (
+      <script is:inline define:vars={{ authRedirectTarget }}>
+        try {
+          const raw = localStorage.getItem("supletivo.login");
+          if (!raw) {
+            window.location.replace(authRedirectTarget);
+          } else {
+            const session = JSON.parse(raw);
+            if (!session || !session.access_token) {
+              window.location.replace(authRedirectTarget);
+            }
+          }
+        } catch (e) {
+          window.location.replace(authRedirectTarget);
+        }
+      </script>
+    )}
   </head>
   <body class="flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink">
     <a

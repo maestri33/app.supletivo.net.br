@@ -11,9 +11,9 @@ const novoTelefone = Astro.url.searchParams.get("novo_telefone") || Astro.url.se
 const openRecovery = Astro.url.searchParams.get("open_recovery") === "true";
 const sessionCookie = Astro.cookies.get("supletivo.session")?.value;
 
-// Se não há identificador, telefone, contexto de recuperação ou cookie de sessão, redireciona para o login
+// Se não há identificador, telefone, contexto de recuperação ou cookie de sessão, redireciona para a raiz única (/)
 if (!id && !tel && !cpf && !novoTelefone && !openRecovery && !sessionCookie) {
-  return Astro.redirect("/autenticacao/login", 302);
+  return Astro.redirect("/", 302);
 }
 ---
 

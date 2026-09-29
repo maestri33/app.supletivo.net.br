@@ -77,6 +77,6 @@ test.describe("Tabs de Status e Dock Adaptativo Multi-Role (/tabs-status)", () =
 
     // Valida que o container flutuante foi ativado e contém os links do dock
     await expect(page.getByTestId("role-adaptive-dock")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Meu Curso" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Portal do Aluno" })).toBeVisible();
   });
 });

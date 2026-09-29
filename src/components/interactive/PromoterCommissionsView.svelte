@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami } from "@/lib/api";
-  import { getAccessToken } from "@/lib/session";
+  import { whoami, requestAuth } from "@/lib/api";
 
   interface CommissionItem {
     external_id: string;
@@ -14,68 +13,46 @@
   let commissions = $state<CommissionItem[]>([]);
   let loading = $state<boolean>(true);
   let promoterName = $state<string>("Promotor");
-  let pixKey = $state<string>("•••.•••.•••-••");
-  let pixType = $state<string>("CPF");
-  let balance = $state<string>("R$ 2.450,00");
-  let totalPaid = $state<string>("R$ 4.200,00");
+  let pixKey = $state<string>("Não informada");
+  let pixType = $state<string>("PIX");
 
-  const mockCommissions: CommissionItem[] = [
-    {
-      external_id: "com-01",
-      amount: "150.00",
-      source: "Matrícula: Mariana Albuquerque Souza",
-      status: "paid",
-      created_at: "2026-09-25T14:35:00Z",
-    },
-    {
-      external_id: "com-02",
-      amount: "150.00",
-      source: "Matrícula: Beatriz Cristina Mendes",
-      status: "paid",
-      created_at: "2026-09-23T11:47:00Z",
-    },
-    {
-      external_id: "com-03",
-      amount: "150.00",
-      source: "Matrícula: Fernanda Lima de Oliveira",
-      status: "paid",
-      created_at: "2026-09-21T16:10:00Z",
-    },
-    {
-      external_id: "com-04",
-      amount: "150.00",
-      source: "Matrícula: Lucas Fernandes Ramos",
-      status: "pending",
-      created_at: "2026-09-24T18:15:00Z",
-    },
-  ];
+  let balance = $derived.by(() => {
+    const sum = commissions
+      .filter((c) => c.status !== "paid")
+      .reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    return `R$ ${sum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  });
+
+  let totalPaid = $derived.by(() => {
+    const sum = commissions
+      .filter((c) => c.status === "paid")
+      .reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    return `R$ ${sum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  });
 
   onMount(async () => {
     try {
       const who = await whoami();
       if (who?.name) promoterName = who.name;
+      if ((who as any)?.pix_key) pixKey = (who as any).pix_key;
+      if ((who as any)?.pix_key_type) pixType = String((who as any).pix_key_type).toUpperCase();
     } catch {}
 
     try {
-      const token = getAccessToken();
-      const resp = await fetch("/api/v1/collaborators/promoter/commissions", {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          Accept: "application/json",
-        },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (Array.isArray(data) && data.length > 0) {
-          commissions = data;
-        } else {
-          commissions = mockCommissions;
-        }
-      } else {
-        commissions = mockCommissions;
+      const [meRes, resp] = await Promise.allSettled([
+        requestAuth<any>("/api/v1/collaborators/promoter/me"),
+        requestAuth<any>("/api/v1/collaborators/promoter/commissions"),
+      ]);
+      if (meRes.status === "fulfilled" && meRes.value) {
+        const meData = meRes.value;
+        if (meData?.pix_key) pixKey = meData.pix_key;
+        if (meData?.pix_key_type) pixType = String(meData.pix_key_type).toUpperCase();
+      }
+      if (resp.status === "fulfilled" && Array.isArray(resp.value)) {
+        commissions = resp.value;
       }
     } catch {
-      commissions = mockCommissions;
+      commissions = [];
     } finally {
       loading = false;
     }
@@ -93,7 +70,7 @@
 
 <div class="w-full max-w-5xl mx-auto p-4 sm:p-6 text-white space-y-6">
   <!-- Painel de Repasses PIX -->
-  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-[#005238]/90 to-[#002776]/90 shadow-2xl">
+  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-xs font-semibold text-[var(--yellow)] mb-2">
@@ -146,7 +123,7 @@
   <div class="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-md overflow-hidden shadow-xl">
     <div class="p-5 border-b border-white/10 bg-white/5 flex items-center justify-between">
       <h2 class="text-base font-bold text-white">Histórico de Comissões</h2>
-      <span class="text-xs text-white/60">R$ 150,00 por matrícula confirmada</span>
+      <span class="text-xs text-white/60">R$ 100,00 por matrícula + Bônus de R$ 500,00 a cada 5 matrículas na semana</span>
     </div>
 
     {#if loading}

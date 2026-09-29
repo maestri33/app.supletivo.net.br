@@ -48,12 +48,17 @@ export function getSession(): SessionCache | null {
   }
 }
 
-export function clearSession(): void {
+export function clearLogin(): void {
   if (typeof window === "undefined") return;
   refreshTokenMemory = null;
   loginCache = { raw: null, value: null };
-  window.localStorage.removeItem(KEY);
   window.localStorage.removeItem(LOGIN_KEY);
+}
+
+export function clearSession(): void {
+  if (typeof window === "undefined") return;
+  clearLogin();
+  window.localStorage.removeItem(KEY);
   try {
     const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
     document.cookie = `${KEY}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax${secureFlag}`;

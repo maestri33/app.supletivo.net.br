@@ -9,12 +9,10 @@ import {
   type StudentDockState,
   type PromoterDockState,
   type PoloDockState,
-  type AdminDockState,
   type AdapterContext,
   getStudentDockItems,
   getPromoterDockItems,
   getPoloDockItems,
-  getAdminDockItems,
 } from "./dock";
 
 export type { UserRole };
@@ -30,15 +28,14 @@ export interface RoleAdaptiveNavDockProps {
   studentState?: Partial<StudentDockState>;
   promoterState?: Partial<PromoterDockState>;
   poloState?: Partial<PoloDockState>;
-  adminState?: Partial<AdminDockState>;
 }
 
 /**
  * Componente Adaptativo Multi-Role & Multi-Estado.
  * Arquitetura em camadas:
  * 1. Casca Base Genérica (FloatingDock com animações ou Bottom Bar nativa)
- * 2. Adaptador por Perfil (aluno, promotor, polo, admin)
- * 3. Especialização por Sub-Estado Operacional (StudentStatus, PromoterStatus, PoloStatus, AdminStatus)
+ * 2. Adaptador por Perfil (aluno, promotor, polo)
+ * 3. Especialização por Sub-Estado Operacional (StudentStatus, PromoterStatus, PoloStatus)
  *
  * 100% aderente a AGENTS.md (Código em inglês, Interface 100% PT-BR).
  */
@@ -53,7 +50,6 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   studentState: controlledStudentState,
   promoterState: controlledPromoterState,
   poloState: controlledPoloState,
-  adminState: controlledAdminState,
 }) => {
   const [internalRole, setInternalRole] = React.useState<UserRole>(initialRole);
   const activeRole = controlledRole || internalRole;
@@ -85,19 +81,14 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   });
   const [promoterState, setPromoterState] = React.useState<PromoterDockState>({
     status: "active",
-    newLeadsCount: 3,
+    newLeadsCount: 0,
     isTrainingBlocked: false,
     pendingMaterialsCount: 0,
   });
   const [poloState, setPoloState] = React.useState<PoloDockState>({
-    pendingValidationCount: 5,
-    pendingExamsCount: 2,
-    readyDiplomasCount: 4,
-  });
-  const [adminState, setAdminState] = React.useState<AdminDockState>({
-    systemAlertsCount: 0,
-    hubsCount: 12,
-    isOracleSynced: true,
+    pendingValidationCount: 0,
+    pendingExamsCount: 0,
+    readyDiplomasCount: 0,
   });
 
   // Logout canônico
@@ -166,14 +157,6 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       }
     };
 
-    // Escuta atualização de estado operacional do admin
-    const handleAdminStateChange = (e: Event) => {
-      const customEvent = e as CustomEvent<AdminDockState>;
-      if (customEvent.detail) {
-        setAdminState((prev) => ({ ...prev, ...customEvent.detail }));
-      }
-    };
-
     // Escuta fase do wizard de ativação do lead (modalidade vs checkout)
     const handleLeadPhaseChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ phase: "selection" | "checkout" }>;
@@ -210,7 +193,6 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
     window.addEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
-    window.addEventListener("supletivo:admin-state", handleAdminStateChange);
 
     // Hidratação proativa do status do aluno se logado
     const currentToken = getAccessToken();
@@ -239,7 +221,6 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       window.removeEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
       window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);
       window.removeEventListener("supletivo:polo-state", handlePoloStateChange);
-      window.removeEventListener("supletivo:admin-state", handleAdminStateChange);
     };
   }, [studentState.status]);
 

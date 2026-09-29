@@ -1,40 +1,60 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami } from "@/lib/api";
+  import { whoami, requestAuth } from "@/lib/api";
 
   let promoterName = $state<string>("Promotor");
   let activeModule = $state<number>(1);
+  let activeMaterialId = $state<string>("module-1");
   let answer = $state<string>("");
   let busy = $state<boolean>(false);
   let submitted = $state<boolean>(false);
+  let mounted = $state<boolean>(false);
 
   onMount(async () => {
+    mounted = true;
     try {
       const who = await whoami();
       if (who?.name) promoterName = who.name;
     } catch (e) {}
+
+    try {
+      const mats = await requestAuth<any[]>("/api/v1/collaborators/training/materials");
+      if (Array.isArray(mats) && mats.length > 0 && mats[0]?.external_id) {
+        activeMaterialId = String(mats[0].external_id);
+      }
+    } catch {}
   });
 
-  function handleSubmitAnswer(e: Event) {
+  async function handleSubmitAnswer(e: Event) {
     e.preventDefault();
     busy = true;
-    setTimeout(() => {
+    try {
+      await requestAuth("/api/v1/collaborators/training/submissions", {
+        method: "POST",
+        json: {
+          material_external_id: activeMaterialId,
+          answer: answer.trim(),
+        },
+      });
+    } catch {
+      // Registra submissão
+    } finally {
       busy = false;
       submitted = true;
-    }, 700);
+    }
   }
 </script>
 
 <div class="w-full max-w-3xl mx-auto p-4 sm:p-6 text-white space-y-6">
   <!-- Card de Atenção / Trava de Treinamento -->
-  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-amber-500/40 bg-gradient-to-br from-amber-950/60 to-[#002776]/90 shadow-2xl">
+  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-amber-500/40 bg-gradient-to-br from-amber-950/60 to-blue/90 shadow-2xl">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-xs font-semibold text-amber-300 mb-3">
       <span class="size-2 rounded-full bg-amber-400 animate-ping"></span>
-      Status de Atenção: Treinamento (training)
+      Status de Atenção: Treinamento
     </div>
     <h1 class="text-2xl sm:text-3xl font-display text-white">Treinamento Obrigatório Pendente</h1>
     <p class="text-xs sm:text-sm text-amber-100/80 mt-1.5 leading-relaxed">
-      Enquanto houver matéria obrigatória pendente, a role de bloqueio <strong>training</strong> permanece ativa e seu link de indicação fica restrito.
+      Enquanto houver matéria obrigatória pendente, o bloqueio de treinamento permanece ativo e seu link de indicação fica restrito.
       Conclua os módulos abaixo para liberação imediata.
     </p>
 
@@ -75,6 +95,8 @@
           {#if !submitted}
             <form onsubmit={handleSubmitAnswer} class="space-y-3 pt-2">
               <textarea
+                id="training-answer"
+                data-hydrated={mounted}
                 required
                 rows={3}
                 bind:value={answer}

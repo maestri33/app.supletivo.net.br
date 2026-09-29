@@ -5,8 +5,6 @@ import {
   IconHome,
   IconFileText,
   IconSchool,
-  IconAward,
-  IconHelpCircle,
   IconDoorExit,
   IconCreditCard,
   IconQrcode,
@@ -75,8 +73,14 @@ export function getStudentDockItems(
   let docsBadge: string | number | null = null;
   let docsVariant: "warning" | "info" | "success" | "danger" | undefined = undefined;
 
+  const statusPtMap: Record<string, string> = {
+    rg: "RG",
+    address: "Endereço",
+    education: "Histórico",
+    selfie: "Selfie",
+  };
   if (["rg", "address", "education", "selfie"].includes(status)) {
-    docsBadge = status.toUpperCase();
+    docsBadge = statusPtMap[status] || "Pendente";
     docsVariant = "warning";
   } else if (status === "awaiting_release") {
     docsBadge = "Polo";
@@ -95,7 +99,7 @@ export function getStudentDockItems(
 
   return [
     {
-      title: "Meu Curso",
+      title: "Portal do Aluno",
       icon: <IconHome className="h-full w-full" />,
       href: "/student",
       isActive: isHomeActive,
@@ -109,16 +113,10 @@ export function getStudentDockItems(
       isActive: isEnrollmentActive,
     },
     {
-      title: "Ativação / Lead",
+      title: "Ativação",
       icon: <IconSchool className="h-full w-full" />,
       href: "/student/lead",
       isActive: isLeadActive,
-    },
-    {
-      title: "Ajuda e Suporte",
-      icon: <IconHelpCircle className="h-full w-full" />,
-      href: "/suporte",
-      isActive: currentPath.startsWith("/suporte") || currentPath.startsWith("/ajuda"),
     },
     {
       title: "Sair",

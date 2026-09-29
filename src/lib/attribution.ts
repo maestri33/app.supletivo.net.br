@@ -18,7 +18,6 @@ export type AttrKey = (typeof ATTR_KEYS)[number];
 export type AttributionData = Partial<Record<AttrKey, string>> & { ts?: number };
 
 const STORAGE_KEY = "supletivo.attr";
-const COOKIE_ATTR = "supletivo.attr";
 const COOKIE_REF = "sb_ref";
 
 function readCookie(name: string): string | null {

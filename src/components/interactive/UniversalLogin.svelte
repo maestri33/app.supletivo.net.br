@@ -189,14 +189,7 @@
   </div>
 
   <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
-    Ainda não possui cadastro?
-    <button
-      type="button"
-      onclick={() => { isRoleModalOpen = true; }}
-      class="text-[var(--yellow)] font-bold hover:underline ml-1 cursor-pointer bg-transparent border-none p-0"
-    >
-      Conheça as opções de acesso
-    </button>
+    Ainda não possui cadastro? Basta digitar seu WhatsApp acima para conhecer as opções de acesso.
   </div>
 </div>
 

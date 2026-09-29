@@ -5,7 +5,6 @@ import {
   IconHome,
   IconUsers,
   IconCash,
-  IconHelpCircle,
   IconDoorExit,
   IconSchool,
   IconChecklist,
@@ -40,12 +39,6 @@ export function getPromoterDockItems(
         isActive: currentPath === "/promoter" || currentPath.startsWith("/promoter/candidate"),
       },
       {
-        title: "Suporte",
-        icon: <IconHelpCircle className="h-full w-full" />,
-        href: "/suporte",
-        isActive: currentPath.startsWith("/suporte"),
-      },
-      {
         title: "Sair",
         icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
         onClick: onLogout,
@@ -74,12 +67,6 @@ export function getPromoterDockItems(
         isActive: currentPath === "/promoter" || currentPath.startsWith("/promoter/active"),
       },
       {
-        title: "Suporte",
-        icon: <IconHelpCircle className="h-full w-full" />,
-        href: "/suporte",
-        isActive: currentPath.startsWith("/suporte"),
-      },
-      {
         title: "Sair",
         icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
         onClick: onLogout,
@@ -99,12 +86,6 @@ export function getPromoterDockItems(
         isActive: currentPath.startsWith("/promoter"),
       },
       {
-        title: "Falar com Coordenação",
-        icon: <IconHelpCircle className="h-full w-full" />,
-        href: "/suporte",
-        isActive: currentPath.startsWith("/suporte"),
-      },
-      {
         title: "Sair",
         icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
         onClick: onLogout,
@@ -122,9 +103,9 @@ export function getPromoterDockItems(
       isActive: currentPath === "/promoter" || currentPath.startsWith("/promoter/active"),
     },
     {
-      title: "Leads",
+      title: "Indicados",
       icon: <IconUsers className="h-full w-full" />,
-      href: "/promotor/leads",
+      href: "/promoter/leads",
       badge: newLeads > 0 ? newLeads : undefined,
       badgeVariant: "success",
       isActive: currentPath.startsWith("/promotor/leads") || currentPath.startsWith("/promoter/leads"),
@@ -132,7 +113,7 @@ export function getPromoterDockItems(
     {
       title: "Comissões",
       icon: <IconCash className="h-full w-full" />,
-      href: "/promotor/comissoes",
+      href: "/promoter/comissoes",
       isActive: currentPath.startsWith("/promotor/comissoes") || currentPath.startsWith("/promoter/comissoes"),
     },
     {
@@ -140,12 +121,6 @@ export function getPromoterDockItems(
       icon: <IconSchool className="h-full w-full" />,
       href: "/promoter/training",
       isActive: currentPath.startsWith("/promoter/training"),
-    },
-    {
-      title: "Suporte",
-      icon: <IconHelpCircle className="h-full w-full" />,
-      href: "/suporte",
-      isActive: currentPath.startsWith("/suporte"),
     },
     {
       title: "Sair",
