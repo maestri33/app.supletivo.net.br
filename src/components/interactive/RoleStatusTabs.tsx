@@ -477,7 +477,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
     >
       {/* Top Controls: Role Selector & Dock Variant Switcher */}
       <div className="w-full max-w-4xl px-4 py-4 space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-ink/80 border border-white/15 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--ink)]/80 border border-white/15 backdrop-blur-xl">
           {/* Seletor de Role */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-white/60">Perfil:</span>

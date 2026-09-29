@@ -26,8 +26,9 @@ export const ALL: APIRoute = async ({ request, url }) => {
       statusText: res.statusText,
       headers: responseHeaders,
     });
-  } catch (err: any) {
-    console.error(`[media-proxy] Error proxying ${url.pathname}:`, err?.message);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[media-proxy] Error proxying ${url.pathname}:`, errorMsg);
     return new Response('Not Found', { status: 404 });
   }
 };

@@ -348,6 +348,9 @@ export interface WhoAmI {
   external_id: string;
   roles: string[];
   name?: string | null;
+  role_statuses?: Record<string, string>;
+  active_role?: string;
+  authenticated?: boolean;
 }
 
 export function whoami(): Promise<WhoAmI> {
@@ -436,8 +439,9 @@ export function setLeadEmail(email: string): Promise<EmailOut> {
  * Vitrine pública de preços (GET /pricing) — os cards do passo 6 desenham isto.
  * Rota sem auth; irmã client-side do `getPricing` server-only de pricing-server.ts.
  */
-export function fetchPricing(): Promise<Pricing> {
-  return request<Pricing>("/api/v1/clients/pricing");
+export function fetchPricing(ref?: string | null): Promise<Pricing> {
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+  return request<Pricing>(`/api/v1/clients/pricing${query}`);
 }
 
 /**

@@ -52,8 +52,9 @@ export const ALL: APIRoute = async (context) => {
       statusText: res.statusText,
       headers: responseHeaders,
     });
-  } catch (err: any) {
-    console.error(`[api-proxy] Error proxying ${request.method} ${url.pathname} to backend:`, err?.message);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[api-proxy] Error proxying ${request.method} ${url.pathname} to backend:`, errorMsg);
     return new Response(
       JSON.stringify({
         error: 'backend_unavailable',

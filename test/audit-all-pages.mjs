@@ -1,8 +1,8 @@
 import { chromium } from '@playwright/test';
 
 const sessionData = {
-  access_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzkwNjk2OTE5LCJpYXQiOjE3OTA2OTUxMTksImp0aSI6IjcxOTNjNzdkNmY5ZjQ4MmFhMDBjNGE3MDA0MDA4NjJjIiwiZXh0ZXJuYWxfaWQiOiI5ODIzYTBhNC0yMjNhLTRlMTUtOTUyMi0xOTJjZWI4OTMxNWMiLCJyb2xlcyI6WyJhZG1pbiIsImNhbmRpZGF0ZSIsImVucm9sbG1lbnQiLCJzdGFmZiJdLCJ0b2tlbl92ZXJzaW9uIjo0LCJpc3MiOiJzdXBsZXRpdm8ifQ.df7cDP4hLW1frgQJww43ZU03c11EOVll3qGHRfSFLQ04sOa5gLPbsPmwAMhGz6ITu6WMAwYNtbkcL5SbVaF-kcAusY5_-9TvVOeJaHhSaSbQitEgwoJUQTodLGNYe8AnjAcunfjUE5qo5iNjYXY7L8yTz0wUklSK9R7TAmT65Z9bwXtcWMi2gc7vuOw07NOTWc-fwwNq0w7ADDQKZudJY7PBF-G1S8OmIXQs9Sk-bJjEWgIJDteD3ZjpnHRgVBR5B-CSGvcU7DFwYaNjPdPE84hr7xajBCFKXUdfXOsChAtvGIAEPhLccTsF56O00TgAJIY8znaqzBghdqbWiONLKg",
-  refresh_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc5MDc4MDk2MSwiaWF0IjoxNzkwNjk0NTYxLCJqdGkiOiJjODM1MzM4Y2E3ZWI0YjU1ODlmNDBhM2ViOTM3ZjE3YiIsImV4dGVybmFsX2lkIjoiOTgyM2EwYTQtMjIzYS00ZTE1LTk1MjItMTkyY2ViODkzMTVjIiwicm9sZXMiOlsiYWRtaW4iLCJjYW5kaWRhdGUiLCJlbnJvbGxtZW50Iiwic3RhZmYiXSwidG9rZW5fdmVyc2lvbiI6NCwiaXNzIjoic3VwbGV0aXZvIn0.jQtMsiN94TcDONIw2L-RMywpaA_luJDwT9ZRXJxITNA5px6bCW6Nn5TrOzP0r_1veSpsYnjsA_pP3xr2HIm6tGbXtHKRsn_fi0vnm26xkOeumNavxro0Bm1HCw980i6CjeHtBNOobF6Mqkj411oEgzF9SQL4K7e9fiE-kpXO9Kov_QEeBMNdFkw0R2U5ucCWDSXmbvcyowiCwL_82pCzj1amzixkoNY_EDka94BpkyokywClRcVkkh90r6y-b-WGYB664B6728pRoMgf0GK6Jd0rqE4cYmuYJYdHw3vpasIHDz75C_U5JtW83D6SdZN48cM7aX6mtUx1eKo4s3D1RQ",
+  access_token: process.env.AUDIT_ACCESS_TOKEN || "mock-audit-access-token",
+  refresh_token: process.env.AUDIT_REFRESH_TOKEN || "mock-audit-refresh-token",
   external_id: "9823a0a4-223a-4e15-9522-192ceb89315c",
   roles: ["student", "promoter", "hub", "admin", "candidate", "enrollment", "staff"],
   phone: "5543996648750",
@@ -112,7 +112,7 @@ async function run() {
           name: data.name,
           roles: data.roles
         }));
-      } catch (e) {}
+      } catch {}
     }, sessionData);
 
     try {
@@ -146,7 +146,7 @@ async function run() {
       results.push(result);
 
       const pass = pageErrors.length === 0 && (status === 200 || status === 308);
-      console.log(`  -> Final: ${finalUrl} | Status: ${status} | Header: ${hasHeader} | Dock: ${hasDock}`);
+      console.log(`  -> Final: ${finalUrl} | Status: ${status} | Pass: ${pass} | Header: ${hasHeader} | Dock: ${hasDock}`);
       if (pageErrors.length > 0) console.log(`  ❌ Page Errors: ${pageErrors.join("; ")}`);
       if (failedRequests.length > 0) console.log(`  ⚠️ Failed Requests: ${failedRequests.join("; ")}`);
       if (consoleLogs.length > 0) console.log(`  ⚠️ Console Errors: ${consoleLogs.join("; ")}`);

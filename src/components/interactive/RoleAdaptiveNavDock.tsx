@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { FloatingDock, type FloatingDockItem } from "@/components/ui/floating-dock";
-import { getAccessToken, clearSession } from "@/lib/session";
-import { getStudentMe, whoami, getEnrollmentMe } from "@/lib/api";
 import {
   type UserRole,
   type StudentDockState,
@@ -13,6 +11,7 @@ import {
   getStudentDockItems,
   getPromoterDockItems,
   getPoloDockItems,
+  useDockSync,
 } from "./dock";
 
 export type { UserRole };
@@ -32,12 +31,12 @@ export interface RoleAdaptiveNavDockProps {
 
 /**
  * Componente Adaptativo Multi-Role & Multi-Estado.
- * Arquitetura em camadas:
- * 1. Casca Base Genérica (FloatingDock com animações ou Bottom Bar nativa)
- * 2. Adaptador por Perfil (aluno, promotor, polo)
- * 3. Especialização por Sub-Estado Operacional (StudentStatus, PromoterStatus, PoloStatus)
+ * Arquitetura em camadas desacopladas:
+ * 1. Hook de sincronização reativo (`useDockSync`) isolando ciclo de vida, auth e eventos
+ * 2. Adaptador polimórfico por Perfil (aluno, promotor, polo)
+ * 3. Renderizador de casca limpo (Bottom Bar Nativa ou Floating Dock Cápsula)
  *
- * 100% aderente a AGENTS.md (Código em inglês, Interface 100% PT-BR).
+ * 100% aderente a AGENTS.md e DESIGN.md (Código em inglês, Interface 100% PT-BR).
  */
 export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   initialRole = "aluno",
@@ -51,198 +50,24 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   promoterState: controlledPromoterState,
   poloState: controlledPoloState,
 }) => {
-  const [internalRole, setInternalRole] = React.useState<UserRole>(initialRole);
-  const activeRole = controlledRole || internalRole;
-  const [isLocked, setIsLocked] = React.useState<boolean>(false);
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(bypassAuth || true);
-
-  // Estados operacionais de cada ambiente
-  const [studentState, setStudentState] = React.useState<StudentDockState>(() => {
-    let initialStatus: string | null = null;
-    if (typeof window !== "undefined") {
-      if (window.location.pathname.startsWith("/student/lead")) {
-        initialStatus = "lead";
-      } else if (window.location.pathname.startsWith("/student/enrollment")) {
-        initialStatus = "enrollment";
-      }
-    } else if (currentPath.startsWith("/student/lead")) {
-      initialStatus = "lead";
-    } else if (currentPath.startsWith("/student/enrollment")) {
-      initialStatus = "enrollment";
-    }
-    return {
-      status: initialStatus,
-      pendingDocsCount: 0,
-      hasPartnerUrl: false,
-      leadPhase: "selection",
-      isCheckoutReady: false,
-      selectedModality: null,
-    };
+  const {
+    activeRole,
+    isAuthenticated,
+    isLocked,
+    studentState: effectiveStudentState,
+    promoterState: effectivePromoterState,
+    poloState: effectivePoloState,
+    handleLogout,
+  } = useDockSync({
+    initialRole,
+    controlledRole,
+    currentPath,
+    bypassAuth,
+    onLogout,
+    controlledStudentState,
+    controlledPromoterState,
+    controlledPoloState,
   });
-  const [promoterState, setPromoterState] = React.useState<PromoterDockState>({
-    status: "active",
-    newLeadsCount: 0,
-    isTrainingBlocked: false,
-    pendingMaterialsCount: 0,
-  });
-  const [poloState, setPoloState] = React.useState<PoloDockState>({
-    pendingValidationCount: 0,
-    pendingExamsCount: 0,
-    readyDiplomasCount: 0,
-  });
-
-  // Logout canônico
-  const handleLogout = React.useCallback(() => {
-    if (onLogout) {
-      onLogout();
-    } else {
-      clearSession();
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
-    }
-  }, [onLogout]);
-
-  // Sincronização e escuta de eventos do ecossistema
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Se não houver token ativo no navegador, dock permanece invisível (a menos que bypassAuth seja ativado)
-    if (!bypassAuth) {
-      const token = getAccessToken();
-      if (!token) {
-        setIsAuthenticated(false);
-        return;
-      }
-    }
-    setIsAuthenticated(true);
-
-    // Escuta troca de role disparada por tabs superiores
-    const handleRoleChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ role: UserRole }>;
-      if (customEvent.detail?.role) {
-        setInternalRole(customEvent.detail.role);
-      }
-    };
-
-    // Escuta estado de bloqueio de matrícula (paywall)
-    const handleLockChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ isLocked: boolean }>;
-      if (typeof customEvent.detail?.isLocked === "boolean") {
-        setIsLocked(customEvent.detail.isLocked);
-      }
-    };
-
-    // Escuta atualização de estado operacional do aluno
-    const handleStudentStateChange = (e: Event) => {
-      const customEvent = e as CustomEvent<StudentDockState>;
-      if (customEvent.detail) {
-        setStudentState((prev) => ({ ...prev, ...customEvent.detail }));
-      }
-    };
-
-    // Escuta atualização de estado operacional do promotor
-    const handlePromoterStateChange = (e: Event) => {
-      const customEvent = e as CustomEvent<PromoterDockState>;
-      if (customEvent.detail) {
-        setPromoterState((prev) => ({ ...prev, ...customEvent.detail }));
-      }
-    };
-
-    // Escuta atualização de estado operacional do polo
-    const handlePoloStateChange = (e: Event) => {
-      const customEvent = e as CustomEvent<PoloDockState>;
-      if (customEvent.detail) {
-        setPoloState((prev) => ({ ...prev, ...customEvent.detail }));
-      }
-    };
-
-    // Escuta fase do wizard de ativação do lead (modalidade vs checkout)
-    const handleLeadPhaseChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ phase: "selection" | "checkout" }>;
-      if (customEvent.detail?.phase) {
-        setStudentState((prev) => ({ ...prev, leadPhase: customEvent.detail.phase }));
-      }
-    };
-
-    // Escuta estado de prontidão e modalidade do checkout do lead
-    const handleLeadCheckoutStatus = (e: Event) => {
-      const customEvent = e as CustomEvent<{
-        ready: boolean;
-        phase?: "selection" | "checkout";
-        modality?: "pix" | "credit_card" | null;
-      }>;
-      if (customEvent.detail) {
-        if (typeof window !== "undefined") {
-          (window as any).__supletivoLeadCheckoutReady = customEvent.detail.ready;
-        }
-        setStudentState((prev) => ({
-          ...prev,
-          isCheckoutReady: customEvent.detail.ready,
-          leadPhase: customEvent.detail.phase ?? prev.leadPhase,
-          selectedModality:
-            customEvent.detail.modality !== undefined ? customEvent.detail.modality : prev.selectedModality,
-        }));
-      }
-    };
-
-    window.addEventListener("supletivo:role-change", handleRoleChange);
-    window.addEventListener("supletivo:lock-change", handleLockChange);
-    window.addEventListener("supletivo:student-state", handleStudentStateChange);
-    window.addEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
-    window.addEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
-    window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
-    window.addEventListener("supletivo:polo-state", handlePoloStateChange);
-
-    // Hidratação proativa do status do aluno se logado
-    const currentToken = getAccessToken();
-    if (!studentState.status && currentToken) {
-      whoami()
-        .then((w) => {
-          const stStatus = w.role_statuses?.student;
-          if (stStatus === "enrollment") {
-            setStudentState((prev) => ({
-              ...prev,
-              status: "enrollment",
-            }));
-          } else if (stStatus === "lead") {
-            setStudentState((prev) => ({
-              ...prev,
-              status: "lead",
-            }));
-          } else if (stStatus === "student" || (Array.isArray(w.roles) && w.roles.includes("student"))) {
-            getStudentMe()
-              .then((s) => {
-                if (s) {
-                  setStudentState((prev) => ({
-                    ...prev,
-                    status: s.status ?? prev.status ?? null,
-                    pendingDocsCount: s.pendencies?.length ?? prev.pendingDocsCount ?? 0,
-                    hasPartnerUrl: Boolean(s.platform?.url),
-                  }));
-                }
-              })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }
-
-    return () => {
-      window.removeEventListener("supletivo:role-change", handleRoleChange);
-      window.removeEventListener("supletivo:lock-change", handleLockChange);
-      window.removeEventListener("supletivo:student-state", handleStudentStateChange);
-      window.removeEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
-      window.removeEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
-      window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);
-      window.removeEventListener("supletivo:polo-state", handlePoloStateChange);
-    };
-  }, [studentState.status]);
-
-  // Mescla estados controlados com estados internos
-  const effectiveStudentState: StudentDockState = { ...studentState, ...controlledStudentState };
-  const effectivePromoterState: PromoterDockState = { ...promoterState, ...controlledPromoterState };
-  const effectivePoloState: PoloDockState = { ...poloState, ...controlledPoloState };
 
   // O status 'lead' do estudante opera como um wizard guia de 2 fases no dock
   const isLeadWizard =
@@ -283,19 +108,19 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
     return (
       <nav
         aria-label={`Navegação principal do ${activeRole}`}
-        className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-brand-ink/90 backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.5)] pb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[var(--ink)]/90 backdrop-blur-2xl shadow-2xl pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="h-[2px] w-full bg-gradient-to-r from-brand-green via-brand-yellow to-brand-blue-bright" />
+        <div className="h-[2px] w-full bg-gradient-to-r from-[var(--green)] via-[var(--yellow)] to-[var(--blue)]" />
         <div className="mx-auto flex w-full max-w-lg items-center justify-around px-2 py-2">
           {items.map((item, index) => {
             const badgeBg =
               item.badgeVariant === "danger"
-                ? "bg-rose-500 text-white"
+                ? "bg-[var(--danger)] text-white"
                 : item.badgeVariant === "success"
-                ? "bg-emerald-500 text-white"
+                ? "bg-[var(--success)] text-white"
                 : item.badgeVariant === "info"
-                ? "bg-sky-500 text-white"
-                : "bg-amber-400 text-black";
+                ? "bg-[var(--info)] text-white"
+                : "bg-[var(--yellow)] text-[var(--ink)]";
 
             const content = (
               <>
@@ -315,7 +140,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
 
             const commonClasses = `flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
               item.isActive
-                ? "text-brand-yellow font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
+                ? "text-[var(--yellow)] font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
                 : "text-white/70 hover:text-white"
             } ${item.disabled ? "opacity-40 pointer-events-none cursor-not-allowed" : ""}`;
 

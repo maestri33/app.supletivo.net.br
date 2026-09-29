@@ -92,10 +92,10 @@ const FloatingDockMobile: React.FC<{
                   item={item}
                   className={cn(
                     "flex h-12 w-12 items-center justify-center rounded-full border transition-all duration-200 relative",
-                    "shadow-[0_8px_20px_-6px_rgba(11,18,32,0.22)]",
+                    "shadow-lg",
                     item.isActive
                       ? "bg-[var(--yellow)] text-[var(--ink)] border-[var(--ink)] ring-2 ring-[var(--yellow)]/50"
-                      : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] hover:bg-[var(--paper-soft)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-[rgba(255,255,255,0.12)]",
+                      : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] hover:bg-[var(--paper-soft)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-white/10",
                     item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
                   )}
                   onItemClick={() => setOpen(false)}
@@ -129,10 +129,10 @@ const FloatingDockMobile: React.FC<{
         aria-expanded={open}
         aria-label="Abrir ou fechar menu de navegação flutuante"
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_12px_28px_-6px_rgba(11,18,32,0.2)] transition-all duration-200",
+          "flex h-12 w-12 items-center justify-center rounded-full border shadow-xl transition-all duration-200",
           open
             ? "bg-[var(--ink)] text-[var(--yellow)] border-[var(--ink)] dark:bg-[var(--paper)] dark:text-[var(--ink)]"
-            : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] active:scale-95 dark:bg-[var(--ink)] dark:text-[var(--paper)] dark:border-[rgba(255,255,255,0.12)]"
+            : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] active:scale-95 dark:bg-[var(--ink)] dark:text-[var(--paper)] dark:border-white/10"
         )}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5 transition-transform duration-200" />
@@ -153,8 +153,8 @@ const FloatingDockDesktop: React.FC<{
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
         "mx-auto hidden h-16 items-end gap-3 rounded-2xl px-4 pb-3 border backdrop-blur-md transition-shadow duration-300 md:flex",
-        "bg-[var(--paper)]/90 border-[var(--line-light)] shadow-[0_20px_45px_-15px_rgba(11,18,32,0.14)]",
-        "dark:bg-[var(--ink)]/90 dark:border-[rgba(255,255,255,0.12)] dark:shadow-[0_20px_45px_-15px_rgba(0,0,0,0.45)]",
+        "bg-[var(--paper)]/90 border-[var(--line-light)] shadow-2xl",
+        "dark:bg-[var(--ink)]/90 dark:border-white/10 dark:shadow-2xl",
         className
       )}
     >
@@ -203,7 +203,7 @@ function IconContainer({
           "relative flex aspect-square items-center justify-center rounded-full border transition-colors duration-200 cursor-pointer",
           item.isActive
             ? "bg-[var(--yellow)] text-[var(--ink)] border-[var(--ink)] font-bold shadow-md ring-2 ring-[var(--yellow)]/60"
-            : "bg-[var(--paper-soft)] border-[var(--line-light)] text-[var(--ink)] hover:border-[var(--blue)] dark:bg-[var(--ink-soft)] dark:border-[rgba(255,255,255,0.08)] dark:text-[var(--paper)]",
+            : "bg-[var(--paper-soft)] border-[var(--line-light)] text-[var(--ink)] hover:border-[var(--blue)] dark:bg-[var(--ink-soft)] dark:border-white/10 dark:text-[var(--paper)]",
           item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
         )}
       >
@@ -213,7 +213,7 @@ function IconContainer({
               initial={{ opacity: 0, y: 10, x: "-50%" }}
               animate={{ opacity: 1, y: 0, x: "-50%" }}
               exit={{ opacity: 0, y: 2, x: "-50%" }}
-              className="pointer-events-none absolute -top-9 left-1/2 w-fit rounded-md border border-[var(--line-light)] bg-[var(--paper)] px-2.5 py-1 text-xs font-semibold whitespace-pre text-[var(--ink)] shadow-lg dark:border-[rgba(255,255,255,0.15)] dark:bg-[var(--ink)] dark:text-white z-50"
+              className="pointer-events-none absolute -top-9 left-1/2 w-fit rounded-md border border-[var(--line-light)] bg-[var(--paper)] px-2.5 py-1 text-xs font-semibold whitespace-pre text-[var(--ink)] shadow-lg dark:border-white/15 dark:bg-[var(--ink)] dark:text-white z-50"
             >
               {item.title}
             </motion.div>

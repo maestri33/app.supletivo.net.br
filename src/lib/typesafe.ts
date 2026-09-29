@@ -22,11 +22,10 @@ const TYPESAFE_API_URL = process.env.TYPESAFE_API_URL || 'https://api.typesafe.a
 const TYPESAFE_TIMEOUT_MS = 1200;
 
 function getApiKey(): string {
-  return (
-    process.env.TYPESAFE_API_KEY ||
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.TYPESAFE_API_KEY) ||
-    ''
-  );
+  const metaEnv = typeof import.meta !== 'undefined'
+    ? (import.meta as unknown as { env?: Record<string, string> }).env
+    : undefined;
+  return process.env.TYPESAFE_API_KEY || metaEnv?.TYPESAFE_API_KEY || '';
 }
 
 /**
@@ -180,7 +179,16 @@ export async function triageDocument(params: {
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const data: any = await response.json();
+      interface SystemOneResponse {
+        answers?: Record<string, {
+          choice?: string;
+          score?: number;
+          noul?: boolean;
+          confidence?: number;
+          probabilities?: Record<string, number>;
+        }>;
+      }
+      const data = (await response.json()) as SystemOneResponse;
       const answers = data.answers || {};
 
       const lowerName = (params.fileName || '').toLowerCase();

@@ -7,9 +7,12 @@
     getLeadMe,
     confirmIdentity,
     setLeadEmail,
+    fetchPricing,
     ApiError,
     type CheckoutOut,
+    type Pricing,
   } from "@/lib/api";
+  import { setLeadCheckoutReadyState } from "@/components/interactive/dock";
   import PixCheckout from "./PixCheckout.svelte";
 
   // Fases do Paywall:
@@ -43,18 +46,46 @@
   let profileBusy = $state(false);
   let profileError = $state<string | null>(null);
 
-  // Valores padrão / promocionais consultor
+  // Valores dinâmicos da plataforma (com fallback de resiliência)
+  let livePricing = $state<Pricing | null>(null);
   let hasRef = $state(false);
-  let pixPrice = $derived(hasRef ? "R$ 999,00" : "R$ 1.615,00");
-  let creditPrice = $derived(hasRef ? "12x de R$ 99,00" : "12x de R$ 161,00");
-  let discountBadge = $derived(hasRef ? "Desconto Especial de Consultor Aplicado" : null);
+  let pixPrice = $derived.by(() => {
+    if (livePricing) {
+      const p = hasRef && livePricing.promo_pix ? livePricing.promo_pix : livePricing.pix;
+      const num = parseFloat(p);
+      if (!isNaN(num) && num > 0) {
+        return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      }
+    }
+    return hasRef ? "R$ 999,00" : "R$ 1.615,00";
+  });
+  let creditPrice = $derived.by(() => {
+    if (livePricing) {
+      const card = hasRef && livePricing.promo_card ? livePricing.promo_card : livePricing.card;
+      if (card) {
+        const inst = card.installments || 12;
+        const val = parseFloat(card.installment);
+        if (!isNaN(val) && val > 0) {
+          return `${inst}x de ${val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
+        }
+      }
+    }
+    return hasRef ? "12x de R$ 99,00" : "12x de R$ 161,00";
+  });
+  let discountBadge = $derived(
+    hasRef
+      ? (livePricing?.promoter_name
+          ? `Desconto Especial de Consultor (${livePricing.promoter_name})`
+          : "Desconto Especial de Consultor Aplicado")
+      : null
+  );
 
   /**
    * Notifica o dock de navegação com os dados de prontidão e fase do wizard.
    */
   function notifyDock(phase: "selection" | "checkout", ready: boolean, modality?: "pix" | "credit_card" | null) {
     if (typeof window !== "undefined") {
-      (window as any).__supletivoLeadCheckoutReady = ready;
+      setLeadCheckoutReadyState(ready);
       window.dispatchEvent(
         new CustomEvent("supletivo:lead-checkout-status", {
           detail: { ready, phase, modality },
@@ -70,9 +101,18 @@
 
   onMount(() => {
     const session = getSession();
-    if (session?.ref) {
+    const refCode = session?.ref || null;
+    if (refCode) {
       hasRef = true;
     }
+
+    fetchPricing(refCode)
+      .then((data) => {
+        if (data) livePricing = data;
+      })
+      .catch(() => {
+        // mantém fallbacks
+      });
 
     // Inicialmente o checkout NÃO está pronto, botão 2 do dock permanece desabilitado
     notifyDock("selection", false, null);
@@ -102,7 +142,7 @@
         checkAttempts++;
         try {
           const lead = await getLeadMe();
-          if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+          if (lead && (lead.checkout?.is_paid || lead.status === "paid")) {
             clearInterval(checkInterval);
             if (typeof localStorage !== "undefined") {
               localStorage.removeItem("supletivo_pending_card_checkout");
@@ -114,7 +154,9 @@
             window.location.href = "/student/enrollment?payment=confirmed";
             return;
           }
-        } catch {}
+        } catch (err: unknown) {
+          console.debug("[StudentLockedPaywall] Verificando retorno de cartão:", err);
+        }
 
         if (checkAttempts >= maxCheckAttempts) {
           clearInterval(checkInterval);
@@ -126,7 +168,7 @@
     // Checa proativamente se já existe um checkout emitido no backend
     getLeadMe()
       .then((lead) => {
-        if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+        if (lead && (lead.checkout?.is_paid || lead.status === "paid")) {
           const redirectUrl = isReturningFromCard
             ? "/student/enrollment?payment=confirmed&provider=infinitepay"
             : "/student/enrollment?payment=confirmed";
@@ -146,8 +188,8 @@
           }
         }
       })
-      .catch(() => {
-        // Silencioso em caso de erro na checagem inicial
+      .catch((err: unknown) => {
+        console.debug("[StudentLockedPaywall] Checagem de lead inicial:", err);
       });
 
     // Escuta comandos acionados diretamente nos botões do Dock Wizard
@@ -162,7 +204,7 @@
           notifyDock("checkout", true, "pix");
         } else if (selectedModality === "credit_card") {
           const directUrl =
-            (checkoutData as any)?.checkout_url ||
+            checkoutData?.checkout_url ||
             (typeof localStorage !== "undefined" ? localStorage.getItem("supletivo_card_checkout_url") : null);
           if (directUrl && mode !== "card_waiting") {
             window.location.href = directUrl;
@@ -180,7 +222,7 @@
     const pollInterval = setInterval(async () => {
       try {
         const lead = await getLeadMe();
-        if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+        if (lead && (lead.checkout?.is_paid || lead.status === "paid")) {
           clearInterval(pollInterval);
           if (typeof localStorage !== "undefined") {
             localStorage.removeItem("supletivo_pending_card_checkout");
@@ -189,8 +231,8 @@
           // Redireciona imediatamente para o novo ambiente do estudante: Fase de Matrícula
           window.location.href = "/student/enrollment?payment=confirmed";
         }
-      } catch {
-        // Silencioso em caso de polling
+      } catch (err: unknown) {
+        console.debug("[StudentLockedPaywall] Polling de status do lead:", err);
       }
     }, 3500);
 
@@ -200,9 +242,10 @@
     };
   });
 
-  function handleProfileIncomplete(method: "pix" | "credit_card", extra?: any) {
+  function handleProfileIncomplete(method: "pix" | "credit_card", extra?: Record<string, unknown>) {
     pendingPaymentMethod = method;
-    missingFields = extra?.missing_fields || ["cpf", "email"];
+    const rawMissing = extra?.missing_fields;
+    missingFields = Array.isArray(rawMissing) ? (rawMissing as string[]) : ["cpf", "email"];
     mode = "profile";
     notifyDock("selection", false, method);
   }
@@ -232,8 +275,9 @@
       } else {
         await selectCredit();
       }
-    } catch (err: any) {
-      profileError = err?.message || "Erro ao salvar seus dados cadastrais.";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar seus dados cadastrais.";
+      profileError = msg;
     } finally {
       profileBusy = false;
     }
@@ -302,8 +346,8 @@
             notifyDock("checkout", true, "pix");
             return;
           }
-        } catch {
-          // Continua polling
+        } catch (err: unknown) {
+          console.debug("[StudentLockedPaywall] Aguardando QR Code PIX:", err);
         }
       }
 
@@ -318,17 +362,20 @@
           notifyDock("checkout", true, "pix");
           return;
         }
-      } catch {}
+      } catch (err: unknown) {
+        console.debug("[StudentLockedPaywall] Fallback checkout url:", err);
+      }
 
       throw new Error("O gateway bancário demorou para responder. Por favor, tente novamente.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof ApiError && err.code === "PROFILE_INCOMPLETE") {
         handleProfileIncomplete("pix", err.extra);
         return;
       }
       mode = "selection";
       notifyDock("selection", isCheckoutReady, selectedModality);
-      errorMessage = err?.message || "Não foi possível gerar a cobrança PIX no momento.";
+      const msg = err instanceof Error ? err.message : "Não foi possível gerar a cobrança PIX no momento.";
+      errorMessage = msg;
     } finally {
       busy = false;
     }
@@ -395,7 +442,9 @@
             window.location.href = targetUrl;
             return;
           }
-        } catch {}
+        } catch (err: unknown) {
+          console.debug("[StudentLockedPaywall] Aguardando URL InfinitePay:", err);
+        }
       }
 
       // Fallback para getLeadCheckoutUrl()
@@ -415,14 +464,15 @@
       }
 
       throw new Error("Não recebemos o link de cartão do gateway. Tente novamente.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof ApiError && err.code === "PROFILE_INCOMPLETE") {
         handleProfileIncomplete("credit_card", err.extra);
         return;
       }
       mode = "selection";
       notifyDock("selection", isCheckoutReady, selectedModality);
-      errorMessage = err?.message || "Não foi possível conectar ao checkout de cartão da InfinitePay.";
+      const msg = err instanceof Error ? err.message : "Não foi possível conectar ao checkout de cartão da InfinitePay.";
+      errorMessage = msg;
     } finally {
       busy = false;
     }
@@ -433,7 +483,7 @@
     errorMessage = null;
     try {
       const lead = await getLeadMe();
-      if (lead && (lead.checkout?.is_paid || (lead as any).status === "paid")) {
+      if (lead && (lead.checkout?.is_paid || lead.status === "paid")) {
         if (typeof localStorage !== "undefined") {
           localStorage.removeItem("supletivo_pending_card_checkout");
           localStorage.removeItem("supletivo_card_checkout_url");
@@ -442,8 +492,9 @@
         return;
       }
       errorMessage = "Pagamento ainda não confirmado pela operadora do cartão. Aguarde alguns instantes e tente novamente.";
-    } catch (err: any) {
-      errorMessage = err?.message || "Não foi possível consultar o status do pagamento no momento.";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Não foi possível consultar o status do pagamento no momento.";
+      errorMessage = msg;
     } finally {
       busy = false;
     }

@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request }) => {
         'Cache-Control': 'no-store',
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[API:academic:documents:triage] Error:', err);
     return new Response(
       JSON.stringify({

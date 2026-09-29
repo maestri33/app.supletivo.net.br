@@ -64,7 +64,7 @@ test('TypeSafe Enrollment: API Endpoint POST /api/v1/academic/documents/triage',
       textSnippet: 'Registro Geral SSP PR Nascimento 10/10/1990',
     }),
   });
-  const res = await POST({ request: req } as any);
+  const res = await POST({ request: req } as unknown as import('astro').APIContext);
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.valid, true);

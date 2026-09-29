@@ -2,12 +2,35 @@
   import { onMount } from "svelte";
   import { whoami, requestAuth } from "@/lib/api";
 
+  interface LeadershipStudentItem {
+    id?: string;
+    status?: string;
+  }
+
+  interface LeadershipReviewsPayload {
+    enrollment_rg?: unknown[];
+    enrollment_selfie?: unknown[];
+    candidate_document?: unknown[];
+    candidate_selfie?: unknown[];
+    student_documents?: unknown[];
+    candidates_awaiting_approval?: unknown[];
+  }
+
+  interface LeadershipStudentsPayload {
+    items?: LeadershipStudentItem[];
+  }
+
   let coordinatorName = $state<string>("Coordenador");
   let pendingReviewsCount = $state<number>(0);
   let scheduledExamsCount = $state<number>(0);
   let readyDiplomasCount = $state<number>(0);
+  let isLoading = $state<boolean>(true);
+  let loadError = $state<string | null>(null);
 
-  onMount(async () => {
+  async function loadHubData() {
+    isLoading = true;
+    loadError = null;
+
     try {
       const who = await whoami();
       const roles = Array.isArray(who?.roles) ? who.roles : [];
@@ -17,15 +40,32 @@
         return;
       }
       if (who?.name) coordinatorName = who.name;
-    } catch (e) {
-      window.location.replace("/student");
-      return;
+    } catch {
+      try {
+        const raw = localStorage.getItem("supletivo.login");
+        if (raw) {
+          const sess = JSON.parse(raw);
+          const roles = Array.isArray(sess?.roles) ? sess.roles : [];
+          const isHub = roles.some((r: string) => ["coordinator", "hub", "polo"].includes(r));
+          if (!isHub) {
+            window.location.replace("/student");
+            return;
+          }
+          if (sess?.name) coordinatorName = sess.name;
+        } else {
+          window.location.replace("/student");
+          return;
+        }
+      } catch {
+        window.location.replace("/student");
+        return;
+      }
     }
 
     try {
       const [revRes, stuRes] = await Promise.allSettled([
-        requestAuth<any>("/api/v1/leadership/reviews"),
-        requestAuth<any>("/api/v1/leadership/students"),
+        requestAuth<LeadershipReviewsPayload | unknown[]>("/api/v1/leadership/reviews"),
+        requestAuth<LeadershipStudentsPayload | LeadershipStudentItem[]>("/api/v1/leadership/students"),
       ]);
 
       if (revRes.status === "fulfilled" && revRes.value) {
@@ -33,23 +73,39 @@
         if (Array.isArray(revData)) {
           pendingReviewsCount = revData.length;
         } else if (revData && typeof revData === "object") {
+          const payload = revData as LeadershipReviewsPayload;
           pendingReviewsCount =
-            (revData.enrollment_rg?.length || 0) +
-            (revData.enrollment_selfie?.length || 0) +
-            (revData.candidate_document?.length || 0) +
-            (revData.candidate_selfie?.length || 0) +
-            (revData.student_documents?.length || 0) +
-            (revData.candidates_awaiting_approval?.length || 0);
+            (payload.enrollment_rg?.length || 0) +
+            (payload.enrollment_selfie?.length || 0) +
+            (payload.candidate_document?.length || 0) +
+            (payload.candidate_selfie?.length || 0) +
+            (payload.student_documents?.length || 0) +
+            (payload.candidates_awaiting_approval?.length || 0);
         }
+      } else if (revRes.status === "rejected") {
+        console.warn("[HubActiveView] Falha ao carregar fila de revisões:", revRes.reason);
       }
 
       if (stuRes.status === "fulfilled" && stuRes.value) {
         const stuData = stuRes.value;
-        const items = Array.isArray(stuData) ? stuData : stuData?.items || [];
-        scheduledExamsCount = items.filter((s: any) => s.status === "exam_scheduled" || s.status === "exam_released").length;
-        readyDiplomasCount = items.filter((s: any) => s.status === "awaiting_pickup" || s.status === "diploma_ready").length;
+        const items: LeadershipStudentItem[] = Array.isArray(stuData)
+          ? stuData
+          : (stuData as LeadershipStudentsPayload)?.items || [];
+        scheduledExamsCount = items.filter((s) => s.status === "exam_scheduled" || s.status === "exam_released").length;
+        readyDiplomasCount = items.filter((s) => s.status === "awaiting_pickup" || s.status === "diploma_ready").length;
+      } else if (stuRes.status === "rejected") {
+        console.warn("[HubActiveView] Falha ao carregar alunos do polo:", stuRes.reason);
       }
-    } catch {}
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao carregar indicadores operacionais do polo.";
+      loadError = msg;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  onMount(() => {
+    loadHubData();
   });
 </script>
 
@@ -62,7 +118,7 @@
           <span class="size-2 rounded-full bg-blue-400"></span>
           Status: Ativo
         </div>
-        <h1 class="text-2xl sm:text-3xl font-display text-white">Secretaria de Polo</h1>
+        <h1 class="text-2xl sm:text-3xl font-display text-white">Secretaria de Polo (Hub)</h1>
         <p class="text-xs sm:text-sm text-white/70 mt-1">
           Gestão operacional do polo regional sob responsabilidade de <strong>{coordinatorName}</strong>.
         </p>
@@ -78,21 +134,52 @@
       </div>
     </div>
 
+    {#if loadError}
+      <div class="p-4 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-xs text-rose-200">
+        <span>{loadError}</span>
+        <button
+          type="button"
+          onclick={loadHubData}
+          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-semibold cursor-pointer transition-colors"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    {/if}
+
     <!-- Métricas Reais do Polo -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Fila de Conferência</span>
-        <p class="text-3xl font-bold text-amber-300 mt-1">{pendingReviewsCount} pendências</p>
+        <p class="text-3xl font-bold text-amber-300 mt-1">
+          {#if isLoading}
+            <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else}
+            {pendingReviewsCount} pendências
+          {/if}
+        </p>
         <p class="text-xs text-white/60 mt-1.5">RG, histórico e selfies</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Bancas Presenciais</span>
-        <p class="text-3xl font-bold text-blue-300 mt-1">{scheduledExamsCount} agendadas</p>
+        <p class="text-3xl font-bold text-blue-300 mt-1">
+          {#if isLoading}
+            <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else}
+            {scheduledExamsCount} agendadas
+          {/if}
+        </p>
         <p class="text-xs text-white/60 mt-1.5">Exames presenciais no polo</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Diplomas Prontos</span>
-        <p class="text-3xl font-bold text-emerald-400 mt-1">{readyDiplomasCount} para retirada</p>
+        <p class="text-3xl font-bold text-emerald-400 mt-1">
+          {#if isLoading}
+            <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else}
+            {readyDiplomasCount} para retirada
+          {/if}
+        </p>
         <p class="text-xs text-white/60 mt-1.5">Aguardando assinatura do concluinte</p>
       </div>
     </div>

@@ -4,7 +4,6 @@ import UniversalLogin from '../components/interactive/UniversalLogin.svelte';
 
 export const prerender = false;
 
-const search = Astro.url.search;
 const searchParams = Astro.url.searchParams;
 
 // Issue #8: Se contiver role=promotor/promoter ou rota explícita de promotor, não ejetar para a LP B2C de alunos
@@ -19,7 +18,7 @@ const hasMarketingParam =
    Array.from(searchParams.keys()).some((k) => k.startsWith("utm_") || k.endsWith("clid")));
 
 if (hasMarketingParam) {
-  return Astro.redirect(`https://supletivo.net.br${search}`, 308);
+  return Astro.redirect(`https://supletivo.net.br${Astro.url.search}`, 308);
 }
 ---
 

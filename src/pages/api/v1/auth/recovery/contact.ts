@@ -104,7 +104,17 @@ export const POST: APIRoute = async ({ request }) => {
       });
 
       if (backendRes.status !== 502 && backendRes.status !== 504) {
-        const backendData: any = await backendRes.json();
+        interface BackendRecoveryData {
+          success?: boolean;
+          protocol?: string;
+          status?: string;
+          requires_challenge?: boolean;
+          masked_email?: string;
+          masked_new_phone?: string;
+          message?: string;
+          detail?: string;
+        }
+        const backendData = (await backendRes.json()) as BackendRecoveryData;
         return new Response(
           JSON.stringify({
             success: backendData.success ?? (backendRes.status === 200),
@@ -142,7 +152,7 @@ export const POST: APIRoute = async ({ request }) => {
         headers: { "Content-Type": "application/json" },
       }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[CONTACT_RECOVERY_ERROR]", err);
     return new Response(
       JSON.stringify({ error: "Falha ao processar solicitação de troca de contato." }),

@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { FloatingDockItem } from "@/components/ui/floating-dock";
 import type { AdapterContext, StudentDockState } from "./types";
+import { getLeadCheckoutReadyState } from "./useDockSync";
 import {
   IconHome,
   IconFileText,
@@ -25,8 +26,7 @@ export function getStudentDockItems(
   if (status === "lead" || currentPath.startsWith("/student/lead")) {
     const isCheckout = state.leadPhase === "checkout";
     const isCheckoutReady = Boolean(
-      state.isCheckoutReady ||
-      (typeof window !== "undefined" && Boolean((window as any).__supletivoLeadCheckoutReady))
+      state.isCheckoutReady || getLeadCheckoutReadyState()
     );
     const modality = state.selectedModality;
     const checkoutTitle = modality === "pix"

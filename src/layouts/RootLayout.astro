@@ -21,10 +21,10 @@ const {
 } = Astro.props;
 
 const pathname = Astro.url.pathname.replace(/\/+$/, '') || '/';
-const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix');
+const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix') || pathname.startsWith('/tabs-');
 const isTriageIndexRoute = pathname === '/student' || pathname === '/promoter' || pathname === '/hub';
 const shouldRenderDock = showDock ?? !isPublicAuthRoute;
-const shouldGuardAuth = requireAuth ?? (!isPublicAuthRoute && !isTriageIndexRoute);
+const shouldGuardAuth = requireAuth !== undefined ? requireAuth : (!isPublicAuthRoute && !isTriageIndexRoute);
 
 let initialRole: "student" | "promoter" | "hub" = "student";
 if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
