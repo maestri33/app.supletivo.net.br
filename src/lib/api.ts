@@ -381,6 +381,7 @@ export interface LeadMe {
   customer: { name?: string | null; phone?: string | null; email?: string | null; cpf?: string | null };
   promoter: Record<string, unknown>;
   checkout?: CheckoutOut | null;
+  pricing?: Pricing | null;
 }
 
 export function getLeadMe(): Promise<LeadMe> {

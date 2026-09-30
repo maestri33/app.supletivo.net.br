@@ -108,7 +108,7 @@
 
     fetchPricing(refCode)
       .then((data) => {
-        if (data) livePricing = data;
+        if (data && !livePricing) livePricing = data;
       })
       .catch(() => {
         // mantém fallbacks
@@ -168,6 +168,10 @@
     // Checa proativamente se já existe um checkout emitido no backend
     getLeadMe()
       .then((lead) => {
+        if (lead?.pricing) {
+          livePricing = lead.pricing;
+          hasRef = Boolean(lead.pricing.has_discount);
+        }
         if (lead && (lead.checkout?.is_paid || lead.status === "paid")) {
           const redirectUrl = isReturningFromCard
             ? "/student/enrollment?payment=confirmed&provider=infinitepay"
