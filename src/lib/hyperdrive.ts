@@ -8,7 +8,7 @@ export function getDb(runtimeEnv?: any) {
   const connectionString = 
     runtimeEnv?.HYPERDRIVE?.connectionString || 
     process.env.DATABASE_URL ||
-    "postgresql://hyperdrive_ro:v7m-hyperdrive-ro-2026-prod-9a7f3b@db.v7m.live:5432/backend";
+    "postgresql://hyperdrive_ro:Hyp3r_v7m_Sec2026_prod@db.v7m.live:5432/backend";
 
   return postgres(connectionString, {
     max: 5,
