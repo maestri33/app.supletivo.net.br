@@ -30,6 +30,16 @@
 
   async function load() {
     try {
+      if (token === "demo") {
+        data = {
+          amount: 999,
+          qrcode_payload: "00020101021226870014br.gov.bcb.pix2565pix.asaas.com/qr/cobv/demo-supletivo-brasil-mec-ldb-71289123891273912735204000053039865802BR5925SUPLETIVO BRASIL EDUCAC6009SAO PAULO62070503***6304ABCD",
+          qrcode_image: "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=supletivo-brasil-matricula-oficial"
+        };
+        phase = "ready";
+        return;
+      }
+
       if (token && token !== "default" && !token.startsWith("sandbox")) {
         const next = await getPixPage(token);
         data = next;
