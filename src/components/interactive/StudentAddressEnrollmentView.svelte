@@ -385,7 +385,7 @@
 
       <!-- Botões de Ação Ergonômicos (Mínimo 48px) -->
       <div class="flex flex-col sm:flex-row gap-3 pt-2">
-        <label class="btn flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.985]">
+        <label class="flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[var(--yellow)] hover:bg-[var(--yellow)]/90 text-[var(--ink)] font-black text-xs uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.985] text-center">
           <CameraIcon class="size-4 text-[var(--ink)]" />
           <span>Tirar Foto da Fatura</span>
           <input
@@ -448,12 +448,12 @@
           </div>
         {/if}
 
-        <div class="w-full max-w-xs mt-2">
+        <div class="w-full max-w-sm mt-2">
           <a
             href="/student/enrollment/education"
-            class="btn w-full min-h-[48px] py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            class="w-full min-h-[48px] py-3.5 px-4 rounded-full bg-[var(--yellow)] hover:bg-[var(--yellow)]/90 text-[var(--ink)] font-black text-xs uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.985] text-center"
           >
-            <span>Próxima Etapa: 3. Histórico Escolar →</span>
+            <span>Avançar: 3. Histórico Escolar →</span>
           </a>
         </div>
       </div>
