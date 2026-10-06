@@ -96,7 +96,7 @@ export function getStudentDockItems(
         },
         isActive: currentPath.endsWith("/payment") || (!isMethodSelected && currentPath.startsWith("/student/lead")),
         disabled: isMethodSelected,
-        statusIndicator: isMethodSelected ? "success" : "normal",
+        statusIndicator: isMethodSelected ? "disabled" : "normal",
       },
       {
         id: "checkout",

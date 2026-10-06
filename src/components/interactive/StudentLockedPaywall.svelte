@@ -15,6 +15,12 @@
   import { setLeadCheckoutReadyState } from "@/components/interactive/dock";
   import PixCheckout from "./PixCheckout.svelte";
 
+  interface Props {
+    initialPhase?: "selection" | "checkout";
+  }
+
+  let { initialPhase = "selection" }: Props = $props();
+
   // Fases do Paywall:
   // 1. "selection": Escolha da modalidade (Fase 1 - Botão 1 do Dock ativo)
   // 2. "preparing": Loop de espera/carregamento até o ambiente de checkout estar pronto
@@ -23,7 +29,7 @@
   // 5. "card_waiting": Espera de compensação após retorno do gateway externo InfinitePay
   type PaywallMode = "selection" | "preparing" | "pix" | "profile" | "card_waiting";
 
-  let mode = $state<PaywallMode>("selection");
+  let mode = $state<PaywallMode>(initialPhase === "checkout" ? "pix" : "selection");
   let busy = $state(false);
   let errorMessage = $state<string | null>(null);
 
@@ -181,6 +187,10 @@
         }
         if (lead?.checkout && !isReturningFromCard) {
           const chk = lead.checkout;
+          const isCheckoutRoute =
+            initialPhase === "checkout" ||
+            (typeof window !== "undefined" && window.location.pathname.endsWith("/checkout"));
+
           if (chk.payment_method === "pix" && (chk.qrcode_payload || chk.qrcode_image)) {
             checkoutData = chk;
             const targetUrl = chk.checkout_url || chk.url || chk.short_url || "";
@@ -188,7 +198,22 @@
             pixToken = match ? match[1] : (targetUrl ? "active" : "default");
             isCheckoutReady = true;
             selectedModality = "pix";
-            notifyDock("selection", true, "pix");
+            if (isCheckoutRoute) {
+              mode = "pix";
+              notifyDock("checkout", true, "pix");
+            } else {
+              notifyDock("selection", true, "pix");
+            }
+          } else if (chk.payment_method === "credit_card") {
+            checkoutData = chk;
+            isCheckoutReady = true;
+            selectedModality = "credit_card";
+            const directUrl = chk.checkout_url || chk.url || chk.short_url;
+            if (isCheckoutRoute && directUrl) {
+              window.location.href = directUrl;
+            } else {
+              notifyDock("selection", true, "credit_card");
+            }
           }
         }
       })
