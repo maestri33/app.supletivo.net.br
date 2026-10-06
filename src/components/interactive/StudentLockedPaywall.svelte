@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade, fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import { getSession } from "@/lib/session";
   import {
     setLeadCheckout,
@@ -14,6 +16,11 @@
   } from "@/lib/api";
   import { setLeadCheckoutReadyState } from "@/components/interactive/dock";
   import PixCheckout from "./PixCheckout.svelte";
+  import PixIcon from "@/components/icons/PixIcon.svelte";
+  import CreditCardIcon from "@/components/icons/CreditCardIcon.svelte";
+  import MecGuillocheSeal from "@/components/icons/MecGuillocheSeal.svelte";
+  import WarrantyShieldSeal from "@/components/icons/WarrantyShieldSeal.svelte";
+  import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
 
   interface Props {
     initialPhase?: "selection" | "checkout";
@@ -542,7 +549,7 @@
 <div class="w-full max-w-3xl mx-auto p-4 sm:p-6 text-white pb-24">
   {#if mode === "selection"}
     <!-- Cabeçalho & Aleta Conforme supletivo.net.br / Pricing.astro -->
-    <div class="text-center mb-8 space-y-3">
+    <div class="text-center mb-8 space-y-3" in:fly={{ y: 16, duration: 280, easing: cubicOut }} out:fade={{ duration: 150 }}>
       <!-- Aleta de Destaque com Cores Fortes -->
       <div class="card-aleta">
         <div class="aleta-flag">
@@ -559,48 +566,56 @@
       </p>
 
       {#if discountBadge}
-        <div class="inline-block mt-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 shadow-sm">
-          ★ {discountBadge}
+        <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-bold border border-emerald-500/30 shadow-sm">
+          <span class="text-emerald-400">★</span>
+          <span>{discountBadge}</span>
         </div>
       {/if}
     </div>
 
     {#if errorMessage}
       <div class="mb-6 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-200 text-center flex items-center justify-center gap-2">
-        <span>⚠️</span>
+        <svg class="size-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
         <span>{errorMessage}</span>
       </div>
     {/if}
 
-    <!-- 2 Cards de Escolha de Modalidade -->
+    <!-- 2 Cards de Escolha de Modalidade com Física Zero-G -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Card PIX (Asaas Oficial) -->
-      <div class="rounded-3xl p-6 sm:p-8 glass-panel border-2 border-[var(--yellow)]/60 flex flex-col justify-between relative overflow-hidden group hover:border-[var(--yellow)] transition-all shadow-xl bg-white/[0.03]">
+      <!-- Card PIX (Asaas Oficial com Destaque Dourado/Esmeralda) -->
+      <div class="payment-card-zero-g payment-card-pix p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group">
         <div class="absolute -right-8 -top-8 size-28 bg-[var(--yellow)]/10 rounded-full blur-2xl pointer-events-none"></div>
         <div>
-          <div class="inline-flex px-2.5 py-1 rounded-md bg-[var(--yellow)] text-[var(--ink)] text-[10px] font-black uppercase tracking-wider mb-3">
-            Liberação Instantânea
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-[10px] font-black uppercase tracking-wider mb-3">
+            <PixIcon class="size-3 text-[var(--ink)]" />
+            <span>★ RECOMENDADO · LIBERAÇÃO IMEDIATA</span>
           </div>
-          <h2 class="text-xl font-display text-white">Pagamento via PIX</h2>
-          <p class="text-xs text-white/60 mt-1">À vista com o maior desconto promocional.</p>
+          <h2 class="text-xl sm:text-2xl font-display text-white flex items-center gap-2">
+            <span>Pagamento via PIX</span>
+          </h2>
+          <p class="text-xs text-white/70 mt-1">À vista com o maior desconto promocional garantido.</p>
 
           <div class="mt-6 mb-4">
-            <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-bold">{pixPrice}</span>
-            <span class="text-xs text-white/50 block mt-1">taxa única sem mensalidades</span>
+            <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-black tracking-tight">{pixPrice}</span>
+            <span class="text-xs text-white/50 block mt-1">taxa única sem mensalidades futuras</span>
           </div>
 
-          <ul class="text-xs text-white/70 space-y-2.5 mt-4 text-left">
-            <li class="flex items-center gap-2">
-              <span class="text-emerald-400 font-bold">✓</span>
-              <span>QR Code e código copia-e-cola na hora</span>
+          <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
+              <span>QR Code e código copia-e-cola gerados na hora</span>
             </li>
-            <li class="flex items-center gap-2">
-              <span class="text-emerald-400 font-bold">✓</span>
-              <span>Confirmação em menos de 10 segundos</span>
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
+              <span>Confirmação instantânea em menos de 10 segundos</span>
             </li>
-            <li class="flex items-center gap-2">
-              <span class="text-emerald-400 font-bold">✓</span>
-              <span>Acesso imediato à plataforma de aulas</span>
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
+              <span>Acesso imediato ao ambiente oficial de matrícula</span>
             </li>
           </ul>
         </div>
@@ -610,39 +625,41 @@
             type="button"
             onclick={selectPix}
             disabled={busy}
-            class="btn w-full py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-sm uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all shadow-lg cursor-pointer disabled:opacity-50"
+            class="btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-sm uppercase tracking-wider shadow-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {busy && selectedModality === "pix" ? "Conectando ao PIX..." : "Pagar com PIX Oficial →"}
+            <PixIcon class="size-4 text-[var(--ink)]" />
+            <span>{busy && selectedModality === "pix" ? "Conectando ao PIX..." : "Pagar com PIX Oficial →"}</span>
           </button>
         </div>
       </div>
 
       <!-- Card Cartão de Crédito (InfinitePay Oficial) -->
-      <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 flex flex-col justify-between relative overflow-hidden group hover:border-white/30 transition-all shadow-xl bg-white/[0.02]">
+      <div class="payment-card-zero-g payment-card-card p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group">
         <div>
-          <div class="inline-flex px-2.5 py-1 rounded-md bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider mb-3">
-            Até 12x Sem Juros
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 text-[10px] font-bold uppercase tracking-wider mb-3">
+            <CreditCardIcon class="size-3 text-white" />
+            <span>PARCELAMENTO EM ATÉ 12X</span>
           </div>
-          <h2 class="text-xl font-display text-white">Cartão de Crédito</h2>
-          <p class="text-xs text-white/60 mt-1">Parcelamento facilitado em ambiente seguro InfinitePay.</p>
+          <h2 class="text-xl sm:text-2xl font-display text-white">Cartão de Crédito</h2>
+          <p class="text-xs text-white/70 mt-1">Parcelamento flexível em ambiente seguro InfinitePay.</p>
 
           <div class="mt-6 mb-4">
-            <span class="text-3xl sm:text-4xl font-display text-white font-bold">{creditPrice}</span>
-            <span class="text-xs text-white/50 block mt-1">ou parcelado no seu cartão</span>
+            <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">{creditPrice}</span>
+            <span class="text-xs text-white/50 block mt-1">ou parcelado em até 12x no cartão</span>
           </div>
 
-          <ul class="text-xs text-white/70 space-y-2.5 mt-4 text-left">
-            <li class="flex items-center gap-2">
-              <span class="text-white/60 font-bold">✓</span>
-              <span>Pagamento seguro via InfinitePay</span>
+          <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
+              <span>Pagamento seguro via gateway InfinitePay</span>
             </li>
-            <li class="flex items-center gap-2">
-              <span class="text-white/60 font-bold">✓</span>
-              <span>Liberação rápida após confirmação</span>
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
+              <span>Sem cobrança de mensalidades surpresa</span>
             </li>
-            <li class="flex items-center gap-2">
-              <span class="text-white/60 font-bold">✓</span>
-              <span>Certificado válido pelo MEC incluso</span>
+            <li class="flex items-center gap-2.5">
+              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
+              <span>Certificado reconhecido pelo MEC incluso</span>
             </li>
           </ul>
         </div>
@@ -652,51 +669,83 @@
             type="button"
             onclick={selectCredit}
             disabled={busy}
-            class="w-full py-3.5 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white text-sm font-bold uppercase tracking-wide cursor-pointer transition-colors disabled:opacity-50"
+            class="w-full min-h-[48px] py-3.5 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 active:scale-[0.985] text-white text-sm font-bold uppercase tracking-wider cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {busy && selectedModality === "credit_card" ? "Abrindo InfinitePay..." : "Pagar no Cartão (InfinitePay) ↗"}
+            <CreditCardIcon class="size-4 text-white" />
+            <span>{busy && selectedModality === "credit_card" ? "Abrindo InfinitePay..." : "Pagar no Cartão (InfinitePay) ↗"}</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Tríade de Confiança Decisória de supletivo.net.br -->
-    <ul class="trust-triad">
-      <li>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 12.5l4.5 4.5L19 7.5" stroke="var(--green, #00734d)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <span><strong>Certificado Oficial</strong> autorizado pelo CEE e amparado pela LDB, com publicação no Diário Oficial</span>
-      </li>
-      <li>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 12.5l4.5 4.5L19 7.5" stroke="var(--green, #00734d)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <span><strong>Validade Nacional</strong> aceita em faculdades, concursos públicos e CNH</span>
-      </li>
-      <li>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M5 12.5l4.5 4.5L19 7.5" stroke="var(--green, #00734d)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <span><strong>Garantia de 7 Dias:</strong> cancelou, devolvemos 100% do valor (Art. 49 CDC)</span>
-      </li>
-    </ul>
+    <!-- Tríade de Confiança Decisória de supletivo.net.br com Selos Vetoriais -->
+    <div class="mt-8 pt-4 border-t border-white/10">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto text-left">
+        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+          <div class="shrink-0 size-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <div class="text-xs">
+            <strong class="text-white block font-bold">Certificado Oficial</strong>
+            <span class="text-white/60 leading-tight block mt-0.5">Amparado pela LDB (Lei 9.394/96) com publicação no Diário Oficial.</span>
+          </div>
+        </div>
 
-    <p class="text-center text-xs text-white/50 max-w-md mx-auto mt-4">
-      Material didático incluso · Sem mensalidades surpresa · Início imediato pelo celular
-    </p>
+        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+          <div class="shrink-0 size-8 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </div>
+          <div class="text-xs">
+            <strong class="text-white block font-bold">Validade Nacional</strong>
+            <span class="text-white/60 leading-tight block mt-0.5">Aceito em faculdades, concursos públicos, vestibulares e CNH.</span>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+          <div class="shrink-0 size-8 rounded-xl bg-[var(--yellow)]/15 flex items-center justify-center text-[var(--yellow)]">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="text-xs">
+            <strong class="text-white block font-bold">Garantia 7 Dias</strong>
+            <span class="text-white/60 leading-tight block mt-0.5">Devolução de 100% do valor caso desista (Art. 49 do CDC).</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-6">
+        <a
+          href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20escolha%20de%20pagamento%20do%20Supletivo%20e%20tenho%20d%C3%BAvidas."
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-white/70 text-xs font-medium hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+        >
+          <svg class="size-3.5 fill-emerald-400" viewBox="0 0 24 24">
+            <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"/>
+          </svg>
+          <span>Dúvidas sobre o curso ou valores? Fale conosco no WhatsApp</span>
+        </a>
+      </div>
+    </div>
 
   {:else if mode === "preparing"}
-    <!-- Loop de Preparação & Conexão Segura -->
-    <div class="max-w-md mx-auto p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl text-center space-y-6 bg-white/[0.03]">
+    <!-- Loop de Preparação & Conexão Segura com Vetores -->
+    <div class="max-w-md mx-auto p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl text-center space-y-6 bg-white/[0.03]" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
       <div class="relative size-20 mx-auto flex items-center justify-center">
         <!-- Radar Pulse Animação -->
         <span class="absolute inset-0 rounded-full bg-[var(--yellow)]/20 animate-ping"></span>
-        <span class="relative flex size-14 rounded-full bg-[var(--yellow)] text-[var(--ink)] items-center justify-center shadow-lg font-bold text-xl">
+        <span class="relative flex size-14 rounded-full bg-[var(--yellow)] text-[var(--ink)] items-center justify-center shadow-lg font-bold">
           {#if selectedModality === "pix"}
-            ⚡
+            <PixIcon class="size-7 text-[var(--ink)]" />
           {:else}
-            💳
+            <CreditCardIcon class="size-7 text-[var(--ink)]" />
           {/if}
         </span>
       </div>

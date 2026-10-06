@@ -87,7 +87,6 @@ export function getStudentDockItems(
         icon: <IconCreditCard className="h-full w-full" />,
         href: "/student/lead/payment",
         onClick: () => {
-          if (isMethodSelected) return;
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "selection" } })
@@ -95,8 +94,8 @@ export function getStudentDockItems(
           }
         },
         isActive: currentPath.endsWith("/payment") || (!isMethodSelected && currentPath.startsWith("/student/lead")),
-        disabled: isMethodSelected,
-        statusIndicator: isMethodSelected ? "disabled" : "normal",
+        disabled: false,
+        statusIndicator: isMethodSelected ? "normal" : "warning",
       },
       {
         id: "checkout",

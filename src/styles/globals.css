@@ -545,3 +545,83 @@ textarea {
   scrollbar-width: none;
 }
 
+/* ==========================================================================
+   CHECKOUT & PAYWALL ANTIGRAVITY ENGINE (FASE LEAD)
+   ========================================================================== */
+.payment-card-zero-g {
+  position: relative;
+  border-radius: var(--radius-lg, 24px);
+  background: rgba(11, 18, 32, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+/* Card PIX (Destaque Dourado/Esmeralda) */
+.payment-card-pix {
+  border: 2px solid rgba(255, 196, 0, 0.45);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.4), 0 0 20px -8px rgba(255, 196, 0, 0.2);
+}
+
+.payment-card-pix:hover {
+  transform: translateY(-4px);
+  border-color: var(--yellow);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(255, 196, 0, 0.35);
+}
+
+.payment-card-pix:active {
+  transform: translateY(-1px) scale(0.985);
+}
+
+/* Card Cartão de Crédito */
+.payment-card-card {
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.35);
+}
+
+.payment-card-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.45),
+    0 0 24px rgba(255, 255, 255, 0.12);
+}
+
+.payment-card-card:active {
+  transform: translateY(-1px) scale(0.985);
+}
+
+/* Micro-feedback elástico de cópia PIX */
+@keyframes pop-bounce {
+  0% { transform: scale(0.6) translateY(8px); opacity: 0; }
+  60% { transform: scale(1.08) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.copy-badge-floating {
+  animation: pop-bounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.copy-btn-elastic:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* Celebração de Pagamento Confirmado (Checkmark SVG autodesenhado) */
+.checkmark-check {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: strokeCheck 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.2s forwards;
+}
+
+@keyframes strokeCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+
