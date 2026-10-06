@@ -1,0 +1,34 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+
+export const prerender = false;
+---
+
+<RootLayout title="Biometria Facial / Selfie — Supletivo Brasil">
+  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
+    <div class="w-full flex flex-col items-center gap-6">
+      <div class="text-center">
+        <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/30 text-xs font-semibold text-emerald-300 mb-2">
+          Etapa 4 • Biometria Facial
+        </span>
+        <h1 class="text-2xl font-black text-white font-display">Selfie de Confirmação</h1>
+        <p class="text-xs text-white/70 mt-1 max-w-sm mx-auto">
+          Tire uma foto sua segurando seu documento com foto ao lado do rosto em um ambiente bem iluminado.
+        </p>
+      </div>
+
+      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md text-center space-y-4">
+        <div class="size-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto text-3xl">
+          🤳
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-base font-bold text-white">Captura de Biometria</h3>
+          <p class="text-xs text-white/70">Certifique-se de que o documento e seu rosto estejam nítidos.</p>
+        </div>
+        <div class="p-4 rounded-xl border border-dashed border-white/20 hover:border-emerald-400/60 transition-all cursor-pointer bg-white/[0.02]">
+          <span class="text-xs font-semibold text-white/90">Abrir Câmera ou Enviar Foto</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</RootLayout>

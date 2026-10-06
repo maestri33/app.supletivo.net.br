@@ -8,6 +8,8 @@ export interface AdapterContext {
   onLogout: () => void;
 }
 
+export type ItemHealthStatus = "pending" | "under_review" | "approved" | "rejected";
+
 export interface StudentDockState {
   status: StudentStatus | EnrollmentStatus | string | null;
   pendingDocsCount?: number;
@@ -17,6 +19,12 @@ export interface StudentDockState {
   leadPhase?: "selection" | "checkout";
   isCheckoutReady?: boolean;
   selectedModality?: "pix" | "credit_card" | null;
+  rgStatus?: ItemHealthStatus;
+  addressStatus?: ItemHealthStatus;
+  educationStatus?: ItemHealthStatus;
+  selfieStatus?: ItemHealthStatus;
+  examStatus?: ItemHealthStatus;
+  diplomaStatus?: ItemHealthStatus;
 }
 
 export interface PromoterDockState {
@@ -25,6 +33,9 @@ export interface PromoterDockState {
   isTrainingBlocked?: boolean;
   pendingMaterialsCount?: number;
   isCandidate?: boolean;
+  onboardingStatus?: ItemHealthStatus;
+  pixStatus?: ItemHealthStatus;
+  termsStatus?: ItemHealthStatus;
 }
 
 export interface PoloDockState {

@@ -12,10 +12,17 @@ import {
   useTransform,
 } from "motion/react";
 
+export type DockStatusIndicator =
+  | "danger"      // 🔴 Sombra vermelha: deu problema / recusado / erro
+  | "warning"     // 🟠 Sombra laranja: em análise / aguardando
+  | "disabled"    // ⚪ Fosco: indisponível / travado
+  | "success"     // 🟢 Sombra verde: aprovado / concluído
+  | "normal";     // 🔘 Normal: padrão / sem nada
+
 /**
  * Contrato genérico de item do FloatingDock.
  * Suporta navegação (href), ações interativas (onClick), badges de estado,
- * verificação de rota ativa e atributos de acessibilidade.
+ * verificação de rota ativa, indicador de situação (statusIndicator) e acessibilidade.
  */
 export interface FloatingDockItem {
   id?: string;
@@ -24,10 +31,31 @@ export interface FloatingDockItem {
   href?: string;
   onClick?: () => void;
   isActive?: boolean;
+  statusIndicator?: DockStatusIndicator;
   badge?: string | number | null;
   badgeVariant?: "danger" | "success" | "warning" | "info";
   disabled?: boolean;
   "aria-label"?: string;
+}
+
+export function getStatusIndicatorClasses(
+  indicator?: DockStatusIndicator,
+  disabled?: boolean
+): string {
+  if (disabled || indicator === "disabled") {
+    return "opacity-35 grayscale contrast-75 cursor-not-allowed pointer-events-none border-dashed border-neutral-400 dark:border-neutral-600";
+  }
+  switch (indicator) {
+    case "danger":
+      return "ring-2 ring-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.7)] border-rose-500 text-rose-500 dark:shadow-[0_0_22px_rgba(244,63,94,0.8)]";
+    case "warning":
+      return "ring-2 ring-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.7)] border-amber-500 text-amber-500 dark:shadow-[0_0_22px_rgba(245,158,11,0.8)]";
+    case "success":
+      return "ring-2 ring-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.7)] border-emerald-500 text-emerald-500 dark:shadow-[0_0_22px_rgba(16,185,129,0.8)]";
+    case "normal":
+    default:
+      return "";
+  }
 }
 
 export interface FloatingDockProps {
@@ -96,7 +124,7 @@ const FloatingDockMobile: React.FC<{
                     item.isActive
                       ? "bg-[var(--yellow)] text-[var(--ink)] border-[var(--ink)] ring-2 ring-[var(--yellow)]/50"
                       : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line-light)] hover:bg-[var(--paper-soft)] dark:bg-[var(--ink-soft)] dark:text-[var(--paper)] dark:border-white/10",
-                    item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
+                    getStatusIndicatorClasses(item.statusIndicator, item.disabled)
                   )}
                   onItemClick={() => setOpen(false)}
                 >
@@ -200,11 +228,11 @@ function IconContainer({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          "relative flex aspect-square items-center justify-center rounded-full border transition-colors duration-200 cursor-pointer",
+          "relative flex aspect-square items-center justify-center rounded-full border transition-all duration-200 cursor-pointer",
           item.isActive
             ? "bg-[var(--yellow)] text-[var(--ink)] border-[var(--ink)] font-bold shadow-md ring-2 ring-[var(--yellow)]/60"
             : "bg-[var(--paper-soft)] border-[var(--line-light)] text-[var(--ink)] hover:border-[var(--blue)] dark:bg-[var(--ink-soft)] dark:border-white/10 dark:text-[var(--paper)]",
-          item.disabled && "opacity-40 cursor-not-allowed pointer-events-none"
+          getStatusIndicatorClasses(item.statusIndicator, item.disabled)
         )}
       >
         <AnimatePresence>

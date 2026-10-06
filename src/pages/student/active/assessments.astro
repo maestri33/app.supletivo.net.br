@@ -1,0 +1,34 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+
+export const prerender = false;
+---
+
+<RootLayout title="Provas & Avaliações — Supletivo Brasil">
+  <div class="w-full max-w-4xl mx-auto flex-1 flex flex-col p-4 sm:p-6 pb-28 space-y-6">
+    <div class="border-b border-white/10 pb-4">
+      <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Banca Examinadora Oficial</span>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white font-display">Agendamento de Provas</h1>
+    </div>
+
+    <div class="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="size-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          ✓
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Banca de Avaliação Liberada</h3>
+          <p class="text-xs text-white/70">Você completou a carga horária mínima necessária.</p>
+        </div>
+      </div>
+      <p class="text-xs text-white/80 leading-relaxed">
+        Escolha uma data disponível para realizar sua prova presencial no polo credenciado ou através da plataforma de monitoramento com reconhecimento facial.
+      </p>
+      <div class="pt-2">
+        <button type="button" class="btn px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--ink)]">
+          Agendar Minha Avaliação Agora
+        </button>
+      </div>
+    </div>
+  </div>
+</RootLayout>

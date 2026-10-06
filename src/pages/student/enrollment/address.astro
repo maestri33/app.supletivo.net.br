@@ -1,0 +1,12 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import DocumentVerificationCenter from '../../../components/interactive/DocumentVerificationCenter.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Comprovante de Endereço — Supletivo Brasil">
+  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
+    <DocumentVerificationCenter client:load />
+  </div>
+</RootLayout>

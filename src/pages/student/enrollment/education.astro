@@ -1,0 +1,35 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import DocumentVerificationCenter from '../../../components/interactive/DocumentVerificationCenter.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Histórico Escolar Anterior — Supletivo Brasil">
+  <div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28">
+    <div class="w-full flex flex-col items-center gap-6">
+      <div class="text-center">
+        <span class="inline-block px-3 py-1 rounded-full bg-amber-500/10 border border-amber-400/30 text-xs font-semibold text-amber-300 mb-2">
+          Etapa 3 • Histórico Escolar
+        </span>
+        <h1 class="text-2xl font-black text-white font-display">Histórico ou Declaração Anterior</h1>
+        <p class="text-xs text-white/70 mt-1 max-w-sm mx-auto">
+          Envie foto legível do seu histórico escolar do Ensino Fundamental ou declaração de transferência.
+        </p>
+      </div>
+
+      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md text-center space-y-4">
+        <div class="size-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto text-3xl">
+          📜
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-base font-bold text-white">Anexo de Histórico Escolar</h3>
+          <p class="text-xs text-white/70">Formatos aceitos: PDF, JPG ou PNG de até 10MB.</p>
+        </div>
+        <div class="p-4 rounded-xl border border-dashed border-white/20 hover:border-amber-400/60 transition-all cursor-pointer bg-white/[0.02]">
+          <span class="text-xs font-semibold text-white/90">Clique para selecionar o arquivo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</RootLayout>

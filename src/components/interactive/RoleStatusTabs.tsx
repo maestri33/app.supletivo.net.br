@@ -453,6 +453,30 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
     status: studentStatus,
     pendingDocsCount: studentStatus === "awaiting_documents" ? 2 : 0,
     hasPartnerUrl: studentStatus !== "awaiting_documents",
+    rgStatus:
+      studentStatus === "awaiting_documents"
+        ? "rejected"
+        : studentStatus === "documents_under_review"
+          ? "under_review"
+          : "approved",
+    addressStatus:
+      studentStatus === "awaiting_documents"
+        ? "under_review"
+        : "approved",
+    educationStatus:
+      studentStatus === "awaiting_documents"
+        ? "pending"
+        : "approved",
+    selfieStatus:
+      studentStatus === "awaiting_documents"
+        ? "pending"
+        : "approved",
+    examStatus:
+      studentStatus === "exam_released"
+        ? "under_review"
+        : studentStatus === "veteran" || studentStatus === "awaiting_diploma_issuance"
+          ? "approved"
+          : "pending",
   };
 
   const promoterDockState: PromoterDockState = {
@@ -460,6 +484,9 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
     newLeadsCount: promoterStatus === "active" ? 3 : 0,
     isCandidate: promoterStatus === "candidate",
     isTrainingBlocked: promoterStatus === "training",
+    onboardingStatus: promoterStatus === "candidate" ? "under_review" : "approved",
+    pixStatus: promoterStatus === "candidate" ? "rejected" : "approved",
+    termsStatus: promoterStatus === "candidate" ? "approved" : "approved",
   };
 
   const poloDockState: PoloDockState = {

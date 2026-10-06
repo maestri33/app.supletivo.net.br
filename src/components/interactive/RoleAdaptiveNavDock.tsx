@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { FloatingDock, type FloatingDockItem } from "@/components/ui/floating-dock";
+import { FloatingDock, type FloatingDockItem, getStatusIndicatorClasses } from "@/components/ui/floating-dock";
+import { cn } from "@/lib/utils";
 import {
   type UserRole,
   type StudentDockState,
@@ -122,9 +123,16 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
                 ? "bg-[var(--info)] text-white"
                 : "bg-[var(--yellow)] text-[var(--ink)]";
 
+            const indicatorClasses = getStatusIndicatorClasses(item.statusIndicator, item.disabled);
+
             const content = (
               <>
-                <div className="relative flex h-6 w-6 items-center justify-center">
+                <div
+                  className={cn(
+                    "relative flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
+                    indicatorClasses
+                  )}
+                >
                   <div className="h-5 w-5">{item.icon}</div>
                   {item.badge !== undefined && item.badge !== null && (
                     <span
