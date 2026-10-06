@@ -1,32 +1,43 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { whoami } from "@/lib/api";
+  import { getAccessToken, saveLogin } from "@/lib/session";
 
   interface RoleConfig {
-    id: "student" | "promoter" | "hub";
+    id: "student" | "promoter" | "hub" | "admin";
     label: string;
     icon: string;
+    external?: boolean;
+    url?: string;
   }
 
   const ALL_ROLES: RoleConfig[] = [
     { id: "student", label: "Aluno", icon: "🎓" },
     { id: "promoter", label: "Promotor", icon: "💼" },
     { id: "hub", label: "Polo", icon: "🏫" },
+    { id: "admin", label: "Admin", icon: "⚙️", external: true, url: "https://admin.supletivo.net.br" },
   ];
 
-  let currentRole = $state<"student" | "promoter" | "hub">("student");
+  let currentRole = $state<"student" | "promoter" | "hub" | "admin">("student");
   let userRoles = $state<RoleConfig[]>([]);
   let roleStatuses = $state<Record<string, string>>({});
   let isLoaded = $state(false);
 
-  function resolvePathForRole(roleId: "student" | "promoter" | "hub"): string {
-    const status = roleStatuses[roleId];
+  function resolvePathForRole(roleId: "student" | "promoter" | "hub" | "admin"): string {
+    if (roleId === "admin") {
+      return "https://admin.supletivo.net.br";
+    }
+    const status = (roleStatuses[roleId] || "").toLowerCase().trim();
     if (roleId === "student") {
       if (status === "lead") return "/student/lead";
+      if (status === "veteran") return "/student/veteran";
+      if (status === "active") return "/student";
       return "/student/enrollment";
     }
     if (roleId === "promoter") {
       if (status === "candidate") return "/promoter/candidate";
       if (status === "training") return "/promoter/training";
+      if (status === "suspended") return "/promoter/suspended";
       return "/promoter/active";
     }
     if (roleId === "hub") {
@@ -36,12 +47,30 @@
     return "/";
   }
 
-  function handleSwitchRole(roleId: "student" | "promoter" | "hub") {
+  function handleSwitchRole(role: RoleConfig) {
     if (typeof window === "undefined") return;
-    localStorage.setItem("supletivo_active_role", roleId);
-    currentRole = roleId;
-    const targetUrl = resolvePathForRole(roleId);
+    if (role.external && role.url) {
+      window.open(role.url, "_blank");
+      return;
+    }
+    localStorage.setItem("supletivo_active_role", role.id);
+    currentRole = role.id;
+    const targetUrl = resolvePathForRole(role.id);
     window.location.href = targetUrl;
+  }
+
+  function populateRolesFromSession(rolesList: string[], statuses: Record<string, string>) {
+    const normRoles = rolesList.map((r) => {
+      const s = String(r).toLowerCase().trim();
+      if (["aluno", "student", "lead", "enrollment", "veteran"].includes(s)) return "student";
+      if (["promotor", "promoter", "candidate", "training"].includes(s)) return "promoter";
+      if (["polo", "hub", "coordinator"].includes(s)) return "hub";
+      if (["admin", "staff", "superuser"].includes(s)) return "admin";
+      return s;
+    });
+    const uniqueNorm = Array.from(new Set(normRoles));
+    userRoles = ALL_ROLES.filter((r) => uniqueNorm.includes(r.id));
+    roleStatuses = statuses || {};
   }
 
   onMount(() => {
@@ -62,20 +91,43 @@
       if (raw) {
         const session = JSON.parse(raw);
         const rolesList: string[] = session.roles || [];
-        roleStatuses = session.role_statuses || {};
-
-        // Filtra as roles do usuário (excluindo admin conforme regra)
-        const matched = ALL_ROLES.filter((r) => rolesList.includes(r.id));
-        userRoles = matched;
-      } else {
-        userRoles = [];
+        const statuses: Record<string, string> = session.role_statuses || {};
+        if (rolesList.length > 0) {
+          populateRolesFromSession(rolesList, statuses);
+        }
       }
     } catch {
-      userRoles = [];
+      // fallback
     }
 
-    isLoaded = true;
+    // Auto-hidratação via whoami se autenticado
+    const token = getAccessToken();
+    if (token) {
+      whoami()
+        .then((w) => {
+          if (w && Array.isArray(w.roles) && w.roles.length > 0) {
+            populateRolesFromSession(w.roles, w.role_statuses || {});
+            try {
+              const raw = localStorage.getItem("supletivo.login");
+              const current = raw ? JSON.parse(raw) : {};
+              saveLogin({
+                ...current,
+                roles: w.roles,
+                role_statuses: w.role_statuses || {},
+                name: w.name || current.name,
+              });
+            } catch {}
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          isLoaded = true;
+        });
+    } else {
+      isLoaded = true;
+    }
   });
+
   const STATUS_LABELS_PT: Record<string, string> = {
     lead: "Ativação",
     enrollment: "Matrícula",
@@ -83,6 +135,8 @@
     training: "Treinamento",
     active: "Ativo",
     review: "Revisão",
+    veteran: "Concluído",
+    suspended: "Suspenso",
   };
 </script>
 
@@ -94,7 +148,7 @@
       {@const statusLabel = status ? (STATUS_LABELS_PT[status.toLowerCase()] || status) : null}
       <button
         type="button"
-        onclick={() => handleSwitchRole(role.id)}
+        onclick={() => handleSwitchRole(role)}
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {isActive
           ? 'bg-[var(--blue-deep)] text-[var(--yellow)] border border-[var(--blue)] shadow-md'
           : 'text-white/70 hover:text-white hover:bg-white/10'}"

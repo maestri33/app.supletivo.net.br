@@ -24,11 +24,12 @@ export function getStudentDockItems(
 
   // ── WIZARD GUIA EXCLUSIVO PARA ALUNO > LEAD (Estritamente 2 Fases / 2 Botões) ──
   if (status === "lead" || currentPath.startsWith("/student/lead")) {
-    const isCheckout = state.leadPhase === "checkout";
     const isCheckoutReady = Boolean(
       state.isCheckoutReady || getLeadCheckoutReadyState()
     );
     const modality = state.selectedModality;
+    const isMethodSelected = Boolean(modality && isCheckoutReady);
+
     const checkoutTitle = modality === "pix"
       ? "2. Checkout PIX"
       : modality === "credit_card"
@@ -41,30 +42,32 @@ export function getStudentDockItems(
 
     return [
       {
-        title: "1. Modalidade",
+        title: "1. Forma de Pagamento",
         icon: <IconCreditCard className="h-full w-full" />,
         onClick: () => {
+          if (isMethodSelected) return; // Indisponível após seleção de método
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "selection" } })
             );
           }
         },
-        isActive: !isCheckout,
+        isActive: !isMethodSelected,
+        disabled: isMethodSelected,
       },
       {
         title: checkoutTitle,
         icon: checkoutIcon,
         onClick: () => {
-          if (!isCheckoutReady) return;
+          if (!isMethodSelected) return; // Só disponível após seleção de método
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "checkout" } })
             );
           }
         },
-        isActive: isCheckout,
-        disabled: !isCheckoutReady,
+        isActive: isMethodSelected,
+        disabled: !isMethodSelected,
       },
     ];
   }

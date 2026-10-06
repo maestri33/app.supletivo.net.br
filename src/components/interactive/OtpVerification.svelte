@@ -261,6 +261,12 @@
 
       try {
         const who = await whoami();
+        saveLogin({
+          ...tokens,
+          roles: who?.roles || [],
+          role_statuses: who?.role_statuses || {},
+          name: who?.name || null,
+        });
         const target = getPrimaryEnvironment(who?.roles || []);
         window.location.href = `/${target}`;
         return;
