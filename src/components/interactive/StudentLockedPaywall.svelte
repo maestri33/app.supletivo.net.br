@@ -201,7 +201,7 @@
           if (chk.payment_method === "pix" && (chk.qrcode_payload || chk.qrcode_image)) {
             checkoutData = chk;
             const targetUrl = chk.checkout_url || chk.url || chk.short_url || "";
-            const match = targetUrl.match(/\/pix\/([^/?]+)/);
+            const match = targetUrl.match(/(?:pix|lead\/checkout)\/([^/?]+)/);
             pixToken = match ? match[1] : (targetUrl ? "active" : "default");
             isCheckoutReady = true;
             selectedModality = "pix";
@@ -346,7 +346,7 @@
         preparingStep = 3;
         preparingMessage = "QR Code gerado com sucesso! Abrindo checkout...";
         const targetUrl = res.checkout_url || res.url || res.short_url || "";
-        const match = targetUrl.match(/\/pix\/([^/?]+)/);
+        const match = targetUrl.match(/(?:pix|lead\/checkout)\/([^/?]+)/);
         pixToken = match ? match[1] : (targetUrl ? "active" : "default");
 
         await new Promise((resolve) => setTimeout(resolve, 450));
@@ -371,7 +371,7 @@
           if (lead?.checkout?.qrcode_payload || lead?.checkout?.checkout_url) {
             checkoutData = lead.checkout;
             const targetUrl = lead.checkout.checkout_url || lead.checkout.url || lead.checkout.short_url || "";
-            const match = targetUrl.match(/\/pix\/([^/?]+)/);
+            const match = targetUrl.match(/(?:pix|lead\/checkout)\/([^/?]+)/);
             pixToken = match ? match[1] : "default";
 
             preparingStep = 3;
@@ -390,7 +390,7 @@
       // Fallback: se timeout do polling, tenta URL direta
       try {
         const checkUrl = await getLeadCheckoutUrl();
-        const match = checkUrl.url.match(/\/pix\/([^/?]+)/);
+        const match = checkUrl.url.match(/(?:pix|lead\/checkout)\/([^/?]+)/);
         if (match) {
           pixToken = match[1];
           isCheckoutReady = true;
