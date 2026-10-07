@@ -30,9 +30,9 @@ export const prerender = false;
 
           if (resp.ok) {
             const data = await resp.json();
-            // Se checkout não foi pago, status é lead
-            if (data && data.checkout && !data.checkout.is_paid) {
-              window.location.replace("/student/lead");
+            // Se checkout não existe ou não foi pago, status é lead
+            if (!data || !data.checkout || !data.checkout.is_paid || data.status === 'pending') {
+              window.location.replace("/student/lead/payment");
               return;
             }
           }
