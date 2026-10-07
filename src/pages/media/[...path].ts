@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;
 
-const URL_BACKEND = process.env.URL_BACKEND ?? 'https://api.supletivo.net.br';
+const URL_BACKEND = process.env.URL_BACKEND ?? 'https://backend.supletivo.net.br';
 
 export const ALL: APIRoute = async ({ request, url }) => {
   const targetUrl = new URL(url.pathname + url.search, URL_BACKEND);

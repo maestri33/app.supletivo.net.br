@@ -83,7 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Tenta delegar para o backend Django (/api/v1/clients/auth/recover-phone)
-    const URL_BACKEND = process.env.URL_BACKEND ?? "https://api.supletivo.net.br";
+    const URL_BACKEND = process.env.URL_BACKEND ?? "https://backend.supletivo.net.br";
     try {
       const backendRes = await fetch(`${URL_BACKEND}/api/v1/clients/auth/recover-phone`, {
         method: "POST",

@@ -4,6 +4,9 @@
   "compatibility_date": "2026-09-16",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "vars": {
+    "URL_BACKEND": "https://backend.supletivo.net.br"
+  },
   "routes": [
     {
       "pattern": "app.supletivo.net.br/*",

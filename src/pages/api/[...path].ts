@@ -3,7 +3,7 @@ import { POST as contactRecoveryPost } from './v1/auth/recovery/contact';
 
 export const prerender = false;
 
-const URL_BACKEND = process.env.URL_BACKEND ?? 'https://api.supletivo.net.br';
+const URL_BACKEND = process.env.URL_BACKEND ?? 'https://backend.supletivo.net.br';
 
 export const ALL: APIRoute = async (context) => {
   const { request, url } = context;
