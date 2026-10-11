@@ -82,8 +82,6 @@ export function normalizeUserRoles(backendRoles: string[] = []): AppEnvironment[
     }
   }
 
-  if (envSet.size === 0) return ["aluno"];
-
   // Ordem canônica de exibição
   const order: AppEnvironment[] = ["aluno", "promotor", "polo"];
   return order.filter((env) => envSet.has(env));
@@ -92,6 +90,9 @@ export function normalizeUserRoles(backendRoles: string[] = []): AppEnvironment[
 
 * **Deduplicação de Sub-Estados**: Um aluno que possui `["student", "veteran"]` é agrupado em `["aluno"]` (tamanho 1 ➔ Zero Tabs).
 * **Bloqueios Operacionais**: Sub-estados como `training` no promotor continuam controlando travas internas do painel sem gerar abas espúrias.
+* **Ausência de papel**: Uma identidade sem papel de negócio retorna `[]`, sem conceder o ambiente do aluno por padrão.
+* **Destino por estado**: `getRoleDestination` utiliza `role_statuses` do `whoami` para navegar para rotas existentes. Uma combinação desconhecida retorna `null` e mantém recuperação explícita; não assume matrícula, promotor ativo ou acesso ao polo.
+* **Guarda de estado**: `RoleRouteGuard` consulta a identidade atual antes de exibir telas de aluno, promotor ou polo. O dock mantém o estado canônico (`lead`, `enrollment`, `active`, `veteran`) separado do andamento documental e acadêmico, evitando que um aluno ativo seja devolvido ao menu de matrícula.
 
 ---
 

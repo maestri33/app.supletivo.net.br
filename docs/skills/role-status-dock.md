@@ -51,6 +51,10 @@ A arquitetura desacopla a representação de estado da interface visual através
 
 Os papéis e estados refletem os modelos do backend Django Ninja (`src/lib/roles.ts`):
 
+O `whoami` retorna estados do ambiente: aluno `lead`, `enrollment`, `active`, `veteran`; promotor `candidate`, `training`, `active`, `suspended`; polo `active` (a fila `review` é uma tela operacional). Os estados documentais e acadêmicos abaixo são andamento interno, não concessão de papéis. `awaiting_diploma_issuance` continua no ambiente `active` até a retirada registrada no servidor promover o aluno a `veteran`.
+
+Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo evento `supletivo:identity`, sem presumir promotor ativo ou sessão válida. O aluno ativo dispõe de Painel, Documentos, Disciplinas (link do parceiro), Avaliações e Sair. O diploma usa a informação do servidor e não recebe selo de aprovação ou download fictício pela mera visita à rota.
+
 ### 2.1. Aluno (`student` / `aluno`)
 | Status / Etapa | Identificador | Badge Dock | Ação Principal / Destaque |
 |---|---|---|---|

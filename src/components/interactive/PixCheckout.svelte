@@ -40,6 +40,11 @@
           phase = "paid";
           return;
         }
+        // The invoice token is sufficient for links opened from WhatsApp.
+        // An anonymous visitor has no authenticated lead; another signed-in
+        // account must not replace this invoice with its own checkout either.
+        phase = "ready";
+        return;
       }
 
       // Consulta status do lead logado (atualizado via webhook Asaas na borda)
