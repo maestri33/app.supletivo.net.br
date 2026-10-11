@@ -1,150 +1,50 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import IdentityDocumentVerifier from "./IdentityDocumentVerifier.svelte";
-  import AddressProofVerifier from "./AddressProofVerifier.svelte";
-  import { getSession } from "@/lib/session";
-  import { whoami } from "@/lib/api";
+  import { getEnrollmentMe, getErrorMessage, whoami, type EnrollmentMe } from "@/lib/api";
+  import { expectedStatus, followEnrollmentStatus } from "./student/workflow";
+  import "./student/workflow.css";
 
-  let identityStatus = $state<"uncompleted" | "under_review" | "approved">("uncompleted");
-  let addressStatus = $state<"pending" | "under_review" | "needs_kinship" | "approved">("pending");
-  let studentName = $state<string>("Aluno");
-  let countdown = $state(3);
-  let timer: ReturnType<typeof setInterval> | null = null;
-  let showPaymentConfirmedBanner = $state(false);
+  let enrollment = $state<EnrollmentMe | null>(null);
+  let loading = $state(true);
+  let error = $state("");
 
-  let bothApproved = $derived(identityStatus === "approved" && addressStatus === "approved");
-
-  onMount(async () => {
+  async function refresh() {
+    loading = true; error = "";
     try {
-      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      if (
-        urlParams?.get("payment") === "confirmed" ||
-        urlParams?.get("status") === "paid" ||
-        urlParams?.has("order_nsu") ||
-        (typeof localStorage !== "undefined" && localStorage.getItem("supletivo_pending_card_checkout") === "true")
-      ) {
-        showPaymentConfirmedBanner = true;
-        if (typeof localStorage !== "undefined") {
-          localStorage.removeItem("supletivo_pending_card_checkout");
-          localStorage.removeItem("supletivo_card_checkout_url");
-        }
-      }
-
-      const session = getSession();
-      if (session?.name) {
-        studentName = session.name;
-      } else {
-        const who = await whoami();
-        if (who?.name) studentName = who.name;
-      }
-    } catch {
-      // Fallback
+      const identity = await whoami();
+      const studentStatus = identity.role_statuses?.student;
+      if (studentStatus === "veteran") { window.location.replace("/student/veteran/dashboard"); return; }
+      if (studentStatus === "active") { window.location.replace("/student/active/dashboard"); return; }
+      if (studentStatus === "lead") { window.location.replace("/student/lead/payment"); return; }
+      enrollment = await getEnrollmentMe();
+      followEnrollmentStatus(enrollment.status);
+      window.dispatchEvent(new CustomEvent("supletivo:enrollment-state", { detail: { status: enrollment.status } }));
+    } catch (cause) {
+      error = getErrorMessage(cause);
+      const status = expectedStatus(cause);
+      if (status) followEnrollmentStatus(status);
     }
-
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  });
-
-  $effect(() => {
-    if (bothApproved && !timer) {
-      timer = setInterval(() => {
-        if (countdown > 1) {
-          countdown -= 1;
-        } else {
-          if (timer) clearInterval(timer);
-          window.location.href = "/student";
-        }
-      }, 1000);
-    }
-  });
-
-  function goToPainel() {
-    if (timer) clearInterval(timer);
-    window.location.href = "/student";
+    finally { loading = false; }
   }
+
+  onMount(() => { void refresh(); });
 </script>
 
-<div class="w-full flex flex-col items-center gap-6">
-  <!-- Banner de Celebração de Pagamento Confirmado -->
-  {#if showPaymentConfirmedBanner}
-    <div
-      data-testid="payment-confirmed-banner"
-      class="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/10 border border-emerald-400/40 text-left flex items-start gap-3.5 shadow-xl backdrop-blur-md transition-all"
-    >
-      <div class="size-9 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 font-bold shrink-0 mt-0.5">
-        ✓
-      </div>
-      <div class="flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h2 class="text-sm font-bold text-white">Pagamento Confirmado via InfinitePay!</h2>
-          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-[var(--yellow)] text-[var(--ink)]">
-            Matrícula Garantida
-          </span>
-        </div>
-        <p class="text-xs text-white/80 mt-1 leading-relaxed">
-          Seu pagamento foi confirmado com sucesso. Agora, conclua o envio da sua documentação abaixo para liberação imediata do seu acesso às aulas.
-        </p>
-      </div>
+<section class="student-workflow" aria-busy={loading}>
+  {#if loading}
+    <h1>Consultando sua matrícula</h1>
+    <p class="muted" role="status">Buscando a etapa atual no polo…</p>
+  {:else if enrollment?.status === "awaiting_release"}
+    <h1>Aguardando liberação do polo</h1>
+    <div class="panel">
+      <p>O polo está conferindo sua matrícula. O acesso ao ambiente da instituição parceira será disponibilizado após a liberação.</p>
+      <p class="muted">Você pode voltar a esta página para acompanhar a atualização.</p>
+      <button type="button" class="btn" onclick={refresh}>Atualizar matrícula</button>
     </div>
+  {:else}
+    <h1>Documentação da matrícula</h1>
+    <p class="muted">{enrollment ? "Consultando a próxima etapa da sua matrícula." : "A etapa atual será exibida após a consulta ao polo."}</p>
+    <button type="button" class="secondary" onclick={refresh}>Consultar novamente</button>
   {/if}
-
-  <!-- Cabeçalho Institucional -->
-  <div class="text-center">
-    <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/30 text-xs font-semibold text-emerald-300 mb-2">
-      Validação Automatizada de Documentos
-    </span>
-    <h1 class="text-2xl font-black text-white font-display">Documentação da Matrícula</h1>
-    <p class="text-xs text-white/70 mt-1">
-      Envie seus documentos de identificação e residência com análise em tempo real pela IA.
-    </p>
-  </div>
-
-  <!-- Bloco de Verificadores -->
-  <div class="w-full flex flex-col gap-4">
-    <IdentityDocumentVerifier
-      canReceiveCnh={true}
-      onStatusChange={(s) => { identityStatus = s; }}
-    />
-
-    <AddressProofVerifier
-      studentName={studentName}
-      onStatusChange={(s) => { addressStatus = s; }}
-    />
-  </div>
-
-  <!-- Banner de Progressão / Sucesso quando ambos forem homologados -->
-  {#if bothApproved}
-    <div
-      class="w-full rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-5 text-white backdrop-blur-xl shadow-2xl flex flex-col items-center text-center gap-3 animate-in fade-in zoom-in-95 duration-300"
-      data-testid="docs-completion-banner"
-    >
-      <div class="size-12 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-2xl">
-        🎉
-      </div>
-
-      <div>
-        <h3 class="text-base font-extrabold text-white font-display">
-          Documentação 100% Homologada pela IA!
-        </h3>
-        <p class="text-xs text-white/80 mt-1">
-          Sua identidade e seu comprovante foram aprovados. Sua matrícula está autorizada.
-        </p>
-      </div>
-
-      <div class="w-full max-w-xs mt-2 flex flex-col items-center gap-2">
-        <button
-          type="button"
-          onclick={goToPainel}
-          class="btn w-full py-3 text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--ink)] cursor-pointer"
-        >
-          Acessar Meu Painel Agora &rarr;
-        </button>
-
-        <span class="text-[11px] text-white/60">
-          Avanço automático em {countdown}s…
-        </span>
-      </div>
-    </div>
-  {/if}
-</div>
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
+</section>

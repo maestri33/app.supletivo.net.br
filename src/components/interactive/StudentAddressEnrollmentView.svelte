@@ -1,273 +1,76 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
-  import { compressImage } from "@/lib/image-compression";
   import RelationshipPicker from "./RelationshipPicker.svelte";
-  import { getSession } from "@/lib/session";
-  import {
-    whoami,
-    getEnrollmentMe,
-    uploadEnrollmentAddressProof,
-    submitAddressProofKinship,
-    type EnrollmentMe,
-  } from "@/lib/api";
+  import { classifyDocument, whoami, getEnrollmentMe, uploadEnrollmentAddressProof, submitAddressProofKinship, getErrorMessage, type EnrollmentMe } from "@/lib/api";
+  import { enrollmentPath } from "./student/workflow";
   import UtilityBillIcon from "@/components/icons/UtilityBillIcon.svelte";
   import CameraIcon from "@/components/icons/CameraIcon.svelte";
   import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
-
   type StepStatus = "pending" | "under_review" | "needs_kinship" | "approved";
-
-  let status = $state<StepStatus>("pending");
-  let studentName = $state("Titular da Matrícula");
-  let isAnalyzing = $state(false);
-  let isExtracting = $state(false);
-  let triageError = $state<string | null>(null);
-  let isRelationshipModalOpen = $state(false);
-
-  // Dados do arquivo e endereço extraído
-  let previewData = $state<string | null>(null);
-  let extractedHolder = $state<string>("Titular Identificado");
-  let confirmedAddress = $state<{
-    street: string;
-    number: string;
-    neighborhood: string;
-    city: string;
-    uf: string;
-    cep: string;
-    holderName: string;
-    relationship?: string;
-  } | null>(null);
-
-  function notifyDock(addressStatus: "pending" | "under_review" | "approved" | "rejected") {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("supletivo:student-state", {
-          detail: { addressStatus },
-        })
-      );
-    }
+  let status = $state<StepStatus>("pending"), studentName = $state("Titular da matrícula");
+  let isAnalyzing = $state(false), isExtracting = $state(false), triageError = $state<string | null>(null);
+  let isRelationshipModalOpen = $state(false), latestEnrollment = $state<EnrollmentMe | null>(null);
+  let previewData = $state<string | null>(null), extractedHolder = $state("Titular não informado");
+  let confirmedAddress = $state<{ street: string | null; number: string | null; neighborhood: string | null; city: string | null; uf: string | null; cep: string | null; holderName: string; relationship?: string } | null>(null);
+  let nextPath = $state("/student/enrollment");
+  let active = true;
+  function failure(cause: unknown) { return cause instanceof Error ? cause.message : getErrorMessage(cause); }
+  function notifyDock(addressStatus: "pending" | "under_review" | "approved" | "rejected") { window.dispatchEvent(new CustomEvent("supletivo:student-state", { detail: { addressStatus } })); }
+  function apply(me: EnrollmentMe) {
+    latestEnrollment = me; nextPath = enrollmentPath(me.status) ?? "/student/enrollment";
+    extractedHolder = me.address_proof?.holder_name || "Titular não informado";
+    const proof = me.address_proof;
+    if (proof?.status === "approved" && me.address_complete === true && me.address) {
+      status = "approved"; notifyDock("approved");
+      confirmedAddress = { street: me.address.street, number: me.address.number, neighborhood: me.address.neighborhood,
+        city: me.address.city, uf: me.address.state, cep: me.address.cep || me.address.zipcode,
+        holderName: extractedHolder, relationship: proof.kinship_relation || undefined };
+    } else if (proof?.needs_kinship) {
+      status = "needs_kinship"; isRelationshipModalOpen = true; notifyDock("under_review");
+    } else if (proof?.status === "rejected" || proof?.needs_new_proof) {
+      status = "pending"; notifyDock("rejected"); triageError = proof.reason || "Envie um novo comprovante legível.";
+    } else if (proof?.exists) {
+      status = "under_review"; notifyDock("under_review");
+      if (proof.status === "approved" && !me.address_complete) triageError = "O comprovante foi aprovado, mas o endereço está incompleto. O polo precisa conferir os dados extraídos.";
+    } else { status = "pending"; notifyDock("pending"); }
   }
-
-  onMount(async () => {
-    try {
-      const session = getSession();
-      if (session?.name) {
-        studentName = session.name;
-      } else {
-        const who = await whoami();
-        if (who?.name) studentName = who.name;
-      }
-    } catch {
-      // Mantém padrão
-    }
-
-    try {
-      const me = await getEnrollmentMe();
-      if (me?.address_proof?.status === "approved") {
-        status = "approved";
-        notifyDock("approved");
-        if (me.address) {
-          confirmedAddress = {
-            street: me.address.street || "Endereço Cadastrado",
-            number: me.address.number || "S/N",
-            neighborhood: me.address.neighborhood || "",
-            city: me.address.city || "",
-            uf: me.address.uf || "PR",
-            cep: me.address.cep || "",
-            holderName: me.address_proof.holder_name || studentName,
-            relationship: me.address_proof.kinship_relation || "Próprio Titular",
-          };
-        }
-      } else if (me?.address_proof?.needs_kinship) {
-        status = "needs_kinship";
-        notifyDock("under_review");
-        if (me.profile?.mother_name) extractedHolder = me.profile.mother_name;
-        isRelationshipModalOpen = true;
-      } else if (me?.address_proof?.status === "pending" || me?.address_proof?.status === "under_review") {
-        status = "under_review";
-        notifyDock("under_review");
-      } else {
-        notifyDock("pending");
-      }
-    } catch {
-      notifyDock("pending");
-    }
-  });
-
-  async function validateAddressDocFront(file: File): Promise<{
-    valid: boolean;
-    errorMessage?: string;
-  }> {
-    const lower = file.name.toLowerCase();
-
-    // Rejeição imediata de documento de identidade enviado por engano
-    if (/(?:^|[_\-\s])(?:rg|cnh|identidade)(?:[_\-\s.]|$)/i.test(lower)) {
-      return {
-        valid: false,
-        errorMessage: "Ops, você enviou um documento de identidade. Envie uma conta de consumo (energia, água, internet, gás ou telefone).",
-      };
-    }
-
-    try {
-      const res = await fetch("/api/v1/academic/documents/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.docType === "rg" || data.docType === "cnh") {
-          return {
-            valid: false,
-            errorMessage: "Ops, você enviou um documento de identidade. Envie uma conta de consumo de residência.",
-          };
-        }
-        if (!data.isLegible) {
-          return {
-            valid: false,
-            errorMessage: data.feedback || "A imagem ficou embaçada ou com baixa iluminação.",
-          };
-        }
-        return { valid: true };
-      }
-    } catch (err) {
-      console.warn("[triage:address] Fallback heurístico:", err);
-    }
-
-    if (lower.includes("blur") || lower.includes("embaçado")) {
-      return {
-        valid: false,
-        errorMessage: "A imagem ficou embaçada. Aproxime a câmera e garanta boa iluminação.",
-      };
-    }
-
-    if (lower.includes("invalid") || lower.includes("not_doc") || file.size < 10) {
-      return {
-        valid: false,
-        errorMessage: "O arquivo enviado não parece uma conta de consumo válida. Envie uma fatura legível.",
-      };
-    }
-
-    return { valid: true };
-  }
-
-  function fileToBase64(file: File | Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function processSelectedFile(file: File) {
-    isAnalyzing = true;
+  async function refresh() {
     triageError = null;
-
-    try {
-      const triage = await validateAddressDocFront(file);
-      if (!triage.valid) {
-        triageError = triage.errorMessage || "Arquivo inválido.";
-        return;
-      }
-
-      // Preview da imagem
-      if (file.type.startsWith("image/")) {
-        const compressed = await compressImage(file);
-        previewData = await fileToBase64(compressed);
-      } else {
-        previewData = await fileToBase64(file);
-      }
-
-      status = "under_review";
-      isExtracting = true;
-      notifyDock("under_review");
-
-      let me: EnrollmentMe | null = null;
-      try {
-        me = await uploadEnrollmentAddressProof(file);
-      } catch {
-        // Fallback para ambiente local
-      } finally {
-        isExtracting = false;
-      }
-
-      const lowerName = file.name.toLowerCase();
-      const isKinshipFile =
-        Boolean(me?.address_proof?.needs_kinship) ||
-        /(?:^|[_\-\s])(?:mae|mãe|pai|terceiro|conjuge|esposa|marido)(?:[_\-\s.]|$)/i.test(lowerName);
-
-      if (isKinshipFile) {
-        extractedHolder = me?.profile?.mother_name || "Titular Familiar Identificado";
-        status = "needs_kinship";
-        isRelationshipModalOpen = true;
-      } else {
-        const holder = studentName;
-        extractedHolder = holder;
-        status = "approved";
-        notifyDock("approved");
-        confirmedAddress = {
-          street: me?.address?.street || "Rua Marechal Deodoro",
-          number: me?.address?.number || "450",
-          neighborhood: me?.address?.neighborhood || "Centro",
-          city: me?.address?.city || "Curitiba",
-          uf: me?.address?.uf || "PR",
-          cep: me?.address?.cep || "80010-010",
-          holderName: holder,
-          relationship: "Próprio Aluno",
-        };
-      }
-    } catch (e: any) {
-      triageError = e?.message || "Erro ao processar o comprovante. Tente novamente.";
-      status = "pending";
-      notifyDock("pending");
-    } finally {
-      isAnalyzing = false;
-    }
+    try { const me = await getEnrollmentMe(); if (active) apply(me); }
+    catch (cause) { triageError = failure(cause); }
   }
-
+  async function processSelectedFile(file: File) {
+    if (isAnalyzing || isExtracting) return;
+    triageError = null; isAnalyzing = true; let received = false;
+    try {
+      if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie um arquivo não vazio de até 15 MB.");
+      if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) throw new Error("Envie JPG, PNG, WebP ou PDF.");
+      const result = await classifyDocument(file);
+      if (result.is_document === false || result.is_legible === false) throw new Error("Envie um comprovante legível com endereço e titular visíveis.");
+      if (result.doc_type && result.doc_type !== "address_proof") throw new Error("Nesta etapa, envie uma conta ou comprovante de residência.");
+      isAnalyzing = false; isExtracting = true;
+      let me = await uploadEnrollmentAddressProof(file); received = true; apply(me);
+      const deadline = Date.now() + 60_000;
+      while (active && me.address_proof?.status === "pending" && Date.now() < deadline) {
+        await new Promise(resolve => window.setTimeout(resolve, 2500));
+        me = await getEnrollmentMe(); if (active) apply(me);
+      }
+    } catch (cause) {
+      triageError = received ? `Comprovante recebido. Não foi possível consultar a análise: ${failure(cause)}. Consulte novamente antes de reenviar.` : `Não foi possível enviar o comprovante: ${failure(cause)}`;
+      if (!received) { status = "pending"; notifyDock("pending"); }
+    } finally { isAnalyzing = false; isExtracting = false; }
+  }
   async function handleRelationshipSelected(relation: string) {
-    isRelationshipModalOpen = false;
-    try {
-      await submitAddressProofKinship(relation);
-    } catch {
-      // Aceita declaração
-    }
-
-    status = "approved";
-    notifyDock("approved");
-    confirmedAddress = {
-      street: "Rua das Flores",
-      number: "128",
-      neighborhood: "Batel",
-      city: "Curitiba",
-      uf: "PR",
-      cep: "80420-000",
-      holderName: extractedHolder,
-      relationship: relation,
-    };
+    if (isExtracting) return;
+    isRelationshipModalOpen = false; isExtracting = true; triageError = null;
+    try { const me = await submitAddressProofKinship(relation); if (active) apply(me); }
+    catch (cause) { triageError = failure(cause); }
+    finally { isExtracting = false; }
   }
-
-  function onFileInputChange(e: Event) {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      void processSelectedFile(input.files[0]);
-    }
-  }
-
-  function resetUpload() {
-    previewData = null;
-    confirmedAddress = null;
-    status = "pending";
-    notifyDock("pending");
-  }
+  function onFileInputChange(event: Event) { const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; input.value = ""; if (file) void processSelectedFile(file); }
+  function resetUpload() { previewData = null; confirmedAddress = null; status = "pending"; }
+  onMount(() => { void refresh(); void whoami().then(me => { if (active && me.name) studentName = me.name; }).catch(() => {}); return () => { active = false; }; });
 </script>
 
 <div class="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
@@ -418,7 +221,7 @@
         </div>
 
         <div>
-          <h3 class="text-lg font-display text-white">Endereço Residencial Homologado!</h3>
+          <h3 class="text-lg font-display text-white">Endereço aprovado pelo servidor</h3>
           <p class="text-xs text-emerald-200/90 mt-1 max-w-md mx-auto">
             Os dados do seu comprovante foram validados e vinculados à sua matrícula oficial.
           </p>
@@ -450,10 +253,10 @@
 
         <div class="w-full max-w-sm mt-2">
           <a
-            href="/student/enrollment/education"
+            href={nextPath}
             class="w-full min-h-[48px] py-3.5 px-4 rounded-full bg-[var(--yellow)] hover:bg-[var(--yellow)]/90 text-[var(--ink)] font-black text-xs uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.985] text-center"
           >
-            <span>Avançar: 3. Histórico Escolar →</span>
+            <span>Avançar: Escolaridade →</span>
           </a>
         </div>
       </div>

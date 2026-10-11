@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami, requestAuth } from "@/lib/api";
+  import { requestAuth, getErrorMessage } from "@/lib/api";
+  import { commissionTotal, moneyLabel, COMMISSION_STATUS_LABELS, type PromoterProfile } from "@/lib/promoter";
 
   interface CommissionItem {
     external_id: string;
@@ -15,57 +16,35 @@
   let promoterName = $state<string>("Promotor");
   let pixKey = $state<string>("Não informada");
   let pixType = $state<string>("PIX");
+  let error = $state("");
 
   let balance = $derived.by(() => {
-    const sum = commissions
-      .filter((c) => c.status !== "paid")
-      .reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-    return `R$ ${sum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return moneyLabel(commissionTotal(commissions, ["pending", "processed"]));
   });
 
   let totalPaid = $derived.by(() => {
-    const sum = commissions
-      .filter((c) => c.status === "paid")
-      .reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-    return `R$ ${sum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return moneyLabel(commissionTotal(commissions, ["paid"]));
   });
 
-  onMount(async () => {
+  async function load() {
+    loading = true;
+    error = "";
     try {
-      const who = await whoami();
-      const status = who?.role_statuses?.promoter;
-      if (status === "candidate") {
-        window.location.replace("/promoter/candidate");
-        return;
-      }
-      if (status === "training") {
-        window.location.replace("/promoter/training");
-        return;
-      }
-      if (who?.name) promoterName = who.name;
-      if ((who as any)?.pix_key) pixKey = (who as any).pix_key;
-      if ((who as any)?.pix_key_type) pixType = String((who as any).pix_key_type).toUpperCase();
-    } catch {}
-
-    try {
-      const [meRes, resp] = await Promise.allSettled([
-        requestAuth<any>("/api/v1/collaborators/promoter/me"),
-        requestAuth<any>("/api/v1/collaborators/promoter/commissions"),
+      const [profile, ledger] = await Promise.all([
+        requestAuth<PromoterProfile>("/api/v1/collaborators/promoter/me"),
+        requestAuth<CommissionItem[]>("/api/v1/collaborators/promoter/commissions"),
       ]);
-      if (meRes.status === "fulfilled" && meRes.value) {
-        const meData = meRes.value;
-        if (meData?.pix_key) pixKey = meData.pix_key;
-        if (meData?.pix_key_type) pixType = String(meData.pix_key_type).toUpperCase();
-      }
-      if (resp.status === "fulfilled" && Array.isArray(resp.value)) {
-        commissions = resp.value;
-      }
-    } catch {
-      commissions = [];
+      promoterName = profile.name ?? "Promotor";
+      pixKey = profile.pix_key ?? "Não informada";
+      if (!Array.isArray(ledger)) throw new Error("O servidor retornou um extrato inválido.");
+      commissions = ledger;
+    } catch (cause) {
+      error = getErrorMessage(cause);
     } finally {
       loading = false;
     }
-  });
+  }
+  onMount(() => { void load(); });
 
   function formatDate(iso: string) {
     try {
@@ -78,6 +57,7 @@
 </script>
 
 <div class="w-full max-w-5xl mx-auto p-4 sm:p-6 text-white space-y-6">
+  {#if error}<div role="alert" class="text-[var(--danger)]"><p>{error}</p><button type="button" class="btn min-h-12 px-5 mt-3" onclick={load}>Tentar novamente</button></div>{:else}
   <!-- Painel de Repasses PIX -->
   <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
@@ -175,7 +155,7 @@
                     </span>
                   {:else}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      Aguardando Fechamento
+                      {COMMISSION_STATUS_LABELS[item.status] ?? "Status não informado"}
                     </span>
                   {/if}
                 </td>
@@ -186,4 +166,5 @@
       </div>
     {/if}
   </div>
+  {/if}
 </div>

@@ -59,7 +59,7 @@
   let profileBusy = $state(false);
   let profileError = $state<string | null>(null);
 
-  // Valores dinâmicos da plataforma (com fallback de resiliência)
+  // Valores dinâmicos da plataforma. Sem resposta do servidor, não exibimos um preço inventado.
   let livePricing = $state<Pricing | null>(null);
   let hasRef = $state(false);
   let pixPrice = $derived.by(() => {
@@ -70,7 +70,7 @@
         return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
       }
     }
-    return hasRef ? "R$ 999,00" : "R$ 1.615,00";
+    return "Preço indisponível";
   });
   let creditPrice = $derived.by(() => {
     if (livePricing) {
@@ -83,7 +83,7 @@
         }
       }
     }
-    return hasRef ? "12x de R$ 99,00" : "12x de R$ 161,00";
+    return "Parcelamento indisponível";
   });
   let discountBadge = $derived(
     hasRef
@@ -559,7 +559,7 @@
       </div>
 
       <h1 class="text-2xl sm:text-4xl font-display tracking-tight text-white">
-        Conclua sua matrícula para liberar as aulas
+        Conclua sua matrícula para acessar a etapa de liberação
       </h1>
       <p class="text-xs sm:text-sm text-white/70 max-w-lg mx-auto">
         Escolha abaixo como prefere realizar o pagamento único da sua formação do Ensino Médio.
@@ -597,7 +597,7 @@
           <h2 class="text-xl sm:text-2xl font-display text-white flex items-center gap-2">
             <span>Pagamento via PIX</span>
           </h2>
-          <p class="text-xs text-white/70 mt-1">À vista com o maior desconto promocional garantido.</p>
+          <p class="text-xs text-white/70 mt-1">Valor informado pelo servidor de pagamentos.</p>
 
           <div class="mt-6 mb-4">
             <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-black tracking-tight">{pixPrice}</span>
@@ -611,7 +611,7 @@
             </li>
             <li class="flex items-center gap-2.5">
               <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
-              <span>Confirmação instantânea em menos de 10 segundos</span>
+              <span>Confirmação após o retorno do gateway de pagamentos</span>
             </li>
             <li class="flex items-center gap-2.5">
               <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
@@ -659,7 +659,7 @@
             </li>
             <li class="flex items-center gap-2.5">
               <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
-              <span>Certificado reconhecido pelo MEC incluso</span>
+              <span>Certificação emitida pela instituição parceira conforme a documentação vigente</span>
             </li>
           </ul>
         </div>
@@ -689,7 +689,7 @@
           </div>
           <div class="text-xs">
             <strong class="text-white block font-bold">Certificado Oficial</strong>
-            <span class="text-white/60 leading-tight block mt-0.5">Amparado pela LDB (Lei 9.394/96) com publicação no Diário Oficial.</span>
+            <span class="text-white/60 leading-tight block mt-0.5">A instituição parceira informa as regras aplicáveis e os registros após a conclusão.</span>
           </div>
         </div>
 
@@ -703,7 +703,7 @@
           </div>
           <div class="text-xs">
             <strong class="text-white block font-bold">Validade Nacional</strong>
-            <span class="text-white/60 leading-tight block mt-0.5">Aceito em faculdades, concursos públicos, vestibulares e CNH.</span>
+            <span class="text-white/60 leading-tight block mt-0.5">O uso do documento depende das regras da instituição e do órgão que o receber.</span>
           </div>
         </div>
 

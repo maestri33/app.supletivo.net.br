@@ -41,7 +41,6 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Protocolo de auditoria rastreável
     const timestamp = new Date().toISOString();
-    const protocolNumber = `SEC-REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     const auditId = `audit-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
     // Mascaramento de dados para auditoria LGPD
@@ -52,7 +51,6 @@ export const POST: APIRoute = async ({ request }) => {
     const auditLog = {
       event: "STUDENT_CONTACT_CHANGE_REQUESTED",
       audit_id: auditId,
-      protocol: protocolNumber,
       timestamp,
       client_ip: clientIp,
       user_agent: userAgent,
@@ -64,23 +62,6 @@ export const POST: APIRoute = async ({ request }) => {
     };
 
     console.info("[AUDIT_LOG:CONTACT_CHANGE]", JSON.stringify(auditLog));
-
-    let methodInstructions = "";
-    switch (method) {
-      case "birth_date":
-        methodInstructions = "Validação imediata realizada via confirmação de dados de nascimento.";
-        break;
-      case "biometric":
-        methodInstructions = "Iniciando verificação facial comparativa com o documento oficial arquivado.";
-        break;
-      case "secretaria":
-        methodInstructions = "Protocolo aberto com sucesso. Nossa secretaria acadêmica entrará em contato via canal seguro.";
-        break;
-      case "email":
-      default:
-        methodInstructions = "Enviamos um código de segurança de uso único para o e-mail cadastrado no sistema.";
-        break;
-    }
 
     // Tenta delegar para o backend Django (/api/v1/clients/auth/recover-phone)
     const URL_BACKEND = process.env.URL_BACKEND ?? "https://backend.supletivo.net.br";
@@ -101,9 +82,10 @@ export const POST: APIRoute = async ({ request }) => {
           method: method || "email",
           turnstile_token: body.turnstile_token,
         }),
+        signal: AbortSignal.timeout(20000),
       });
 
-      if (backendRes.status !== 502 && backendRes.status !== 504) {
+      if (backendRes.status < 500) {
         interface BackendRecoveryData {
           success?: boolean;
           protocol?: string;
@@ -118,12 +100,12 @@ export const POST: APIRoute = async ({ request }) => {
         return new Response(
           JSON.stringify({
             success: backendData.success ?? (backendRes.status === 200),
-            protocol: backendData.protocol ?? protocolNumber,
+          protocol: backendData.protocol,
             status: backendData.status ?? (backendRes.status === 200 ? "COMPLETED" : "ERROR"),
             requires_challenge: backendData.requires_challenge ?? false,
             masked_email: backendData.masked_email,
             masked_new_phone: backendData.masked_new_phone || maskedNewPhone,
-            instructions: backendData.message || methodInstructions,
+            instructions: backendData.message,
             error: backendData.detail || (backendRes.status >= 400 ? backendData.message : undefined),
           }),
           {
@@ -133,22 +115,17 @@ export const POST: APIRoute = async ({ request }) => {
         );
       }
     } catch (backendErr) {
-      console.warn("[CONTACT_RECOVERY] Backend direct call unavailable, using local audit protocol:", backendErr);
+      console.warn("[CONTACT_RECOVERY] Backend unavailable; recovery was not confirmed.");
     }
 
-    // Fallback gracioso com protocolo auditável quando backend externo estiver offline
+    // An audit log cannot confirm that the backend performed the recovery.
     return new Response(
       JSON.stringify({
-        success: true,
-        protocol: protocolNumber,
-        audit_id: auditId,
-        method: method || "email",
-        instructions: methodInstructions,
-        masked_new_phone: maskedNewPhone,
-        created_at: timestamp,
+        success: false,
+        error: "Não foi possível confirmar a recuperação. Tente novamente em instantes.",
       }),
       {
-        status: 200,
+        status: 502,
         headers: { "Content-Type": "application/json" },
       }
     );

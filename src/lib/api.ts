@@ -1,6 +1,6 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "@/lib/config";
 import type { Pricing } from "@/lib/payment";
-import { clearSession, getAccessToken, getRefreshToken, saveLogin } from "@/lib/session";
+import { clearSession, getAccessToken, getRefreshToken, getLogin, saveLogin } from "@/lib/session";
 
 /* ============================== errors ============================== */
 
@@ -42,25 +42,17 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH";
   json?: unknown;
   file?: File;
+  formData?: FormData;
   token?: string;
   timeoutMs?: number;
 }
 
-/**
- * Retenta quando a conexão morre ANTES de virar resposta (`fetch` rejeita com TypeError).
- * O caso real: keep-alive ocioso que a borda já fechou e o browser reusa — o Chrome refaz
- * GET sozinho, mas nunca POST, então só os passos do funil quebravam (E2E 2026-07-28:
- * `/auth/check`, `/lead/identity` e `/auth/login` caindo em "Cadê a internet?" com o
- * request nem chegando no Caddy). Timeout (AbortError) NÃO entra aqui: ali o servidor
- * pode ter recebido, e repetir arriscaria cobrar/criar duas vezes.
- *
- * DUAS retentativas, com respiro entre elas: a primeira, imediata, ainda pegava o mesmo
- * socket morto do pool e falhava junto (observado no E2E — as duas tentativas morreram no
- * mesmo instante). O intervalo dá tempo de o browser aposentar a conexão e abrir outra.
- */
+/** Retry reads after a transport failure. A rejected fetch cannot prove a mutation was not processed. */
 const RETRY_DELAYS_MS = [250, 900];
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const method = opts.method ?? (opts.json !== undefined || opts.file || opts.formData ? "POST" : "GET");
+  if (method !== "GET") return requestOnce<T>(path, opts);
   for (const delay of RETRY_DELAYS_MS) {
     try {
       return await requestOnce<T>(path, opts);
@@ -79,7 +71,9 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
     let body: BodyInit | undefined;
-    if (opts.file) {
+    if (opts.formData) {
+      body = opts.formData;
+    } else if (opts.file) {
       const form = new FormData();
       form.append("file", opts.file);
       body = form;
@@ -128,7 +122,7 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
       json: { refresh_token: refresh },
     })
       .then((tokens) => {
-        saveLogin({ ...tokens });
+        saveLogin({ ...getLogin(), ...tokens });
         return tokens;
       })
       .finally(() => {
@@ -151,13 +145,16 @@ export async function requestAuth<T>(path: string, opts: RequestOptions = {}): P
     return await request<T>(path, { ...opts, token });
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    try {
-      const tokens = await refreshAuthTokens();
-      return await request<T>(path, { ...opts, token: tokens.access_token });
-    } catch {
-      clearSession();
-      throw new ApiError("Sessão expirada. Entre novamente.", 401);
+    let tokens: LoginResponse;
+    try { tokens = await refreshAuthTokens(); }
+    catch (failure) {
+      if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
+        clearSession();
+        throw new ApiError("Sessão expirada. Entre novamente.", 401);
+      }
+      throw failure;
     }
+    return await request<T>(path, { ...opts, token: tokens.access_token });
   }
 }
 
@@ -476,7 +473,8 @@ export type DocumentType =
   | "address_proof" // comprovante de endereço
   | "id_card" // RG ou CNH
   | "birth_certificate" // certidão
-  | "military"; // certificado de reservista (condicional)
+  | "military_service"
+  | "blood_type";
 
 /** Tipo sanguíneo — 8 valores do sistema ABO+Rh. */
 export type BloodType = "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
@@ -506,7 +504,8 @@ export const DOCUMENT_LABEL: Record<DocumentType, string> = {
   address_proof: "Comprovante de endereço",
   id_card: "RG ou CNH",
   birth_certificate: "Certidão de nascimento/casamento",
-  military: "Certificado de reservista",
+  military_service: "Certificado de reservista",
+  blood_type: "Comprovante de tipo sanguíneo",
 };
 
 /** Hint copy shown under the FileUpload, per document type. */
@@ -516,7 +515,8 @@ export const DOCUMENT_HINT: Record<DocumentType, string> = {
   address_proof: "Conta de luz, água ou internet dos últimos 3 meses.",
   id_card: "Foto do RG ou CNH, aberta na página da foto.",
   birth_certificate: "Certidão de nascimento ou casamento (legível).",
-  military: "Certificado de reservista (frente).",
+  military_service: "Certificado de reservista (frente).",
+  blood_type: "Comprovante legível do seu tipo sanguíneo.",
 };
 
 /**
@@ -527,13 +527,11 @@ export const DOCUMENT_HINT: Record<DocumentType, string> = {
  * (pending/approved/rejected/review).
  */
 export interface StudentDocument {
-  type: DocumentType;
-  applies: boolean;
-  required: boolean;
-  uploaded_at: string | null;
+  doc_type: DocumentType;
+  has_photo: boolean;
   validation_status: ValidationStatus | null;
   analysis_reason: string | null;
-  photo_url: string | null;
+  analysis_status?: ValidationStatus | null;
   /** Echo do ack — presente no POST e em respostas com polling ativo. */
   poll_after_ms?: number | null;
   expires_at?: string | null;
@@ -606,7 +604,7 @@ export function isDocSettled(
   type: DocumentType,
 ): (m: StudentMe) => boolean {
   return (m) => {
-    const status = m.documents?.find((d) => d.type === type)?.validation_status ?? null;
+    const status = m.documents?.find((d) => d.doc_type === type)?.validation_status ?? null;
     return ["approved", "rejected", "review"].includes(status ?? "");
   };
 }
@@ -839,6 +837,8 @@ export interface AddressProofSection {
    */
   kinship_kind: "confirm" | "justify" | null;
   kinship_relation: string | null;
+  /** Titular extraído do comprovante pelo OCR/LLM, quando identificado. */
+  holder_name?: string | null;
   /** Coordenador rejeitou a justificativa: travar no comprovante até um novo upload. */
   needs_new_proof: boolean;
 }

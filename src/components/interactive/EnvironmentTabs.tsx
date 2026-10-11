@@ -10,8 +10,8 @@ export interface EnvironmentTabsProps {
 }
 
 export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
-  roles = ["aluno"],
-  studentName = "Aluno",
+  roles = [],
+  studentName,
   partnerUrl,
   stickyTop = true,
 }) => {
@@ -55,17 +55,17 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Status Curricular</span>
               <p className="text-lg font-bold text-white mt-1">Disciplinas Liberadas</p>
-              <p className="text-xs text-emerald-400 mt-2">12 de 12 matérias ativas</p>
+              <p className="text-xs text-white/70 mt-2">A quantidade é carregada no ambiente parceiro.</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Documentação</span>
-              <p className="text-lg font-bold text-white mt-1">Validação Concluída</p>
-              <p className="text-xs text-white/70 mt-2">Apto para prova de certificação</p>
+              <p className="text-lg font-bold text-white mt-1">Status consultado no servidor</p>
+              <p className="text-xs text-white/70 mt-2">As pendências aparecem quando a matrícula estiver sincronizada.</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Diploma Oficial</span>
-              <p className="text-lg font-bold text-white mt-1">Credenciado MEC</p>
-              <p className="text-xs text-white/70 mt-2">Publicação no GDAE / Diário Oficial</p>
+              <p className="text-lg font-bold text-white mt-1">Registro da instituição parceira</p>
+              <p className="text-xs text-white/70 mt-2">A consulta oficial é exibida após a conclusão.</p>
             </div>
           </div>
         </div>
@@ -100,18 +100,18 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Leads Ativos</span>
-              <p className="text-2xl font-bold text-white mt-1">24</p>
-              <p className="text-xs text-emerald-400 mt-1">+3 nas últimas 24h</p>
+              <p className="text-2xl font-bold text-white mt-1">Consultar no servidor</p>
+              <p className="text-xs text-white/70 mt-1">Nenhuma métrica é exibida sem resposta da API.</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Matrículas Confirmadas</span>
-              <p className="text-2xl font-bold text-white mt-1">18</p>
-              <p className="text-xs text-white/70 mt-1">Conversão de 75%</p>
+              <p className="text-2xl font-bold text-white mt-1">Consultar no servidor</p>
+              <p className="text-xs text-white/70 mt-1">O funil é atualizado a partir dos seus leads.</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Saldo a Receber</span>
-              <p className="text-2xl font-bold text-[var(--yellow)] mt-1">R$ 2.450,00</p>
-              <p className="text-xs text-white/70 mt-1">Próximo fechamento semanal</p>
+              <p className="text-2xl font-bold text-[var(--yellow)] mt-1">Consultar no servidor</p>
+              <p className="text-xs text-white/70 mt-1">O saldo aparece somente após conciliação financeira.</p>
             </div>
           </div>
         </div>
@@ -137,12 +137,12 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Pendências de Validação</span>
-              <p className="text-xl font-bold text-amber-300 mt-1">5 documentos para análise</p>
+              <p className="text-xl font-bold text-amber-300 mt-1">Consultar fila de revisão</p>
               <p className="text-xs text-white/60 mt-1">RG, Histórico e Comprovantes em fila</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Diplomas Prontos para Retirada</span>
-              <p className="text-xl font-bold text-emerald-400 mt-1">12 certificados impressos</p>
+              <p className="text-xl font-bold text-emerald-400 mt-1">Consultar emissão</p>
               <p className="text-xs text-white/60 mt-1">Aguardando assinatura do concluinte</p>
             </div>
           </div>
@@ -161,8 +161,15 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
     .map((r) => allTabsMap[r])
     .filter(Boolean);
 
-  // Fallback: se nenhuma bateu, exibe a do aluno
-  const filteredTabs = matchingTabs.length > 0 ? matchingTabs : [allTabsMap.student || allTabsMap.aluno];
+  const filteredTabs = matchingTabs;
+
+  if (filteredTabs.length === 0) {
+    return (
+      <div className="w-full max-w-5xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
+        Nenhum ambiente foi liberado para esta conta. Atualize a sessão para consultar o status real.
+      </div>
+    );
+  }
 
   // REGRA DO USUÁRIO:
   // Se o usuário tem apenas 1 role, NÃO exibe barra de navegação/tabs em cima — renderiza direto o ambiente dele!

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { triageDocument } from '../src/lib/typesafe.ts';
 
-test('TypeSafe Enrollment: Document Triage - Valid CNH', async () => {
+test('TypeSafe Enrollment: Document Triage never approves without the official analyzer', async () => {
   const result = await triageDocument({
     fileName: 'cnh_digital_aluno_2026.pdf',
     fileSize: 102400,
@@ -10,10 +10,8 @@ test('TypeSafe Enrollment: Document Triage - Valid CNH', async () => {
     textSnippet: 'Carteira Nacional de Habilitação DETRAN PR Nascimento 15/05/1992',
   });
 
-  assert.equal(result.valid, true);
-  assert.equal(result.docType, 'cnh');
-  assert.equal(result.is18Plus, true);
-  assert.equal(result.isLegible, true);
+  assert.equal(result.valid, false);
+  assert.equal(result.source, 'unavailable');
 });
 
 test('TypeSafe Enrollment: Document Triage - Rejects Blurry / Non-Document', async () => {
@@ -27,7 +25,7 @@ test('TypeSafe Enrollment: Document Triage - Rejects Blurry / Non-Document', asy
   assert.equal(result.isLegible, false);
 });
 
-test('TypeSafe Enrollment: Document Triage - Valid Comprovante de Residência', async () => {
+test('TypeSafe Enrollment: Document Triage keeps proof pending without the official analyzer', async () => {
   const result = await triageDocument({
     fileName: 'fatura_energia_copel_2026.pdf',
     fileSize: 85000,
@@ -35,9 +33,8 @@ test('TypeSafe Enrollment: Document Triage - Valid Comprovante de Residência', 
     textSnippet: 'Conta de Consumo Energia Elétrica COPEL Vencimento 10/09/2026',
   });
 
-  assert.equal(result.valid, true);
-  assert.equal(result.docType, 'comprovante_residencia');
-  assert.equal(result.isLegible, true);
+  assert.equal(result.valid, false);
+  assert.equal(result.source, 'unavailable');
 });
 
 test('TypeSafe Enrollment: Document Triage - Rejects Underage Candidate (<18 for EJA)', async () => {
@@ -67,6 +64,6 @@ test('TypeSafe Enrollment: API Endpoint POST /api/v1/academic/documents/triage',
   const res = await POST({ request: req } as unknown as import('astro').APIContext);
   assert.equal(res.status, 200);
   const data = await res.json();
-  assert.equal(data.valid, true);
-  assert.equal(data.docType, 'rg');
+  assert.equal(data.valid, false);
+  assert.equal(data.source, 'unavailable');
 });

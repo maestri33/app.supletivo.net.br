@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { whoami } from "@/lib/api";
   import { getAccessToken, saveLogin } from "@/lib/session";
+  import { getRoleDestination } from "@/lib/roles";
 
   interface RoleConfig {
     id: "student" | "promoter" | "hub" | "admin";
@@ -27,24 +28,7 @@
     if (roleId === "admin") {
       return "https://admin.supletivo.net.br";
     }
-    const status = (roleStatuses[roleId] || "").toLowerCase().trim();
-    if (roleId === "student") {
-      if (status === "lead") return "/student/lead";
-      if (status === "veteran") return "/student/veteran";
-      if (status === "active") return "/student";
-      return "/student/enrollment";
-    }
-    if (roleId === "promoter") {
-      if (status === "candidate") return "/promoter/candidate";
-      if (status === "training") return "/promoter/training";
-      if (status === "suspended") return "/promoter/suspended";
-      return "/promoter/active";
-    }
-    if (roleId === "hub") {
-      if (status === "review") return "/hub/review";
-      return "/hub/active";
-    }
-    return "/";
+    return getRoleDestination({ roles: userRoles.map((role) => role.id), role_statuses: roleStatuses }, roleId) ?? `/${roleId}`;
   }
 
   function handleSwitchRole(role: RoleConfig) {
@@ -105,7 +89,7 @@
     if (token) {
       whoami()
         .then((w) => {
-          if (w && Array.isArray(w.roles) && w.roles.length > 0) {
+          if (w && Array.isArray(w.roles)) {
             populateRolesFromSession(w.roles, w.role_statuses || {});
             try {
               const raw = localStorage.getItem("supletivo.login");

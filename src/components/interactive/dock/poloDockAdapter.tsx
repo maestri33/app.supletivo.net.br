@@ -61,6 +61,14 @@ export function getPoloDockItems(
         isActive: isPromotersActive,
       },
       {
+        id: "operations",
+        title: "Processos",
+        icon: <IconFileCheck className="h-full w-full" />,
+        href: "/hub/active/operations",
+        isActive: currentPath === "/hub/active/operations",
+        statusIndicator: "normal",
+      },
+      {
         id: "logout",
         title: "Sair",
         icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
@@ -101,13 +109,13 @@ export function getPoloDockItems(
     },
     {
       id: "students",
-      title: "Matrículas",
+      title: "Processos",
       icon: <IconFileCheck className="h-full w-full" />,
-      href: "/hub/review/students",
+      href: "/hub/active/operations",
       badge: pendingReviews > 0 ? pendingReviews : undefined,
       badgeVariant: "warning",
       statusIndicator: pendingReviews > 0 ? "warning" : "normal",
-      isActive: isStudentsActive,
+      isActive: isStudentsActive || currentPath === "/hub/active/operations",
     },
     {
       id: "promoters",

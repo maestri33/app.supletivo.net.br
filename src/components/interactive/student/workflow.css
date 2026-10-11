@@ -1,0 +1,26 @@
+.student-workflow { width: 100%; max-width: var(--container-narrow); margin-inline: auto; padding: 1.5rem var(--gutter) 2rem; font-family: var(--font-body); color: var(--paper); display: grid; gap: 1.5rem; }
+.student-workflow h1 { font-family: var(--font-display); font-size: var(--text-h2-sm); line-height: 1.15; }
+.student-workflow h2 { font-family: var(--font-display); font-size: var(--text-h3); }
+.student-workflow p { line-height: 1.6; }
+.student-workflow .muted { color: var(--muted-on-dark); }
+.student-workflow .panel { background: var(--glass-bg-dark); border: 1px solid var(--glass-border-dark); border-radius: var(--radius); padding: 1.25rem; backdrop-filter: var(--glass-blur); display: grid; gap: 1rem; overflow-wrap: anywhere; }
+.student-workflow .stack { display: grid; gap: .75rem; }
+.student-workflow .choices { display: flex; flex-wrap: wrap; gap: .75rem; }
+.student-workflow .choice, .student-workflow .secondary { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: var(--input-height); border: 1px solid var(--glass-border-dark); border-radius: var(--input-radius); padding: .7rem 1rem; background: var(--ink-soft); color: var(--paper); font: inherit; cursor: pointer; text-decoration: none; }
+.student-workflow .choice[aria-pressed="true"] { border-color: var(--yellow); color: var(--yellow); }
+.student-workflow .btn { min-height: var(--input-height); padding: .75rem 1.25rem; font: inherit; font-weight: 700; cursor: pointer; width: fit-content; max-width: 100%; }
+.student-workflow :is(button,input,select,a):focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
+.student-workflow :is(button,input,select):disabled { cursor: not-allowed; opacity: .6; }
+.student-workflow label { display: grid; gap: .5rem; font-weight: 700; }
+.student-workflow input:not([type="checkbox"]), .student-workflow select { min-height: var(--input-height); min-width: 0; width: 100%; background: var(--paper); border: var(--input-border); border-radius: var(--input-radius); padding: .75rem; color: var(--ink); font: inherit; }
+.student-workflow .consent { display: flex; align-items: flex-start; gap: .75rem; min-height: var(--input-height); font-weight: 400; }
+.student-workflow .consent input { margin-top: .35rem; width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.student-workflow .error { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: var(--input-radius); }
+.student-workflow .notice { color: var(--info); background: var(--info-bg); padding: 1rem; border-radius: var(--input-radius); }
+.student-workflow .success { color: var(--success); background: var(--success-bg); padding: 1rem; border-radius: var(--input-radius); }
+.student-workflow .warning { color: var(--warning); background: var(--warning-bg); padding: 1rem; border-radius: var(--input-radius); }
+.student-workflow dl { display: grid; gap: .75rem; }
+.student-workflow dt { color: var(--muted-on-dark); }
+.student-workflow dd { margin: 0; overflow-wrap: anywhere; }
+.student-workflow pre { white-space: pre-wrap; font: inherit; line-height: 1.6; max-height: 22rem; overflow: auto; padding: .5rem; }
+@media (prefers-reduced-motion: reduce), (hover: none) { .student-workflow * { animation: none !important; transition: none !important; transform: none !important; } }

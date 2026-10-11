@@ -1,237 +1,105 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
   import { compressImage } from "@/lib/image-compression";
-  import { getEnrollmentMe, postEnrollmentRgPhoto, rgAnalysisStatus } from "@/lib/api";
+  import { classifyDocument, getEnrollmentMe, getEnrollmentRg, postEnrollmentRgPhoto, getErrorMessage, type RgSection } from "@/lib/api";
+  import { fetchPrivateMedia } from "@/lib/private-media";
+  import { enrollmentPath } from "./student/workflow";
   import IdCardIcon from "@/components/icons/IdCardIcon.svelte";
   import CameraIcon from "@/components/icons/CameraIcon.svelte";
   import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
   import MecGuillocheSeal from "@/components/icons/MecGuillocheSeal.svelte";
 
-  type DocType = "rg" | "cnh";
   type StepStatus = "uncompleted" | "under_review" | "approved";
-
-  let status = $state<StepStatus>("uncompleted");
-  let selectedDocType = $state<DocType>("rg");
-  let isAnalyzing = $state(false);
-  let isUploading = $state(false);
-  let triageError = $state<string | null>(null);
-
-  // Armazenamento das fotos capturadas
-  let frontData = $state<string | null>(null);
-  let backData = $state<string | null>(null);
-  let frontFile = $state<File | null>(null);
-  let backFile = $state<File | null>(null);
-
-  // Próximo slot a ser preenchido
-  let nextSlot = $derived<"front" | "back" | "complete">(
-    !frontData ? "front" : (selectedDocType === "rg" && !backData ? "back" : "complete")
-  );
-
+  let selectedDocType = $state<"rg" | "cnh">("rg");
+  let status = $state<StepStatus>("uncompleted"), isAnalyzing = $state(false), isUploading = $state(false);
+  let triageError = $state<string | null>(null), rgSection = $state<RgSection | null>(null);
+  let frontData = $state<string | null>(null), backData = $state<string | null>(null);
+  let nextSlot = $state<"front" | "back" | "complete">("front");
+  let nextPath = $state("/student/enrollment");
+  let active = true;
+  const objectUrls = new Map<string, string>();
   function notifyDock(rgStatus: "pending" | "under_review" | "approved" | "rejected") {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("supletivo:student-state", {
-          detail: { rgStatus },
-        })
-      );
-    }
+    window.dispatchEvent(new CustomEvent("supletivo:student-state", { detail: { rgStatus } }));
   }
-
-  onMount(async () => {
-    try {
-      const me = await getEnrollmentMe();
-      if (me.rg) {
-        const stat = rgAnalysisStatus(me.rg);
-        if (stat === "approved") {
-          status = "approved";
-          notifyDock("approved");
-        } else if (stat === "pending" || stat === "review") {
-          status = "under_review";
-          notifyDock("under_review");
-        }
-      } else {
-        notifyDock("pending");
-      }
-    } catch {
-      notifyDock("pending");
-    }
-  });
-
-  async function performAiTriage(file: File): Promise<{
-    valid: boolean;
-    isDocument: boolean;
-    isLegible: boolean;
-    side: "front" | "back" | "full";
-    errorMessage?: string;
-  }> {
-    const lowerName = file.name.toLowerCase();
-
-    // Validação de CNH em PDF oficial Gov.br
-    if (selectedDocType === "cnh" && file.type === "application/pdf") {
-      if ((lowerName.includes("scan") && lowerName.includes("foto")) || lowerName.includes("cnh_scan")) {
-        return {
-          valid: false,
-          isDocument: true,
-          isLegible: false,
-          side: "full",
-          errorMessage:
-            "Para CNH em PDF, utilize o arquivo oficial exportado da Carteira Digital de Trânsito (Gov.br). Se for foto impressa, anexe em formato de imagem.",
-        };
-      }
-      return { valid: true, isDocument: true, isLegible: true, side: "full" };
-    }
-
-    try {
-      const res = await fetch("/api/v1/academic/documents/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const side = lowerName.includes("back") || lowerName.includes("verso") || nextSlot === "back" ? "back" : "front";
-        return {
-          valid: Boolean(data.valid),
-          isDocument: data.docType !== "outro",
-          isLegible: Boolean(data.isLegible),
-          side,
-          errorMessage: data.valid ? undefined : data.feedback,
-        };
-      }
-    } catch (err) {
-      console.warn("[triage] Erro na chamada da API, usando fallback heurístico:", err);
-    }
-
-    // Fallback heurístico inteligente
-    if (lowerName.includes("not_doc") || lowerName.includes("paisagem") || file.size < 50) {
-      return {
-        valid: false,
-        isDocument: false,
-        isLegible: false,
-        side: "front",
-        errorMessage: "A imagem enviada não parece ser um documento de identidade. Por favor, envie seu RG ou CNH.",
-      };
-    }
-
-    if (lowerName.includes("invalid") || lowerName.includes("blur") || lowerName.includes("embaçado")) {
-      return {
-        valid: false,
-        isDocument: true,
-        isLegible: false,
-        side: "front",
-        errorMessage: "A foto ficou embaçada ou com reflexo forte. Aproxime a câmera e garanta boa iluminação.",
-      };
-    }
-
-    if (lowerName.includes("back") || lowerName.includes("verso") || nextSlot === "back") {
-      return { valid: true, isDocument: true, isLegible: true, side: "back" };
-    }
-
-    return { valid: true, isDocument: true, isLegible: true, side: "front" };
+  function failure(cause: unknown) { return cause instanceof Error ? cause.message : getErrorMessage(cause); }
+  function applyRgResult(section: RgSection) {
+    rgSection = section;
+    const verdict = section.analysis_status ?? section.validation_status;
+    nextSlot = section.next_slot === "rg_back" ? "back" : section.next_slot ? "front" : "complete";
+    if (verdict === "approved" && !section.next_slot) { status = "approved"; notifyDock("approved"); }
+    else if (verdict === "rejected") { status = "uncompleted"; notifyDock("rejected"); triageError = section.analysis_reason || "Envie uma nova foto nítida do RG."; }
+    else if (section.next_slot === "rg_back" && section.photos?.rg_front?.status === "approved") { status = "uncompleted"; notifyDock("under_review"); }
+    else if (verdict === "pending" || verdict === "review") { status = "under_review"; notifyDock("under_review"); }
+    else { status = "uncompleted"; notifyDock("pending"); }
   }
-
-  function fileToBase64(file: File | Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  async function preview(path: string | null | undefined): Promise<string | null> {
+    if (!path) return null;
+    if (!objectUrls.has(path)) {
+      const blob = await fetchPrivateMedia(path);
+      if (!active) return null;
+      objectUrls.set(path, URL.createObjectURL(blob));
+    }
+    return objectUrls.get(path)!;
   }
-
-  async function processSelectedFile(file: File) {
-    isAnalyzing = true;
+  async function refresh() {
     triageError = null;
-
     try {
-      const triage = await performAiTriage(file);
-
-      if (!triage.valid) {
-        triageError = triage.errorMessage || "Não foi possível validar o documento. Tente novamente.";
-        return;
-      }
-
-      let processedData = "";
-      let uploadFile = file;
-
+      const [section, me] = await Promise.all([getEnrollmentRg(), getEnrollmentMe()]);
+      if (!active) return;
+      applyRgResult(section); nextPath = enrollmentPath(me.status) ?? "/student/enrollment";
+      try {
+        frontData = await preview(section.front_photo || section.full_photo);
+        backData = await preview(section.back_photo || section.full_photo);
+      } catch (cause) { triageError = `Documento consultado, mas não foi possível abrir a imagem: ${failure(cause)}`; }
+    } catch (cause) { triageError = failure(cause); }
+  }
+  async function poll() {
+    const deadline = Date.now() + 60_000;
+    while (active && Date.now() < deadline) {
+      const section = await getEnrollmentRg(); if (!active) return;
+      applyRgResult(section);
+      const verdict = section.analysis_status ?? section.validation_status;
+      if (["approved", "rejected", "review"].includes(verdict ?? "") || (section.next_slot === "rg_back" && section.photos?.rg_front?.status === "approved")) return;
+      await new Promise(resolve => window.setTimeout(resolve, 2500));
+    }
+  }
+  async function processSelectedFile(file: File) {
+    if (isAnalyzing || isUploading) return;
+    triageError = null; isAnalyzing = true; let received = false;
+    try {
+      if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie um arquivo não vazio de até 15 MB.");
+      if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) throw new Error("Envie JPG, PNG, WebP ou PDF.");
+      let slot: "front" | "back" | "full" = nextSlot === "back" ? "back" : "front";
+      const result = await classifyDocument(file);
+      if (result.is_document === false || result.is_legible === false) throw new Error("Envie uma foto legível do RG, com as quatro bordas visíveis.");
+      if (result.doc_type && result.doc_type !== "rg") throw new Error("Nesta etapa da matrícula, envie seu RG.");
+      if (result.completeness === "full") slot = "full";
+      let upload = file;
       if (file.type.startsWith("image/")) {
         const compressed = await compressImage(file);
-        processedData = await fileToBase64(compressed);
-        uploadFile = new File([compressed], file.name, { type: compressed.type || file.type });
-      } else {
-        processedData = await fileToBase64(file);
+        upload = new File([compressed], file.name, { type: compressed.type || file.type });
       }
-
-      if (selectedDocType === "cnh" || triage.side === "full") {
-        frontData = processedData;
-        backData = processedData;
-        frontFile = uploadFile;
-        backFile = uploadFile;
-      } else if (nextSlot === "back" || triage.side === "back") {
-        backData = processedData;
-        backFile = uploadFile;
-      } else {
-        frontData = processedData;
-        frontFile = uploadFile;
-      }
-
-      // Envio para o backend
-      if (frontData && (backData || selectedDocType === "cnh")) {
-        isUploading = true;
-        status = "under_review";
-        notifyDock("under_review");
-
-        try {
-          await postEnrollmentRgPhoto(selectedDocType === "cnh" ? "full" : "back", backFile ?? uploadFile);
-          status = "approved";
-          notifyDock("approved");
-        } catch {
-          // Mantém em análise se o endpoint remoto estiver oscilando
-          status = "under_review";
-          notifyDock("under_review");
-        } finally {
-          isUploading = false;
-        }
-      } else {
-        if (frontFile) {
-          void postEnrollmentRgPhoto("front", frontFile).catch(() => {});
-        }
-      }
-    } catch (e: any) {
-      triageError = e?.message || "Erro ao processar o arquivo. Tente novamente.";
-    } finally {
-      isAnalyzing = false;
-    }
+      isAnalyzing = false; isUploading = true;
+      await postEnrollmentRgPhoto(slot, upload); received = true;
+      status = "under_review"; notifyDock("under_review");
+      const url = URL.createObjectURL(upload); objectUrls.set(`local:${Date.now()}`, url);
+      if (slot === "back") backData = url; else frontData = url;
+      if (slot === "full") backData = url;
+      await poll();
+      if (status === "approved") { const me = await getEnrollmentMe(); nextPath = enrollmentPath(me.status) ?? "/student/enrollment"; }
+    } catch (cause) {
+      triageError = received ? `Arquivo recebido. A consulta da análise falhou: ${failure(cause)}. Consulte novamente antes de reenviar.` : `Não foi possível enviar o RG: ${failure(cause)}`;
+      if (!received) { status = "uncompleted"; notifyDock("pending"); }
+    } finally { isAnalyzing = false; isUploading = false; }
   }
-
-  function onFileInputChange(e: Event) {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      void processSelectedFile(input.files[0]);
-    }
+  function onFileInputChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; input.value = "";
+    if (file) void processSelectedFile(file);
   }
-
-  function resetFront() {
-    frontData = null;
-    frontFile = null;
-    status = "uncompleted";
-    notifyDock("pending");
-  }
-
-  function resetBack() {
-    backData = null;
-    backFile = null;
-    status = "uncompleted";
-    notifyDock("pending");
-  }
+  function resetFront() { frontData = null; nextSlot = "front"; status = "uncompleted"; }
+  function resetBack() { backData = null; nextSlot = "back"; status = "uncompleted"; }
+  onMount(() => { void refresh(); return () => { active = false; for (const url of objectUrls.values()) URL.revokeObjectURL(url); }; });
 </script>
 
 <div class="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
@@ -246,37 +114,13 @@
       Documento de Identidade
     </h1>
     <p class="text-xs sm:text-sm text-white/70 max-w-lg mx-auto leading-relaxed">
-      Envie seu RG ou CNH para homologação da sua matrícula oficial com conferência automatizada.
+      Envie seu RG para conferência dos dados da matrícula.
     </p>
   </div>
 
   <!-- Card Principal de Upload (Física Zero-G & Glassmorphism) -->
   <div class="payment-card-zero-g w-full p-6 sm:p-8 flex flex-col gap-6 shadow-2xl relative overflow-hidden">
-    <!-- Seletor de Tipo de Documento -->
-    {#if status !== "approved"}
-      <div class="flex rounded-2xl bg-black/40 p-1.5 border border-white/10" role="tablist">
-        <button
-          type="button"
-          onclick={() => { selectedDocType = "rg"; }}
-          class="flex-1 min-h-[44px] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 {selectedDocType === 'rg' ? 'bg-[var(--yellow)] text-[var(--ink)] shadow-lg' : 'text-white/70 hover:text-white'}"
-        >
-          <IdCardIcon class="size-4 {selectedDocType === 'rg' ? 'text-[var(--ink)]' : 'text-white/70'}" />
-          <span>RG (Físico)</span>
-        </button>
-
-        <button
-          type="button"
-          onclick={() => { selectedDocType = "cnh"; }}
-          class="flex-1 min-h-[44px] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 {selectedDocType === 'cnh' ? 'bg-[var(--yellow)] text-[var(--ink)] shadow-lg' : 'text-white/70 hover:text-white'}"
-        >
-          <svg class="size-4 {selectedDocType === 'cnh' ? 'text-[var(--ink)]' : 'text-white/70'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M7 8h10M7 12h10M7 16h6" />
-          </svg>
-          <span>CNH (Digital ou Física)</span>
-        </button>
-      </div>
-    {/if}
+    <p class="text-sm text-white/70">Documento solicitado: RG. Envie frente e verso ou o arquivo completo.</p>
 
     <!-- Estado de Triagem / Análise da IA -->
     {#if isAnalyzing}
@@ -293,7 +137,7 @@
         <div>
           <strong class="text-white text-xs block font-bold">Triagem Inteligente em Execução</strong>
           <span class="text-[11px] text-blue-200/90 leading-tight block mt-0.5">
-            Analisando nitidez, iluminação e dados do documento em menos de 1 segundo...
+            Conferindo o arquivo. A análise dos dados acontece no servidor após o envio.
           </span>
         </div>
       </div>
@@ -399,7 +243,13 @@
     </div>
 
     <!-- Botões de Ação para Captura / Anexo (Ergonomia Mínima 48px) -->
-    {#if status !== "approved"}
+    {#if status === "under_review"}
+      <div class="p-6 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-center flex flex-col items-center gap-3" role="status">
+        <h3 class="text-lg font-display text-white">Enviado — Em Análise</h3>
+        <p class="text-xs text-amber-100/90 max-w-md">O servidor recebeu o documento. A matrícula só avança depois do parecer oficial.</p>
+        <button type="button" class="btn min-h-12 px-6" onclick={refresh}>Consultar análise</button>
+      </div>
+    {:else if status !== "approved"}
       <div class="flex flex-col sm:flex-row gap-3 pt-2">
         <!-- Ação 1: Câmera (Tirar Foto com câmera traseira) -->
         <label class="btn flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.985]">
@@ -435,14 +285,14 @@
           </svg>
         </div>
         <div>
-          <h3 class="text-lg font-display text-white">Documento de Identidade Homologado!</h3>
+          <h3 class="text-lg font-display text-white">Documento aprovado pelo servidor</h3>
           <p class="text-xs text-emerald-200/90 mt-1 max-w-md mx-auto">
             Sua identidade foi verificada e arquivada no prontuário acadêmico. Continue para o comprovante de endereço.
           </p>
         </div>
         <div class="w-full max-w-xs mt-2">
           <a
-            href="/student/enrollment/address"
+            href={nextPath}
             class="btn w-full min-h-[48px] py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
           >
             <span>Próxima Etapa: Comprovante de Endereço →</span>
@@ -451,6 +301,13 @@
       </div>
     {/if}
 
+    {#if rgSection?.number}
+      <div class="p-4 rounded-xl border border-white/10 text-sm text-white/80" aria-label="Dados extraídos do RG">
+        <h2 class="font-display">Dados do documento</h2>
+        <dl><dt>Nome</dt><dd>{rgSection.name || "Não informado"}</dd><dt>Número</dt><dd>{rgSection.number}</dd>
+        <dt>Órgão emissor</dt><dd>{rgSection.issuing_agency || "Não informado"}</dd><dt>Filiação</dt><dd>{rgSection.mother_name || "Não informada"}</dd></dl>
+      </div>
+    {/if}
     <!-- Dicas de Nitidez para o Aluno -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/10 text-left">
       <div class="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-2.5">

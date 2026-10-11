@@ -158,6 +158,14 @@ export function getStudentDockItems(
         statusIndicator: "normal",
       },
       {
+        id: "documents",
+        title: "Documentos",
+        icon: <IconFileText className="h-full w-full" />,
+        href: "/student/active/documents",
+        isActive: currentPath === "/student/active/documents",
+        statusIndicator: state.pendingDocsCount ? "warning" : "normal",
+      },
+      {
         id: "subjects",
         title: "Disciplinas",
         icon: <IconBook className="h-full w-full" />,
@@ -174,6 +182,14 @@ export function getStudentDockItems(
         badge: examBadge,
         badgeVariant: examIndicator === "success" ? "success" : "warning",
         statusIndicator: examIndicator,
+      },
+      {
+        id: "finance",
+        title: "Financeiro",
+        icon: <IconCreditCard className="h-full w-full" />,
+        href: "/student/active/finance",
+        isActive: currentPath === "/student/active/finance",
+        statusIndicator: "normal",
       },
       {
         id: "logout",
@@ -214,13 +230,27 @@ export function getStudentDockItems(
       },
       {
         id: "diploma",
-        title: "Diploma MEC",
+        title: "Diploma",
         icon: <IconCertificate className="h-full w-full text-amber-400" />,
         href: "/student/veteran/diploma",
-        badge: "MEC",
-        badgeVariant: "success",
         isActive: isDiplomaActive,
-        statusIndicator: "success",
+        statusIndicator: mapHealthToIndicator(state.diplomaStatus),
+      },
+      {
+        id: "assessments",
+        title: "Prova",
+        icon: <IconAward className="h-full w-full" />,
+        href: "/student/veteran/assessments",
+        isActive: currentPath === "/student/veteran/assessments",
+        statusIndicator: "normal",
+      },
+      {
+        id: "finance",
+        title: "Financeiro",
+        icon: <IconCreditCard className="h-full w-full" />,
+        href: "/student/veteran/finance",
+        isActive: currentPath === "/student/veteran/finance",
+        statusIndicator: "normal",
       },
       {
         id: "logout",
@@ -246,7 +276,7 @@ export function getStudentDockItems(
   return [
     {
       id: "rg",
-      title: "1. RG / CNH",
+      title: "1. RG",
       icon: <IconId className="h-full w-full" />,
       href: "/student/enrollment/rg",
       isActive: isRgActive,

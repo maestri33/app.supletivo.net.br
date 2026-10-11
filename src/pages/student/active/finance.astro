@@ -1,0 +1,6 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentFinanceView from '../../../components/interactive/student/StudentFinanceView.svelte';
+export const prerender = false;
+---
+<RootLayout title="Financeiro — Supletivo Brasil"><StudentFinanceView client:load /></RootLayout>

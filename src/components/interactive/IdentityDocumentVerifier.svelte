@@ -99,82 +99,18 @@
    * 3. Classificação de lado / PDF CNH oficial
    * 4. Validação de maioridade 18+ para EJA
    */
-  async function performAiTriage(file: File): Promise<{
+  async function prepareUpload(file: File): Promise<{
     valid: boolean;
     isDocument: boolean;
     isLegible: boolean;
     side: "front" | "back" | "full";
     errorMessage?: string;
   }> {
-    const lowerName = file.name.toLowerCase();
-
-    // Regra CNH PDF oficial
-    if (selectedDocType === "cnh" && file.type === "application/pdf") {
-      if ((lowerName.includes("scan") && lowerName.includes("foto")) || lowerName.includes("cnh_scan")) {
-        return {
-          valid: false,
-          isDocument: true,
-          isLegible: false,
-          side: "full",
-          errorMessage:
-            "Para CNH em PDF, envie apenas o arquivo oficial exportado do aplicativo Carteira Digital de Trânsito (Gov.br). Se for foto impressa, selecione o formato de imagem.",
-        };
-      }
-      return { valid: true, isDocument: true, isLegible: true, side: "full" };
+    if (!file.size) {
+      return { valid: false, isDocument: false, isLegible: false, side: "front", errorMessage: "Selecione um arquivo para enviar." };
     }
-
-    try {
-      const res = await fetch("/api/v1/academic/documents/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const side = lowerName.includes("back") || lowerName.includes("verso") || nextSlot === "back" ? "back" : "front";
-        return {
-          valid: Boolean(data.valid),
-          isDocument: data.docType !== "outro",
-          isLegible: Boolean(data.isLegible),
-          side,
-          errorMessage: data.valid ? undefined : data.feedback,
-        };
-      }
-    } catch (err) {
-      console.warn("[triage] API call failed, using client fallback", err);
-    }
-
-    // Fallback heurístico resiliente no cliente
-    if (lowerName.includes("not_doc") || lowerName.includes("paisagem") || file.size < 50) {
-      return {
-        valid: false,
-        isDocument: false,
-        isLegible: false,
-        side: "front",
-        errorMessage: "Isso não parece um documento de identidade (RG ou CNH). Envie o documento correto.",
-      };
-    }
-
-    if (lowerName.includes("invalid") || lowerName.includes("blur") || lowerName.includes("embaçado")) {
-      return {
-        valid: false,
-        isDocument: true,
-        isLegible: false,
-        side: "front",
-        errorMessage: "A imagem ficou embaçada ou com reflexo. Aproxime a câmera e garanta boa iluminação.",
-      };
-    }
-
-    if (lowerName.includes("back") || lowerName.includes("verso") || nextSlot === "back") {
-      return { valid: true, isDocument: true, isLegible: true, side: "back" };
-    }
-
-    return { valid: true, isDocument: true, isLegible: true, side: "front" };
+    const side = selectedDocType === "cnh" ? "full" : nextSlot === "back" ? "back" : "front";
+    return { valid: true, isDocument: true, isLegible: true, side };
   }
 
   async function processSelectedFile(file: File) {
@@ -182,7 +118,7 @@
     triageError = null;
 
     try {
-      const triage = await performAiTriage(file);
+      const triage = await prepareUpload(file);
 
       if (!triage.valid) {
         triageError = triage.errorMessage || "Não foi possível validar o documento. Tente novamente.";
@@ -270,10 +206,9 @@
       if (st === "approved") return { approved: true };
       const me = await getEnrollmentMe();
       const rgSt = me.rg ? rgAnalysisStatus(me.rg) : null;
-      return { approved: rgSt === "approved" || rgSt === null };
+      return { approved: rgSt === "approved" };
     } catch {
-      // Quando validado pela rota local /api/v1/academic/documents/triage sem backend Django ativo
-      return { approved: true };
+      throw new Error("Não foi possível confirmar o envio do documento. Tente novamente.");
     }
   }
 

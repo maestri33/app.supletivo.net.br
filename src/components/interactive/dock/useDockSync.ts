@@ -1,6 +1,7 @@
 import * as React from "react";
 import { getAccessToken, clearSession } from "@/lib/session";
 import { getStudentMe, whoami } from "@/lib/api";
+import type { RoleIdentity } from "@/lib/roles";
 import type {
   UserRole,
   StudentDockState,
@@ -61,7 +62,7 @@ export function useDockSync({
   const [internalRole, setInternalRole] = React.useState<UserRole>(initialRole);
   const activeRole = controlledRole || internalRole;
   const [isLocked, setIsLocked] = React.useState<boolean>(false);
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(bypassAuth || true);
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(bypassAuth);
 
   const [studentState, setStudentState] = React.useState<StudentDockState>(() => {
     let initialStatus: string | null = null;
@@ -87,7 +88,7 @@ export function useDockSync({
   });
 
   const [promoterState, setPromoterState] = React.useState<PromoterDockState>({
-    status: "active",
+    status: undefined,
     newLeadsCount: 0,
     isTrainingBlocked: false,
     pendingMaterialsCount: 0,
@@ -161,6 +162,20 @@ export function useDockSync({
       }
     };
 
+    const applyIdentity = (identity: RoleIdentity) => {
+      if (!isMounted) return;
+      const statuses = identity.role_statuses ?? {};
+      setStudentState((prev) => ({ ...prev, status: statuses.student ?? null }));
+      setPromoterState((prev) => ({ ...prev, status: statuses.promoter,
+        isCandidate: statuses.promoter === "candidate",
+        isTrainingBlocked: statuses.promoter === "training" }));
+      setPoloState((prev) => ({ ...prev, status: statuses.hub }));
+    };
+    const handleIdentity = (event: Event) => {
+      const identity = (event as CustomEvent<RoleIdentity>).detail;
+      if (identity) applyIdentity(identity);
+    };
+
     const handleLeadPhaseChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ phase: "selection" | "checkout" }>;
       if (customEvent.detail?.phase) {
@@ -193,28 +208,27 @@ export function useDockSync({
     window.addEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
+    window.addEventListener("supletivo:identity", handleIdentity);
 
     // Hidratação proativa assíncrona com flag de montagem
     const currentToken = getAccessToken();
-    if (!studentState.status && currentToken) {
+    if (!bypassAuth && currentToken) {
       whoami()
         .then((w) => {
           if (!isMounted) return;
+          applyIdentity(w);
           const stStatus = w.role_statuses?.student;
-          if (stStatus === "enrollment") {
-            setStudentState((prev) => ({ ...prev, status: "enrollment" }));
-          } else if (stStatus === "lead") {
-            setStudentState((prev) => ({ ...prev, status: "lead" }));
-          } else if (stStatus === "student" || (Array.isArray(w.roles) && w.roles.includes("student"))) {
+          if (stStatus === "active" && (initialRole === "student" || initialRole === "aluno")) {
             getStudentMe()
               .then((s) => {
                 if (!isMounted) return;
                 if (s) {
                   setStudentState((prev) => ({
                     ...prev,
-                    status: s.status ?? prev.status ?? null,
+                    status: "active",
                     pendingDocsCount: s.pendencies?.length ?? prev.pendingDocsCount ?? 0,
                     hasPartnerUrl: Boolean(s.platform?.url),
+                    examStatus: s.status === "exam_released" || s.status === "exam_scheduled" ? "under_review" : undefined,
                   }));
                 }
               })
@@ -237,8 +251,9 @@ export function useDockSync({
       window.removeEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
       window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);
       window.removeEventListener("supletivo:polo-state", handlePoloStateChange);
+      window.removeEventListener("supletivo:identity", handleIdentity);
     };
-  }, [bypassAuth, studentState.status]);
+  }, [bypassAuth, initialRole]);
 
   const effectiveStudentState: StudentDockState = { ...studentState, ...controlledStudentState };
   const effectivePromoterState: PromoterDockState = { ...promoterState, ...controlledPromoterState };

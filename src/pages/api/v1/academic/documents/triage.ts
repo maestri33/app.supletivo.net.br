@@ -38,9 +38,9 @@ export const POST: APIRoute = async ({ request }) => {
         confidence: 0,
         legibilityScore: 0,
         isLegible: false,
-        is18Plus: true,
-        feedback: 'Erro ao processar triagem do documento. Tente novamente.',
-        source: 'heuristic_fallback',
+        is18Plus: false,
+        feedback: 'A análise oficial está indisponível. O documento permanece pendente de validação.',
+        source: 'unavailable',
         latencyMs: 0,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

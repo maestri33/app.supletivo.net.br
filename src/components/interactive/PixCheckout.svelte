@@ -22,23 +22,15 @@
   let isPaid = $state(false);
 
   function formatMoney(amount: string | number | undefined): string {
-    if (!amount) return "R$ 0,00";
+    if (!amount) return "Valor indisponível";
     const val = typeof amount === "string" ? parseFloat(amount) : amount;
-    if (isNaN(val)) return "R$ 0,00";
+    if (isNaN(val)) return "Valor indisponível";
     return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   async function load() {
     try {
-      if (token === "demo") {
-        data = {
-          amount: 999,
-          qrcode_payload: "00020101021226870014br.gov.bcb.pix2565pix.asaas.com/qr/cobv/demo-supletivo-brasil-mec-ldb-71289123891273912735204000053039865802BR5925SUPLETIVO BRASIL EDUCAC6009SAO PAULO62070503***6304ABCD",
-          qrcode_image: "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=supletivo-brasil-matricula-oficial"
-        };
-        phase = "ready";
-        return;
-      }
+      if (token === "demo") { phase = "notfound"; return; }
 
       if (token && token !== "default" && !token.startsWith("sandbox")) {
         const next = await getPixPage(token);
@@ -208,7 +200,7 @@
           <span>PIX com Liberação Imediata</span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento da Matrícula</h1>
-        <p class="mt-1 text-xs text-white/70">Pague via PIX para liberação imediata do seu ambiente de estudos</p>
+        <p class="mt-1 text-xs text-white/70">Pague via PIX para liberar a próxima etapa da matrícula</p>
       </div>
 
       <div class="w-full rounded-3xl border border-white/15 bg-white/[0.04] p-6 sm:p-8 backdrop-blur-xl flex flex-col items-center text-center gap-5 shadow-2xl relative">
@@ -216,7 +208,7 @@
         <div class="flex w-full items-center justify-between border-b border-white/10 pb-4">
           <span class="text-xs font-semibold text-white/70">Valor à vista com desconto</span>
           <span class="text-2xl font-display font-black text-emerald-400">
-            {formatMoney(data?.amount ?? 999)}
+            {formatMoney(data?.amount)}
           </span>
         </div>
 
@@ -236,16 +228,13 @@
           </div>
           <p class="text-[11px] text-white/60">Abra o app do seu banco e escaneie o código acima</p>
         {:else if data?.qrcode_payload}
-          <div class="size-56 rounded-2xl bg-white p-3.5 shadow-2xl flex items-center justify-center border-4 border-white/20">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.qrcode_payload)}`}
-              alt="QR Code PIX Oficial"
-              class="size-full object-contain"
-              width="224"
-              height="224"
-            />
+          <div class="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-left">
+            <p class="text-xs text-amber-100">O código PIX foi emitido pelo gateway. Use o campo Copia e Cola abaixo; a imagem oficial ainda não foi disponibilizada.</p>
           </div>
-          <p class="text-[11px] text-white/60">Abra o app do seu banco e escaneie o código acima</p>
+        {:else}
+          <div class="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-left">
+            <p class="text-xs text-amber-100">A cobrança ainda não possui um QR Code oficial. Atualize para consultar o gateway.</p>
+          </div>
         {/if}
 
         <!-- PIX Copia e Cola com Botão Elástico -->
@@ -309,7 +298,7 @@
             </li>
             <li class="flex items-start gap-2.5">
               <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">4</span>
-              <span>Cole o código e confirme. O sistema reconhece <strong>automaticamente em menos de 10 segundos</strong>!</span>
+              <span>Cole o código e confirme. A liberação ocorre após a confirmação do gateway.</span>
             </li>
           </ol>
         </div>

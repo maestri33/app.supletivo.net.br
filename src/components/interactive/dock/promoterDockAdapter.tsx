@@ -217,7 +217,7 @@ export function getPromoterDockItems(
   const isCommissionsActive =
     currentPath === "/promoter/active/commissions" ||
     currentPath.startsWith("/promoter/comissoes");
-  const isMaterialsActive = currentPath === "/promoter/active/materials";
+  const isDocumentsActive = currentPath === "/promoter/active/documents";
 
   return [
     {
@@ -247,11 +247,11 @@ export function getPromoterDockItems(
       statusIndicator: "success",
     },
     {
-      id: "materials",
-      title: "Materiais",
+      id: "documents",
+      title: "Documentos",
       icon: <IconFileText className="h-full w-full" />,
-      href: "/promoter/active/materials",
-      isActive: isMaterialsActive,
+      href: "/promoter/active/documents",
+      isActive: isDocumentsActive,
       statusIndicator: "normal",
     },
     {

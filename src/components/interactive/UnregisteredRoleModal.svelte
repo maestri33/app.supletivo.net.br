@@ -148,7 +148,7 @@
               Quero ser Aluno
             </h4>
             <p class="text-xs text-white/70 leading-relaxed mt-1">
-              Conclua o Ensino Médio com aulas 100% online, prova presencial única e diploma autorizado pelo MEC.
+              Conclua sua matrícula e siga as aulas e avaliações no ambiente da instituição parceira, conforme as regras aplicáveis.
             </p>
           </div>
         </div>
