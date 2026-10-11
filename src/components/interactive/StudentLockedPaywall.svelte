@@ -2,14 +2,12 @@
   import { onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { getSession } from "@/lib/session";
   import {
     setLeadCheckout,
     getLeadCheckoutUrl,
     getLeadMe,
     confirmIdentity,
     setLeadEmail,
-    fetchPricing,
     ApiError,
     type CheckoutOut,
     type Pricing,
@@ -62,6 +60,10 @@
   // Valores dinâmicos da plataforma. Sem resposta do servidor, não exibimos um preço inventado.
   let livePricing = $state<Pricing | null>(null);
   let hasRef = $state(false);
+  let quotedCard = $derived(hasRef && livePricing?.promo_card ? livePricing.promo_card : livePricing?.card);
+  let cardInstallments = $derived(quotedCard?.installments ?? 0);
+  let pricingAvailable = $derived(Boolean(livePricing && Number(livePricing.pix) > 0 &&
+    Number.isInteger(cardInstallments) && cardInstallments > 0 && Number(quotedCard?.installment) > 0));
   let pixPrice = $derived.by(() => {
     if (livePricing) {
       const p = hasRef && livePricing.promo_pix ? livePricing.promo_pix : livePricing.pix;
@@ -76,9 +78,9 @@
     if (livePricing) {
       const card = hasRef && livePricing.promo_card ? livePricing.promo_card : livePricing.card;
       if (card) {
-        const inst = card.installments || 12;
+        const inst = card.installments;
         const val = parseFloat(card.installment);
-        if (!isNaN(val) && val > 0) {
+        if (Number.isInteger(inst) && inst > 0 && !isNaN(val) && val > 0) {
           return `${inst}x de ${val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
         }
       }
@@ -113,20 +115,6 @@
   }
 
   onMount(() => {
-    const session = getSession();
-    const refCode = session?.ref || null;
-    if (refCode) {
-      hasRef = true;
-    }
-
-    fetchPricing(refCode)
-      .then((data) => {
-        if (data && !livePricing) livePricing = data;
-      })
-      .catch(() => {
-        // mantém fallbacks
-      });
-
     // Inicialmente o checkout NÃO está pronto, botão 2 do dock permanece desabilitado
     notifyDock("selection", false, null);
 
@@ -226,6 +214,7 @@
       })
       .catch((err: unknown) => {
         console.debug("[StudentLockedPaywall] Checagem de lead inicial:", err);
+        errorMessage = "Não foi possível carregar sua proposta. Recarregue a página para consultar os valores antes de pagar.";
       });
 
     // Escuta comandos acionados diretamente nos botões do Dock Wizard
@@ -327,6 +316,7 @@
    * 4. Habilita o Botão 2 no Dock e avança para a Fase 2 (Checkout PIX).
    */
   async function selectPix() {
+    if (!pricingAvailable) return;
     busy = true;
     errorMessage = null;
     selectedModality = "pix";
@@ -425,6 +415,7 @@
    * 4. Redireciona para a página externa do checkout oficial InfinitePay.
    */
   async function selectCredit() {
+    if (!pricingAvailable) return;
     busy = true;
     errorMessage = null;
     selectedModality = "credit_card";
@@ -554,7 +545,7 @@
       <div class="card-aleta">
         <div class="aleta-flag">
           <span class="aleta-dot" aria-hidden="true"></span>
-          <span class="aleta-text">CONDIÇÃO PROMOCIONAL ATIVA · LINK VERIFICADO</span>
+          <span class="aleta-text">{hasRef ? "CONDIÇÃO PROMOCIONAL · INDICAÇÃO CONFIRMADA" : "CONDIÇÕES DA SUA PROPOSTA"}</span>
         </div>
       </div>
 
@@ -624,7 +615,7 @@
           <button
             type="button"
             onclick={selectPix}
-            disabled={busy}
+            disabled={busy || !pricingAvailable}
             class="btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-sm uppercase tracking-wider shadow-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <PixIcon class="size-4 text-[var(--ink)]" />
@@ -638,14 +629,14 @@
         <div>
           <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 text-[10px] font-bold uppercase tracking-wider mb-3">
             <CreditCardIcon class="size-3 text-white" />
-            <span>PARCELAMENTO EM ATÉ 12X</span>
+            <span>{cardInstallments > 1 ? `PARCELAMENTO EM ${cardInstallments}X` : "PAGAMENTO NO CARTÃO"}</span>
           </div>
           <h2 class="text-xl sm:text-2xl font-display text-white">Cartão de Crédito</h2>
           <p class="text-xs text-white/70 mt-1">Parcelamento flexível em ambiente seguro InfinitePay.</p>
 
           <div class="mt-6 mb-4">
             <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">{creditPrice}</span>
-            <span class="text-xs text-white/50 block mt-1">ou parcelado em até 12x no cartão</span>
+            <span class="text-xs text-white/50 block mt-1">{cardInstallments > 1 ? `${cardInstallments} parcelas conforme sua proposta` : "pagamento em uma parcela"}</span>
           </div>
 
           <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">
@@ -668,7 +659,7 @@
           <button
             type="button"
             onclick={selectCredit}
-            disabled={busy}
+            disabled={busy || !pricingAvailable}
             class="w-full min-h-[48px] py-3.5 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 active:scale-[0.985] text-white text-sm font-bold uppercase tracking-wider cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <CreditCardIcon class="size-4 text-white" />
