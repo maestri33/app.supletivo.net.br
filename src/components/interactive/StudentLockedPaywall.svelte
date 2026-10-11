@@ -323,7 +323,7 @@
     mode = "preparing";
     preparingStep = 1;
     preparingTitle = "Gerando cobrança PIX...";
-    preparingMessage = "Conectando ao Banco Central e emitindo seu QR Code com desconto...";
+    preparingMessage = "Emitindo sua cobrança PIX pelo Asaas...";
     notifyDock("selection", false, "pix");
 
     try {
@@ -422,7 +422,7 @@
     mode = "preparing";
     preparingStep = 1;
     preparingTitle = "Conectando à InfinitePay...";
-    preparingMessage = "Iniciando sessão segura e preparando parcelamento em até 12x...";
+    preparingMessage = `Preparando seu pagamento em ${cardInstallments}x pela InfinitePay...`;
     notifyDock("selection", false, "credit_card");
 
     try {

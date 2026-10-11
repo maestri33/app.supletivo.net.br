@@ -114,7 +114,7 @@
       <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl text-center flex flex-col items-center gap-4 shadow-2xl">
         <div class="size-12 animate-spin rounded-full border-4 border-[var(--yellow)] border-t-transparent"></div>
         <h2 class="text-base font-display font-bold text-white">Carregando cobrança PIX oficial…</h2>
-        <p class="text-xs text-white/60">Conectando ao gateway bancário homologado do Supletivo Brasil.</p>
+        <p class="text-xs text-white/60">Consultando sua cobrança no Asaas.</p>
       </div>
 
     {:else if phase === "notfound"}
@@ -174,7 +174,7 @@
         <div>
           <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento Confirmado!</h1>
           <p class="mt-2 text-xs sm:text-sm text-emerald-200/90 leading-relaxed max-w-sm mx-auto">
-            Seu PIX foi processado com sucesso pelo Banco Central. Liberando seu ambiente oficial de matrícula...
+            O Asaas confirmou seu PIX. Abrindo a próxima etapa da matrícula...
           </p>
         </div>
 
@@ -197,7 +197,7 @@
       <div class="text-center">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-wider mb-2">
           <PixIcon class="size-3.5 text-emerald-400" />
-          <span>PIX com Liberação Imediata</span>
+          <span>PIX da sua matrícula</span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento da Matrícula</h1>
         <p class="mt-1 text-xs text-white/70">Pague via PIX para liberar a próxima etapa da matrícula</p>
@@ -206,7 +206,7 @@
       <div class="w-full rounded-3xl border border-white/15 bg-white/[0.04] p-6 sm:p-8 backdrop-blur-xl flex flex-col items-center text-center gap-5 shadow-2xl relative">
         <!-- Preço em Destaque -->
         <div class="flex w-full items-center justify-between border-b border-white/10 pb-4">
-          <span class="text-xs font-semibold text-white/70">Valor à vista com desconto</span>
+          <span class="text-xs font-semibold text-white/70">Valor da sua cobrança</span>
           <span class="text-2xl font-display font-black text-emerald-400">
             {formatMoney(data?.amount)}
           </span>
@@ -306,7 +306,7 @@
         <!-- Selo de Criptografia TLS e Segurança Bancária -->
         <div class="flex items-center justify-center gap-2 text-[11px] text-[var(--muted-on-dark)] pt-2 border-t border-white/10 w-full">
           <BankTlsSeal class="size-4 text-emerald-400" />
-          <span>Ambiente Criptografado TLS 256-Bit · Homologado Banco Central</span>
+          <span>Pagamento via Asaas · Conexão segura HTTPS</span>
         </div>
 
         <!-- Botão de Ajuda de Contingência no WhatsApp -->
