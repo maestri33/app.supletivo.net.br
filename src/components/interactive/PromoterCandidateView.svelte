@@ -3,6 +3,7 @@
   import { ApiError, getErrorMessage, requestAuth, whoami, type Contract } from "@/lib/api";
   import { candidateEducationPayload, educationGrades } from "@/lib/promoter-education";
   import PromoterReferralShare from "./PromoterReferralShare.svelte";
+  import LiveSelfieCamera from "./LiveSelfieCamera.svelte";
 
   interface DocumentSection {
     doc_type?: string | null;
@@ -166,10 +167,16 @@
     finally { busy = false; scheduleRefresh(); }
   }
 
-  async function upload(event: Event, kind: "document" | "address" | "selfie") {
+  async function upload(event: Event, kind: "document" | "address") {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    try { if (file) await sendUpload(file, kind); }
+    finally { input.value = ""; }
+  }
+
+  async function sendUpload(file: File, kind: "document" | "address" | "selfie") {
     if (!file || busy) return;
+    if (kind === "selfie" && (!consentAccepted || !contract)) return;
     busy = true; error = null; notice = null;
     try {
       const localError = validateUploadFile(file, kind);
@@ -200,7 +207,7 @@
       pollReads = 0;
       await refresh();
     } catch (cause) { error = cause instanceof Error && !(cause instanceof ApiError) ? cause.message : getErrorMessage(cause); }
-    finally { busy = false; input.value = ""; scheduleRefresh(); }
+    finally { busy = false; scheduleRefresh(); }
   }
 
   function updateEducationLevel() {
@@ -310,9 +317,7 @@
             <div class="contract-text" tabindex="0" aria-label="Termo de adesão vigente">{contract.text}</div>
             <p>Versão {contract.version}</p>
             <label class="consent"><input type="checkbox" bind:checked={consentAccepted} disabled={busy} /> Li e aceito o termo. O envio da selfie registra minha assinatura.</label>
-            <p>Use uma foto atual do seu rosto, de frente e com boa iluminação.</p>
-            <label class="upload-action" for="candidate-selfie">{busy ? "Enviando…" : "Tirar ou anexar selfie"}</label>
-            <input id="candidate-selfie" type="file" accept="image/jpeg,image/png,image/webp" capture="user" disabled={busy || !consentAccepted} onchange={event => upload(event, "selfie")} />
+            <LiveSelfieCamera disabled={busy || !consentAccepted} onCapture={file => sendUpload(file, "selfie")} />
           {:else}<p>Não foi possível carregar o termo vigente. Atualize o status para tentar novamente.</p>{/if}
         {:else}<p>Acompanhe a conferência da sua assinatura. Seu cadastro será ativado quando os requisitos forem aprovados.</p>{/if}
       {:else if step === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>

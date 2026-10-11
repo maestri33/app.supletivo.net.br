@@ -4,6 +4,7 @@
   import { ackPoll } from "@/lib/poll";
   import { expectedStatus, followEnrollmentStatus, imageError } from "./workflow";
   import "./workflow.css";
+  import LiveSelfieCamera from "../LiveSelfieCamera.svelte";
   let me = $state<EnrollmentMe | null>(null), contract = $state<Contract | null>(null), consent = $state(false);
   let loading = $state(true), busy = $state(false), error = $state(""), active = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -26,8 +27,7 @@
       catch (cause) { if (active) { error = getErrorMessage(cause); busy = false; } }
     }; await check();
   }
-  async function upload(event: Event) {
-    const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; input.value = "";
+  async function upload(file: File) {
     if (!file || !consent || !contract || busy) return;
     const invalid = imageError(file); if (invalid) { error = invalid; return; }
     busy = true; error = "";
@@ -37,11 +37,11 @@
   onMount(() => { void load(); return () => { active = false; if (timer) clearTimeout(timer); }; });
 </script>
 <section class="student-workflow" aria-busy={loading || busy}>
-  <h1>Selfie e assinatura da matrícula</h1><p class="muted">Leia o contrato e envie uma foto nítida do seu rosto. A foto será usada para confirmar sua identidade e registrar a assinatura.</p>
+  <h1>Selfie e assinatura da matrícula</h1><p class="muted">Leia o contrato e tire uma foto nítida do seu rosto pela câmera. A foto será usada para confirmar sua identidade e registrar a assinatura.</p>
   {#if loading}<p role="status">Consultando assinatura e contrato…</p>{/if}
   {#if contract}<div class="panel"><h2>Contrato de matrícula</h2><p class="muted">Versão {contract.version}</p><pre tabindex="0" aria-label="Texto do contrato">{contract.text}</pre>
     <label class="consent"><input type="checkbox" bind:checked={consent} disabled={busy} />Li o contrato e autorizo a assinatura com minha selfie</label>
-    <label>Enviar selfie<input aria-label="Enviar selfie" type="file" accept="image/jpeg,image/png,image/webp" capture="user" onchange={upload} disabled={!consent || busy || verdict === "approved"} /></label>
+    <LiveSelfieCamera disabled={!consent || busy || verdict === "approved"} onCapture={upload} />
   </div>{/if}
   {#if me?.selfie?.exists}<p class:notice={verdict === "pending" || verdict === "review"} class:error={verdict === "rejected"} class:success={verdict === "approved"} role="status">{reason ?? (verdict === "pending" ? "Selfie enviada. A análise está em andamento." : verdict === "approved" ? "Selfie aprovada. Consultando a liberação do polo." : verdict === "review" ? "Selfie recebida para conferência do polo." : "Envie uma nova foto nítida do seu rosto.")}</p>{/if}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
