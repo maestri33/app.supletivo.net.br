@@ -104,6 +104,8 @@ html {
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  /* Keep edge effects on the actual page scroller; body must forward gestures. */
+  overscroll-behavior-y: none;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -113,7 +115,6 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
