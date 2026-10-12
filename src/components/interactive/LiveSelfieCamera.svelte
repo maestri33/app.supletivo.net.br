@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { bounded, stopTracks, waitForCameraFrame } from "@/lib/camera-session";
 
   let { disabled = false, onCapture }: { disabled?: boolean; onCapture: (file: File) => Promise<void> } = $props();
   let video = $state<HTMLVideoElement>();
@@ -8,8 +9,12 @@
   let capturing = $state(false);
   let error = $state("");
   let mounted = false;
+  let operation: AbortController | undefined;
+  let ready = $state(false);
 
   function stopCamera() {
+    operation?.abort(); operation = undefined;
+    opening = false; ready = false;
     stream?.getTracks().forEach(track => track.stop());
     stream = null;
     if (video) video.srcObject = null;
@@ -18,26 +23,43 @@
   async function openCamera() {
     if (disabled || opening || stream) return;
     error = ""; opening = true;
+    const current = new AbortController(); operation = current;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("CAMERA_UNAVAILABLE");
-      const opened = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } });
-      if (!mounted || disabled) { opened.getTracks().forEach(track => track.stop()); return; }
+      const opened = await bounded(navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } } }), current.signal, 15000, stopTracks);
+      if (!mounted || disabled || current.signal.aborted) { stopTracks(opened); return; }
       stream = opened;
       await tick();
-      if (video && stream) { video.srcObject = stream; await video.play(); }
+      if (current.signal.aborted) return;
+      if (!video) throw new Error("CAMERA_UNAVAILABLE");
+      video.srcObject = opened;
+      await bounded(video.play(), current.signal, 8000);
+      await waitForCameraFrame(video, current.signal);
+      if (current.signal.aborted) return;
+      ready = true;
+      opened.getVideoTracks().forEach(track => track.addEventListener("ended", () => {
+        if (operation !== current) return;
+        stopCamera(); error = "A câmera foi desconectada. Conecte-a e tente novamente.";
+      }, { once: true }));
     } catch (cause) {
+      if (operation !== current || current.signal.aborted) return;
       stopCamera();
       const name = cause instanceof DOMException ? cause.name : "";
-      error = name === "NotAllowedError"
+      error = name === "TimeoutError"
+        ? "A câmera não respondeu. Confira a permissão no navegador e tente novamente. Se estiver em um navegador dentro de outro app, abra app.supletivo.net.br no Chrome ou Safari."
+        : name === "NotReadableError"
+          ? "A câmera está ocupada ou indisponível. Feche outros apps que usam a câmera e tente novamente."
+        : name === "NotAllowedError" || name === "SecurityError"
         ? "Autorize a câmera no navegador para tirar sua selfie."
         : name === "NotFoundError"
           ? "Não encontramos uma câmera. Abra o app em um celular com câmera."
           : "Não foi possível abrir a câmera. Confira a permissão e tente novamente.";
-    } finally { opening = false; }
+    } finally { if (operation === current) opening = false; }
   }
 
   async function capture() {
-    if (disabled || capturing || !video || !stream) return;
+    if (disabled || capturing || !ready || !video || !stream || !operation) return;
+    const current = operation;
     if (!video.videoWidth || !video.videoHeight) { error = "Aguarde a câmera ficar pronta."; return; }
     capturing = true; error = "";
     try {
@@ -46,11 +68,11 @@
       const context = canvas.getContext("2d");
       if (!context) throw new Error("CAMERA_CAPTURE_UNAVAILABLE");
       context.drawImage(video, 0, 0);
-      const photo = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("CAMERA_CAPTURE_FAILED")), "image/jpeg", 0.92));
-      if (!mounted || disabled) return;
+      const photo = await bounded(new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("CAMERA_CAPTURE_FAILED")), "image/jpeg", 0.92)), current.signal, 8000);
+      if (!mounted || disabled || current.signal.aborted) return;
       stopCamera();
       await onCapture(new File([photo], `selfie-${Date.now()}.jpg`, { type: "image/jpeg" }));
-    } catch { error = "Não foi possível capturar a foto. Abra a câmera e tente novamente."; }
+    } catch { if (!current.signal.aborted) { stopCamera(); error = "Não foi possível capturar a foto. Abra a câmera e tente novamente."; } }
     finally { capturing = false; }
   }
 
@@ -63,10 +85,14 @@
   {#if stream}
     <!-- svelte-ignore a11y_media_has_caption (silent live camera preview) -->
     <video bind:this={video} autoplay muted playsinline aria-label="Prévia da câmera para selfie"></video>
-    <button type="button" class="btn" disabled={disabled || capturing} onclick={capture}>{capturing ? "Capturando…" : "Fotografar e enviar selfie"}</button>
+    <button type="button" class="btn" disabled={disabled || capturing || !ready} onclick={capture}>{capturing ? "Capturando…" : opening ? "Preparando câmera…" : "Fotografar e enviar selfie"}</button>
     <button type="button" class="secondary" onclick={stopCamera} disabled={capturing}>Fechar câmera</button>
   {:else}
     <button type="button" class="btn" disabled={disabled || opening || capturing} onclick={openCamera}>{opening ? "Abrindo câmera…" : "Abrir câmera para selfie"}</button>
+  {/if}
+  {#if opening}
+    <p role="status">Autorize o uso da câmera quando o navegador pedir. A imagem só será enviada ao tocar em fotografar.</p>
+    <button type="button" class="secondary" onclick={stopCamera}>Cancelar abertura</button>
   {/if}
   {#if error}<p class="camera-error" role="alert">{error}</p>{/if}
 </div>

@@ -396,7 +396,8 @@
       {:else if step === "selfie"}
         <h2>Termo de adesão e selfie</h2>
         <p>{statusLabel(selfieStatus)}</p>
-        {#if candidate.selfie?.analysis_reason}<p>{candidate.selfie.analysis_reason}</p>{/if}
+        {#if selfieStatus === "review"}<p>Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora.</p>
+        {:else if candidate.selfie?.analysis_reason}<p>{candidate.selfie.analysis_reason}</p>{/if}
         {#if !candidate.selfie?.exists || selfieStatus === "rejected"}
           {#if contract}
             <div class="contract-text" tabindex="0" aria-label="Termo de adesão vigente">{contract.text}</div>
