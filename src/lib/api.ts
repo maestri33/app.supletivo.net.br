@@ -814,6 +814,7 @@ export interface EducationIn {
   city: string;
   state: string;
   last_year_when?: string | null;
+  declaration_accepted: boolean;
 }
 
 /**
@@ -828,6 +829,9 @@ export interface AddressProofSection {
   photo: string | null;
   /** pending | approved | rejected | review | needs_kinship */
   status: string | null;
+  analysis_started_at?: string | null;
+  poll_after_ms?: number | null;
+  expires_at?: string | null;
   /** Orientação pública (o que fazer) — o critério fica interno (hub/staff). */
   reason: string | null;
   needs_kinship: boolean;
@@ -880,6 +884,12 @@ export interface AnalysisAck {
   expires_at?: string | null;
 }
 
+/** RG storage receipt. Analysis remains asynchronous after the file is saved. */
+export interface RgUploadAck extends AnalysisAck {
+  slot: "front" | "back" | "full";
+  stored: string;
+}
+
 export function getEnrollmentRg(): Promise<RgSection> {
   return requestAuth<RgSection>("/api/v1/clients/enrollment/documents/rg");
 }
@@ -899,8 +909,8 @@ export function patchEnrollmentRg(data: RgPatchIn): Promise<EnrollmentMe> {
 export function postEnrollmentRgPhoto(
   slot: "front" | "back" | "full",
   file: File,
-): Promise<AnalysisAck> {
-  return requestAuth<AnalysisAck>(`/api/v1/clients/enrollment/documents/rg/photo/${slot}`, {
+): Promise<RgUploadAck> {
+  return requestAuth<RgUploadAck>(`/api/v1/clients/enrollment/documents/rg/photo/${slot}`, {
     file,
     timeoutMs: 60_000,
   });
@@ -917,13 +927,14 @@ export interface DocClassify {
   completeness: "front" | "back" | "full" | null;
   is_legible?: boolean | null;
   reason?: string | null;
+  error_code?: string | null;
   confidence: number | null;
 }
 
 export function classifyDocument(file: File): Promise<DocClassify> {
   return requestAuth<DocClassify>("/api/v1/clients/enrollment/documents/classify", {
     file,
-    timeoutMs: 30_000,
+    timeoutMs: 60_000,
   });
 }
 

@@ -1,5 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// O fluxo de selfie usa getUserMedia, não um input de arquivo. O Chromium
+// precisa de uma câmera sintética para que o teste exercite abrir a câmera,
+// renderizar o preview e capturar o frame sem depender de hardware do host.
+test.use({
+  permissions: ["camera"],
+  launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+});
+
 const enrollment = {
   external_id: "enrollment-fixture", hub_external_id: "hub-fixture",
   status: "education", selfie_verified: false, selfie_status: "pending",
@@ -7,6 +15,14 @@ const enrollment = {
   address_complete: true, address_proof: { exists: true, status: "approved" },
   education: null, selfie: null,
 };
+
+function stubIbge(page: Page) {
+  return page.route("**/localidades/estados**", route => {
+    const url = route.request().url();
+    if (url.includes("/municipios")) return route.fulfill({ json: [{ nome: "Curitiba" }] });
+    return route.fulfill({ json: [{ sigla: "PR", nome: "Paraná" }] });
+  });
+}
 
 async function signIn(page: Page, roles: string[], statuses: Record<string, string>) {
   await page.addInitScript(() => {
@@ -38,6 +54,7 @@ test("escolaridade envia escolhas reais e segue a etapa devolvida", async ({ pag
     await route.fulfill({ json: current });
   });
   await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture-version", hash: "fixture-hash", text: "Contrato de matrícula de teste." } }));
+  await stubIbge(page);
   await page.goto("/student/enrollment/education");
   await page.getByRole("button", { name: "Ensino Médio", exact: true }).click();
   await page.getByRole("button", { name: "2º ano", exact: true }).click();
@@ -45,8 +62,28 @@ test("escolaridade envia escolhas reais e segue a etapa devolvida", async ({ pag
   await page.getByLabel("Estado da escola").selectOption("PR");
   await page.getByLabel("Cidade da escola").fill("Curitiba");
   await page.getByRole("button", { name: "Salvar escolaridade" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("dialog").getByRole("checkbox").check();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmar e continuar" }).click();
   await expect(page).toHaveURL(/\/student\/enrollment\/selfie$/);
-  expect(posted).toMatchObject({ level: "medio", grade: 2, completed: false, state: "PR", city: "Curitiba" });
+  expect(posted).toMatchObject({ level: "medio", grade: 2, completed: false, state: "PR", city: "Curitiba", declaration_accepted: true });
+});
+
+test("aluno não consegue enviar o 3º ano do médio como concluído", async ({ page }) => {
+  let posted = false;
+  await signIn(page, ["enrollment"], { student: "enrollment" });
+  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: enrollment }));
+  await page.route("**/api/v1/clients/enrollment/education", route => { posted = true; return route.fulfill({ json: enrollment }); });
+  await stubIbge(page);
+  await page.goto("/student/enrollment/education");
+  await page.getByRole("button", { name: "Ensino Médio", exact: true }).click();
+  await page.getByRole("button", { name: "3º ano", exact: true }).click();
+  await page.getByRole("button", { name: "Terminei o ano", exact: true }).click();
+  await page.getByLabel("Estado da escola").selectOption("PR");
+  await page.getByLabel("Cidade da escola").fill("Curitiba");
+  await expect(page.getByRole("alert")).toContainText("3º ano do Ensino Médio concluído");
+  await expect(page.getByRole("button", { name: "Salvar escolaridade" })).toBeDisabled();
+  expect(posted).toBe(false);
 });
 
 test("selfie exibe contrato vigente, exige ciência e espera liberação do polo", async ({ page }) => {
@@ -63,9 +100,11 @@ test("selfie exibe contrato vigente, exige ciência e espera liberação do polo
   });
   await page.goto("/student/enrollment/selfie");
   await expect(page.getByText("Contrato vigente fornecido pelo servidor.")).toBeVisible();
-  await expect(page.getByLabel("Enviar selfie")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeDisabled();
   await page.getByLabel("Li o contrato e autorizo a assinatura com minha selfie").check();
-  await page.getByLabel("Enviar selfie").setInputFiles({ name: "selfie.png", mimeType: "image/png", buffer: Buffer.from("fixture-image") });
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
+  await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
   await expect(page.getByRole("heading", { name: "Aguardando liberação do polo" })).toBeVisible();
   expect(uploaded).toBe(true);
   await expect(page).toHaveURL(/\/student\/enrollment$/);
@@ -79,9 +118,11 @@ test("falha no envio da selfie continua recuperável e não confirma matrícula"
   await page.route("**/api/v1/clients/enrollment/selfie", route => route.fulfill({ status: 422, json: { detail: "Envie uma imagem legível." } }));
   await page.goto("/student/enrollment/selfie");
   await page.getByLabel("Li o contrato e autorizo a assinatura com minha selfie").check();
-  await page.getByLabel("Enviar selfie").setInputFiles({ name: "selfie.png", mimeType: "image/png", buffer: Buffer.from("fixture-image") });
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
+  await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
   await expect(page.getByRole("alert")).toContainText("Envie uma imagem legível.");
-  await expect(page.getByLabel("Enviar selfie")).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
   await expect(page).toHaveURL(/\/selfie$/);
 });
 
@@ -110,13 +151,17 @@ test("upload de documento usa doc_type real e mostra análise do servidor", asyn
   await page.route("**/api/v1/clients/student/me", route => route.fulfill({ json: {
     external_id: "student-fixture", status: "awaiting_documents", platform: {}, documents: [document], blood_type: "O+", pendencies: [], diploma: null,
   } }));
+  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: { ...enrollment, status: "completed" } }));
   await page.route("**/api/v1/clients/student/documents/blood_type", async route => {
     uploaded = true;
     document = { ...document, validation_status: "review", analysis_status: "review", analysis_reason: "Conferência do polo." };
     await route.fulfill({ json: { doc_type: "blood_type", stored: true, analysis_status: "review", poll_after_ms: 1, expires_at: null } });
   });
   await page.goto("/student/active/documents");
-  await page.getByLabel("Enviar comprovante de tipo sanguíneo").setInputFiles({ name: "blood.png", mimeType: "image/png", buffer: Buffer.from("fixture-image") });
+  // A captura produzida pelo próprio Chromium é sempre uma imagem decodificável
+  // por createImageBitmap, exercitando a validação real do arquivo no cliente.
+  const validImage = await page.screenshot({ type: "png" });
+  await page.getByLabel("Enviar comprovante de tipo sanguíneo").setInputFiles({ name: "blood.png", mimeType: "image/png", buffer: validImage });
   await expect(page.getByText("Conferência do polo.")).toBeVisible();
   expect(uploaded).toBe(true);
   await expect(page.getByText("Documento aprovado", { exact: true })).toHaveCount(0);
@@ -126,7 +171,7 @@ test("prova só agenda quando liberada e transmite matéria e data reais", async
   let status = "exam_released";
   let posted: Record<string, unknown> | null = null;
   await signIn(page, ["student"], { student: "active" });
-  const data = () => ({ external_id: "student-fixture", status, platform: {}, documents: [], blood_type: "O+", pendencies: [], diploma: null });
+  const data = () => ({ external_id: "student-fixture", status, exam_can_schedule: status !== "exam_scheduled", platform: {}, documents: [], blood_type: "O+", pendencies: [], diploma: null });
   await page.route("**/api/v1/clients/student/me", route => route.fulfill({ json: data() }));
   await page.route("**/api/v1/clients/student/exam/schedule", async route => {
     posted = route.request().postDataJSON(); status = "exam_scheduled";
@@ -139,7 +184,7 @@ test("prova só agenda quando liberada e transmite matéria e data reais", async
   await expect(page.getByTestId("student-status")).toContainText("Prova agendada");
   expect(posted?.subject).toBe("Matéria informada pelo polo");
   expect(String(posted?.scheduled_at)).toMatch(/^2026-11-10T/);
-  await expect(page.getByRole("button", { name: "Confirmar agendamento" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Confirmar agendamento" })).toBeHidden();
 });
 
 test("veterano baixa arquivos reais e omite links inseguros", async ({ page }) => {
@@ -149,8 +194,10 @@ test("veterano baixa arquivos reais e omite links inseguros", async ({ page }) =
     documents: [], enrollment: null, diploma: { issued_at: "2026-09-01T14:00:00Z", picked_up_at: "2026-09-10T14:00:00Z", diploma_file: "diploma/fixture.pdf", transcript_file: "javascript:alert(1)", pickup_photo: null }, platform: { url: "javascript:alert(1)" },
   } }));
   await page.goto("/student/veteran/diploma");
-  await expect(page.getByRole("link", { name: "Baixar diploma" })).toHaveAttribute("href", "/media/diploma/fixture.pdf");
-  await expect(page.getByRole("link", { name: "Baixar histórico escolar" })).toHaveCount(0);
+  // Arquivos privados são abertos por fetch autenticado; nunca são publicados
+  // como href direto. O histórico malicioso também não vira ação na tela.
+  await expect(page.getByRole("button", { name: "Abrir diploma" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Abrir histórico escolar" })).toHaveCount(0);
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await expect(page.getByText(/BR-MEC|DOE-PR|ICP-Brasil|GDAE/)).toHaveCount(0);
 });

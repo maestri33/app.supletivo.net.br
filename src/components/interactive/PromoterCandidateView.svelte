@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ApiError, getErrorMessage, requestAuth, whoami, type Contract } from "@/lib/api";
+  import { ApiError, getErrorMessage, requestAuth, whoami, type Contract, type ValidationStatus } from "@/lib/api";
+  import { createRgCaptureState, deriveRgCapture, recordRgUpload, applyRgSnapshot, type RgCaptureSlot } from "@/lib/rg-capture";
   import { candidateEducationPayload, educationGrades } from "@/lib/promoter-education";
+  import { currentCandidateBlocks, identityCollectionMessage, documentFileError, type DocumentBlock } from "@/lib/document-feedback";
+  import { addressClassificationError, type AddressAnalysis } from "@/lib/address-proof";
+  import { fetchCities, fetchUfs, type UfOption } from "@/lib/ibge";
+  import EducationDeclarationModal from "./EducationDeclarationModal.svelte";
   import PromoterReferralShare from "./PromoterReferralShare.svelte";
   import LiveSelfieCamera from "./LiveSelfieCamera.svelte";
 
@@ -11,12 +16,12 @@
     front_photo?: string | null;
     back_photo?: string | null;
     full_photo?: string | null;
-    analysis_status?: string | null;
+    analysis_status?: ValidationStatus | null;
     analysis_reason?: string | null;
-    validation_status?: string | null;
+    validation_status?: ValidationStatus | null;
     missing_fields?: string[];
     next_slot?: string | null;
-    photos?: Record<string, { status: string; reason?: string }>;
+    photos?: Record<string, { status: ValidationStatus; reason?: string }>;
     extracted?: Record<string, unknown>;
   }
   interface Candidate {
@@ -25,21 +30,24 @@
     missing_requirements?: string[];
     pix_validated: boolean;
     selfie_verified: boolean;
-    profile?: { name?: string; education_level?: string | null; education_completed?: boolean | null; education_qualification?: string | null; education_grade?: number | null; education_last_completed_grade?: number | null; education_status?: string | null } | null;
+    profile?: { name?: string; education_level?: string | null; education_completed?: boolean | null; education_qualification?: string | null; education_grade?: number | null; education_last_completed_grade?: number | null; education_status?: string | null; education_city?: string | null; education_state?: string | null; education_year?: number | null; education_school?: string | null } | null;
     address?: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zipcode?: string; missing_fields?: string[] } | null;
-    address_proof?: { exists: boolean; status?: string | null; reason?: string | null; needs_kinship?: boolean; kinship_relation?: string | null; holder_name?: string | null } | null;
+    address_proof?: AddressAnalysis & { reason?: string | null; needs_kinship?: boolean; kinship_relation?: string | null; holder_name?: string | null } | null;
     documents?: { rg?: DocumentSection | null; cnh?: DocumentSection | null } | null;
     selfie?: { exists: boolean; analysis_status?: string | null; analysis_reason?: string | null; status?: string | null; verified?: boolean } | null;
-    blocks?: { reason?: string; description?: string }[] | null;
+    blocks?: DocumentBlock[] | null;
   }
-  interface AnalysisAck { stored: boolean | string; analysis_status?: string; poll_after_ms: number }
+  interface AnalysisAck { stored: boolean | string; analysis_status?: string; poll_after_ms: number; expires_at?: string }
 
   const base = "/api/v1/collaborators";
   let candidate = $state<Candidate | null>(null);
   let documentSection = $state<DocumentSection | null>(null);
   let contract = $state<Contract | null>(null);
-  let documentType = $state("rg");
-  let documentSide = $state("front");
+  let documentType = $state<"rg" | "cnh">("rg");
+  let documentCapture = $state(createRgCaptureState());
+  let snapshotSequence = 0;
+  let mutationRevision = 0, appliedSnapshotSequence = 0;
+  let captureView = $derived(deriveRgCapture(documentCapture));
   let pixKey = $state("");
   let pixKeyType = $state("CPF");
   let educationLevel = $state("medio");
@@ -47,6 +55,9 @@
   let educationGrade = $state(0);
   let lastCompletedGrade = $state(0);
   let qualification = $state("graduacao");
+  let educationState = $state(""), educationCity = $state(""), educationSchool = $state(""), educationYear = $state<number | null>(null);
+  let educationUfs = $state<UfOption[]>([]), educationCities = $state<string[]>([]), educationLocationLoading = $state(false), educationLocationError = $state("");
+  let educationDeclarationOpen = $state(false);
   let relationship = $state("mae");
   let consentAccepted = $state(false);
   let busy = $state(false);
@@ -58,11 +69,19 @@
   let pollUntil = 0;
   let pollReads = 0;
   let disposed = false;
+  async function loadEducationCities(nextState: string, keepCity = false) {
+    educationState = nextState; if (!keepCity) educationCity = ""; educationCities = []; educationLocationError = "";
+    if (!nextState) return;
+    educationLocationLoading = true;
+    try { educationCities = await fetchCities(nextState); }
+    catch { educationLocationError = "Não foi possível carregar as cidades agora."; }
+    finally { educationLocationLoading = false; }
+  }
 
   let documentStatus = $derived(documentSection?.analysis_status ?? documentSection?.validation_status);
   let selfieStatus = $derived(candidate?.selfie?.analysis_status ?? candidate?.selfie?.status);
   let documentReady = $derived(Boolean(documentSection?.number && !documentSection?.next_slot && documentStatus === "approved"));
-  let proofReady = $derived(candidate?.address_proof?.status === "approved" && !(candidate?.address?.missing_fields?.length) && ["street", "number", "neighborhood", "city", "state", "zipcode"].every(key => Boolean(candidate?.address?.[key as keyof NonNullable<Candidate["address"]>])));
+  let proofReady = $derived(candidate?.address_proof?.status === "approved" && !(candidate?.address?.missing_fields?.length) && ["street", "number", "city", "state", "zipcode"].every(key => Boolean(candidate?.address?.[key as keyof NonNullable<Candidate["address"]>])));
   let gradeOptions = $derived(educationGrades(educationLevel));
   let step = $derived.by(() => {
     if (!candidate) return "loading";
@@ -75,7 +94,15 @@
     if (candidate.status === "pix" && candidate.pix_validated) return "education";
     return "review";
   });
-  let nextSlot = $derived(documentSection?.next_slot ?? `${documentSection?.doc_type ?? documentType}_${documentSide}`);
+  function documentPath(slot: RgCaptureSlot): string | null {
+    return captureView.paths[slot];
+  }
+
+  function documentPhotoStatus(slot: RgCaptureSlot): string | null {
+    return captureView.statuses[slot];
+  }
+  let documentCaptureSlot = $derived(captureView.nextSlot);
+  let currentBlocks = $derived(currentCandidateBlocks(candidate?.blocks ?? [], step, documentType));
 
   function statusLabel(status?: string | null) {
     switch (status) {
@@ -117,6 +144,8 @@
   }
 
   async function refresh() {
+    const snapshotToken = { revision: documentCapture.revision, sequence: ++snapshotSequence };
+    const mutationSnapshot = mutationRevision;
     try {
       const identity = await whoami();
       const status = identity.role_statuses?.promoter;
@@ -132,15 +161,30 @@
       catch (cause) {
         if (!(cause instanceof ApiError && cause.status === 404 && !data.documents?.rg && !data.documents?.cnh)) throw cause;
       }
-      if (disposed) return;
+      if (disposed || mutationSnapshot !== mutationRevision || snapshotToken.sequence < appliedSnapshotSequence) return;
+      appliedSnapshotSequence = snapshotToken.sequence;
       candidate = data;
-      documentSection = section;
-      if (section?.doc_type) documentType = section.doc_type;
+      if (data.address_proof?.status === "pending") {
+        pollDelay = Math.max(500, Math.min(data.address_proof.poll_after_ms || 2500, 30_000));
+        const expiry = Date.parse(data.address_proof.expires_at ?? "");
+        if (Number.isFinite(expiry)) pollUntil = expiry + 5000;
+      }
+      if (section?.doc_type === "rg" || section?.doc_type === "cnh") documentType = section.doc_type;
+      if (documentCapture.revision === 0 && documentCapture.documentType !== documentType) {
+        documentCapture = createRgCaptureState(null, documentType);
+      }
+      const updated = section ? applyRgSnapshot(documentCapture, section, snapshotToken) : documentCapture;
+      if (updated !== documentCapture || !section) documentSection = section;
+      documentCapture = updated;
       if (data.profile?.education_level) educationLevel = data.profile.education_level;
       if (data.profile?.education_completed != null) educationCompleted = (data.profile.education_status ? data.profile.education_status === "completed" : data.profile.education_completed) ? "yes" : "no";
       if (data.profile?.education_qualification) qualification = data.profile.education_qualification;
       if (data.profile?.education_grade != null) educationGrade = data.profile.education_grade;
       if (data.profile?.education_last_completed_grade != null) lastCompletedGrade = data.profile.education_last_completed_grade;
+      educationSchool = data.profile?.education_school ?? "";
+      educationYear = data.profile?.education_year ?? null;
+      if (!educationUfs.length) { try { educationUfs = await fetchUfs(); } catch { educationLocationError = "Não foi possível carregar os estados agora."; } }
+      if (data.profile?.education_state) { educationState = data.profile.education_state; educationCity = data.profile.education_city ?? ""; await loadEducationCities(educationState, true); }
       if (["education", "selfie"].includes(data.status) && !contract) {
         contract = await requestAuth<Contract>(`${base}/contract/current`);
       }
@@ -151,7 +195,7 @@
   }
 
   onMount(() => {
-    pollUntil = Date.now() + 120_000;
+    pollUntil = Date.now() + 300_000;
     void refresh();
     const onFocus = () => { if (!busy) void refresh(); };
     window.addEventListener("focus", onFocus);
@@ -159,7 +203,7 @@
   });
 
   async function mutate(path: string, json: unknown) {
-    busy = true; error = null; notice = null;
+    busy = true; error = null; notice = null; mutationRevision += 1;
     try {
       candidate = await requestAuth<Candidate>(`${base}${path}`, { method: "POST", json });
       await refresh();
@@ -177,33 +221,65 @@
   async function sendUpload(file: File, kind: "document" | "address" | "selfie") {
     if (!file || busy) return;
     if (kind === "selfie" && (!consentAccepted || !contract)) return;
-    busy = true; error = null; notice = null;
+    busy = true; error = null; notice = null; mutationRevision += 1;
     try {
       const localError = validateUploadFile(file, kind);
       if (localError) throw new Error(localError);
+      let documentSlot: string | null = null;
       if (kind === "document" || kind === "address") {
-        const classification = await requestAuth<{ is_document: boolean | null; is_legible?: boolean | null; doc_type: "rg" | "cnh" | "address_proof" | null }>(`${base}/candidate/documents/classify`, { method: "POST", file, timeoutMs: 30_000 });
-        const classificationError = classification.is_document === false
+        const classification = await requestAuth<{
+          is_document: boolean | null;
+          is_legible?: boolean | null;
+          doc_type: "rg" | "cnh" | "address_proof" | null;
+          completeness?: "front" | "back" | "full" | null;
+          error_code?: string | null;
+        }>(`${base}/candidate/documents/classify`, { method: "POST", file, timeoutMs: 60_000 });
+        if (kind === "address") {
+          const addressError = addressClassificationError(classification);
+          if (addressError) throw new Error(addressError);
+        }
+        const classificationError = documentFileError(classification.error_code) || (classification.is_document === null
+          ? "Não foi possível analisar o arquivo agora. Tente novamente em instantes."
+          : classification.is_document !== true
           ? "O arquivo não parece ser um documento. Envie uma foto nítida do documento solicitado."
           : classification.is_legible === false
             ? "A imagem está ilegível. Fotografe com boa iluminação e todas as informações visíveis."
-            : null;
+            : null);
         if (classificationError) throw new Error(classificationError);
-        if (kind === "document" && classification.doc_type && classification.doc_type !== documentType) {
+        if (kind === "document" && classification.doc_type && documentSection?.doc_type && classification.doc_type !== documentType) {
           const label = classification.doc_type === "address_proof" ? "um comprovante de residência" : classification.doc_type.toUpperCase();
           throw new Error(`O arquivo parece ser ${label}, mas o tipo selecionado é ${documentType.toUpperCase()}.`);
         }
         if (kind === "address" && classification.doc_type && classification.doc_type !== "address_proof") {
           throw new Error("Esse arquivo parece ser um documento de identidade. Envie um comprovante de residência.");
         }
+        if (kind === "document") {
+          if (!["rg", "cnh"].includes(classification.doc_type ?? "") || !classification.completeness) {
+            throw new Error("Não foi possível identificar se o documento é RG ou CNH e qual lado foi enviado. Tente outra foto.");
+          }
+          documentType = classification.doc_type as "rg" | "cnh";
+          documentSlot = `${classification.doc_type}_${classification.completeness}`;
+          const side = classification.completeness as RgCaptureSlot;
+          if (side !== "full" && documentPath(side) && documentPhotoStatus(side) !== "rejected" && captureView.nextSlot !== side) {
+            throw new Error(`Esse lado já foi recebido. Envie ${side === "front" ? "o verso" : "a frente"}.`);
+          }
+        }
       }
-      const path = kind === "document" ? `/candidate/documents/photo/${nextSlot}` :
+      const path = kind === "document" ? `/candidate/documents/photo/${documentSlot}` :
         kind === "address" ? "/candidate/documents/address-proof" : "/candidate/selfie";
       const result = await requestAuth<Candidate | AnalysisAck>(`${base}${path}`, { method: "POST", file, timeoutMs: 30000 });
       if ("poll_after_ms" in result) pollDelay = Math.max(500, Math.min(result.poll_after_ms || 2500, 30000));
+      if (kind === "document" && documentSlot) {
+        if (!("stored" in result) || typeof result.stored !== "string" || !result.stored) {
+          throw new Error("O servidor não confirmou o recebimento do documento.");
+        }
+        const side = documentSlot.split("_").pop() as RgCaptureSlot;
+        documentCapture = recordRgUpload({ ...documentCapture, documentType }, side, result.stored);
+      }
       if ("status" in result) candidate = result;
       notice = "Arquivo recebido. Acompanhe a análise abaixo.";
-      pollUntil = Date.now() + 120_000;
+      const expiry = "expires_at" in result && result.expires_at ? Date.parse(result.expires_at) : NaN;
+      pollUntil = Number.isFinite(expiry) ? expiry : Date.now() + 300_000;
       pollReads = 0;
       await refresh();
     } catch (cause) { error = cause instanceof Error && !(cause instanceof ApiError) ? cause.message : getErrorMessage(cause); }
@@ -216,7 +292,13 @@
   }
 
   async function saveEducation() {
-    try { await mutate("/candidate/education", candidateEducationPayload(educationLevel, educationCompleted === "yes", educationGrade, lastCompletedGrade, qualification)); }
+    if ((educationState && !educationCity) || (educationCity && !educationState)) { error = "Informe estado e cidade juntos, ou deixe os dois em branco."; return; }
+    if (educationState && (!educationCity || !educationCities.includes(educationCity.trim()))) { error = "Escolha uma cidade da lista do IBGE."; return; }
+    educationDeclarationOpen = true;
+  }
+  async function confirmEducationDeclaration() {
+    educationDeclarationOpen = false;
+    try { await mutate("/candidate/education", candidateEducationPayload(educationLevel, educationCompleted === "yes", educationGrade, lastCompletedGrade, qualification, { city: educationCity.trim() || undefined, state: educationState || undefined, school: educationSchool.trim() || undefined, year: educationYear })); }
     catch (cause) { error = cause instanceof Error ? cause.message : getErrorMessage(cause); }
   }
 </script>
@@ -243,21 +325,14 @@
         <h2>Documento de identidade</h2>
         <p>{statusLabel(documentStatus)}</p>
         {#if documentSection?.analysis_reason}<p>{documentSection.analysis_reason}</p>{/if}
-        {#if !["pending", "review"].includes(documentStatus ?? "") || documentSection?.next_slot}
-          {#if !documentSection?.doc_type}
-            <label for="candidate-doc-type">Qual documento você vai enviar?</label>
-            <select id="candidate-doc-type" bind:value={documentType} disabled={busy}><option value="rg">RG</option><option value="cnh">CNH</option></select>
-          {/if}
-          {#if !documentSection?.next_slot && !documentSection?.front_photo && !documentSection?.full_photo}
-            <label for="candidate-doc-side">Formato do documento</label>
-            <select id="candidate-doc-side" bind:value={documentSide} disabled={busy}><option value="front">Foto da frente</option><option value="full">Documento completo / PDF</option></select>
-          {/if}
-          <p>{nextSlot.endsWith("back") ? "Envie o verso do documento." : nextSlot.endsWith("full") ? "Envie o documento completo. Para CNH digital, use o PDF oficial." : "Envie a frente do documento, com todos os dados legíveis."}</p>
+        {#if documentCaptureSlot}
+          {#if !documentSection?.doc_type}<p>Envie RG ou CNH. Identificamos o documento e os lados automaticamente.</p>{/if}
+          <p>{documentCaptureSlot === "back" ? "Frente recebida. Agora envie o verso." : documentCaptureSlot === "front" && captureView.received.back ? "Verso recebido. Agora envie a frente." : "Pode começar por qualquer lado. Frente e verso na mesma imagem também valem."}</p>
           <label class="upload-action" for="candidate-document">{busy ? "Enviando…" : "Anexar documento"}</label>
           <input id="candidate-document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onchange={event => upload(event, "document")} />
           <label class="upload-action" for="candidate-document-camera">Tirar foto do documento</label>
           <input id="candidate-document-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "document")} />
-        {:else}<p>A análise está em andamento. Esta tela acompanha a resposta do polo.</p>{/if}
+        {:else}<p>{identityCollectionMessage(documentStatus)}</p>{/if}
       {:else if step === "address"}
         <h2>Comprovante de residência</h2>
         <p>{statusLabel(candidate.address_proof?.status)}</p>
@@ -300,6 +375,16 @@
             <label for="candidate-grade">Qual foi a última série ou ano cursado?</label>
             <select id="candidate-grade" bind:value={educationGrade} onchange={() => { lastCompletedGrade = Math.max(0, Math.min(lastCompletedGrade, educationGrade - 1)); }} disabled={busy} required><option value={0} disabled>Selecione a última série cursada</option>{#each gradeOptions as grade}<option value={grade}>{grade}º ano / série</option>{/each}</select>
           {/if}
+          <label for="candidate-education-state">Estado onde estudou (opcional)</label>
+          <select id="candidate-education-state" value={educationState} onchange={(event) => void loadEducationCities((event.currentTarget as HTMLSelectElement).value)} disabled={busy || !educationUfs.length}><option value="">Selecione o estado</option>{#each educationUfs as uf}<option value={uf.sigla}>{uf.nome} ({uf.sigla})</option>{/each}</select>
+          <label for="candidate-education-city">Cidade onde estudou (opcional)</label>
+          <input id="candidate-education-city" list="candidate-education-cities" bind:value={educationCity} disabled={busy || !educationState || educationLocationLoading} placeholder={educationLocationLoading ? "Carregando cidades…" : "Digite para buscar"} />
+          <datalist id="candidate-education-cities">{#each educationCities as municipality}<option value={municipality}></option>{/each}</datalist>
+          {#if educationLocationError}<p class="feedback error" role="alert">{educationLocationError}</p>{/if}
+          <label for="candidate-education-year">Ano da última frequência (opcional)</label>
+          <input id="candidate-education-year" type="number" min="1950" max="2100" bind:value={educationYear} disabled={busy} />
+          <label for="candidate-education-school">Última escola (opcional)</label>
+          <input id="candidate-education-school" bind:value={educationSchool} maxlength="200" disabled={busy} />
           <label for="candidate-completed">{educationLevel === "superior" ? "Você concluiu essa formação?" : "Você concluiu essa série ou ano?"}</label>
           <select id="candidate-completed" bind:value={educationCompleted} disabled={busy}><option value="yes">Sim</option><option value="no">Não</option></select>
           {#if educationLevel !== "superior" && educationCompleted === "no"}
@@ -327,10 +412,11 @@
     {#if candidate.address?.street}
       <section class="candidate-card" aria-label="Endereço extraído"><h2>Endereço extraído do comprovante</h2><p>{candidate.address.street}{candidate.address.number ? `, ${candidate.address.number}` : ""}</p><p>{candidate.address.neighborhood} — {candidate.address.city}/{candidate.address.state}</p>{#if candidate.address.missing_fields?.length}<p>A leitura ainda precisa completar dados do endereço. O polo acompanhará a conferência.</p>{/if}</section>
     {/if}
-    {#each candidate.blocks ?? [] as block}{#if block.reason || block.description}<p class="feedback warning">{block.reason ?? block.description}</p>{/if}{/each}
+    {#each currentBlocks as block}{#if block.reason || block.description}<p class="feedback warning">{#if block.title}<strong>{block.title}</strong> {/if}{block.reason ?? block.description}</p>{/if}{/each}
   {/if}
   <button class="refresh-action" type="button" disabled={busy || loading} onclick={() => refresh()}>Atualizar status</button>
 </div>
+<EducationDeclarationModal role="promoter" open={educationDeclarationOpen} onConfirm={confirmEducationDeclaration} />
 
 <style>
   .candidate-view { width: min(100%, var(--container-narrow)); margin-inline: auto; display: grid; gap: 1.25rem; color: var(--paper); font-family: var(--font-sans); }

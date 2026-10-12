@@ -1,6 +1,6 @@
 {
   "name": "app.supletivo.net.br",
-  "version": "0.0.0-sandbox.80",
+  "version": "0.0.0-sandbox.94",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "sync": "astro sync",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test test/typesafe-test.ts",
+    "test:unit": "node --experimental-strip-types --test test/typesafe-test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "checkpoint": "sh scripts/checkpoint/checkpoint.sh",

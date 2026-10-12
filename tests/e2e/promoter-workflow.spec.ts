@@ -31,6 +31,14 @@ const readyCandidate = {
 
 const readyDocument = { doc_type: "rg", number: "1234", full_photo: "documents/rg.jpg", analysis_status: "approved", validation_status: "approved", missing_fields: [], next_slot: null, photos: { rg_full: { status: "approved" } } };
 
+function stubIbge(page: Page) {
+  return page.route("**/localidades/estados**", route => {
+    const url = route.request().url();
+    if (url.includes("/municipios")) return route.fulfill({ json: [{ nome: "Curitiba" }] });
+    return route.fulfill({ json: [{ sigla: "PR", nome: "Paraná" }] });
+  });
+}
+
 test("candidate keeps PIX editable after rejection and sends the real key contract", async ({ page }) => {
   await authenticate(page, ["candidate"]);
   await page.route("**/api/v1/collaborators/candidate/me", route => route.fulfill({ json: readyCandidate }));
@@ -107,7 +115,7 @@ test("candidate keeps a document pending until the backend returns a terminal ve
   await page.route("**/api/v1/collaborators/candidate/documents/classify", route => route.fulfill({ json: {
     is_document: true, is_legible: true, doc_type: "rg", completeness: "front", confidence: 0.99,
   } }));
-  await page.route("**/api/v1/collaborators/candidate/documents/photo/**", route => route.fulfill({ json: { stored: true, analysis_status: "pending", poll_after_ms: 5 } }));
+  await page.route("**/api/v1/collaborators/candidate/documents/photo/**", route => route.fulfill({ json: { stored: "documents/rg.png", analysis_status: "pending", poll_after_ms: 5 } }));
   await page.goto("/promoter/candidate");
   await page.locator("#candidate-document").setInputFiles({ name: "rg.png", mimeType: "image/png", buffer: Buffer.from("valid-image-fixture") });
   await expect(page.getByText("Envie uma foto mais nítida.")).toBeVisible({ timeout: 10_000 });
@@ -120,6 +128,7 @@ test("candidate submits the last attended and completed school grade", async ({ 
   await page.route("**/api/v1/collaborators/candidate/me", route => route.fulfill({ json: candidate }));
   await page.route("**/api/v1/collaborators/candidate/document", route => route.fulfill({ json: readyDocument }));
   await page.route("**/api/v1/collaborators/contract/current", route => route.fulfill({ json: { text: "Offline contract", version: "test" } }));
+  await stubIbge(page);
   let payload: unknown;
   await page.route("**/api/v1/collaborators/candidate/education", route => {
     payload = route.request().postDataJSON();
@@ -131,9 +140,38 @@ test("candidate submits the last attended and completed school grade", async ({ 
   await page.getByLabel("Você concluiu essa série ou ano?").selectOption("no");
   await page.getByLabel("Qual foi a última série concluída?").selectOption("1");
   await page.getByRole("button", { name: "Continuar para assinatura" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("dialog").getByRole("checkbox").check();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmar e continuar" }).click();
   await expect(page.getByRole("heading", { name: "Termo de adesão e selfie" })).toBeVisible();
-  expect(payload).toEqual({ level: "medio", completed: false, grade: 2, last_completed_grade: 1, education_status: "stopped" });
-  await expect(page.locator("#candidate-selfie")).toBeDisabled();
+  expect(payload).toEqual({ level: "medio", completed: false, grade: 2, last_completed_grade: 1, education_status: "stopped", year: null, declaration_accepted: true });
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeDisabled();
+});
+
+test("promotor pode declarar Superior completo e envia a declaração", async ({ page }) => {
+  await authenticate(page, ["candidate"]);
+  let candidate = { ...readyCandidate, status: "pix", pix_validated: true };
+  await page.route("**/api/v1/collaborators/candidate/me", route => route.fulfill({ json: candidate }));
+  await page.route("**/api/v1/collaborators/candidate/document", route => route.fulfill({ json: readyDocument }));
+  await page.route("**/api/v1/collaborators/contract/current", route => route.fulfill({ json: { text: "Offline contract", version: "test" } }));
+  await stubIbge(page);
+  let payload: Record<string, unknown> | null = null;
+  await page.route("**/api/v1/collaborators/candidate/education", async route => {
+    payload = route.request().postDataJSON();
+    candidate = { ...candidate, status: "education" };
+    await route.fulfill({ json: candidate });
+  });
+  await page.goto("/promoter/candidate");
+  await page.getByLabel("Qual o seu nível de ensino?").selectOption("superior");
+  await page.getByLabel("Formação", { exact: true }).selectOption("graduacao");
+  await page.getByLabel("Estado onde estudou (opcional)").selectOption("PR");
+  await page.getByLabel("Cidade onde estudou (opcional)").fill("Curitiba");
+  await page.getByLabel("Você concluiu essa formação?").selectOption("yes");
+  await page.getByRole("button", { name: "Continuar para assinatura" }).click();
+  await page.getByRole("dialog").getByRole("checkbox").check();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmar e continuar" }).click();
+  await expect(page.getByRole("heading", { name: "Termo de adesão e selfie" })).toBeVisible();
+  expect(payload).toMatchObject({ level: "superior", completed: true, qualification: "graduacao", state: "PR", city: "Curitiba", declaration_accepted: true });
 });
 
 test("active promoter has actual share actions and a documents navigation entry", async ({ page }) => {
