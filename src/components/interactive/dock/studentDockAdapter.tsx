@@ -14,6 +14,8 @@ import {
   IconBook,
   IconAward,
   IconCertificate,
+  IconProgress,
+  IconMessages,
 } from "@tabler/icons-react";
 
 function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
@@ -120,6 +122,20 @@ export function getStudentDockItems(
         icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
         onClick: onLogout,
       },
+    ];
+  }
+
+  // Partner release is an operational enrollment step, not a new student role.
+  // Explicit document routes retain their upload wizard even during release.
+  const releaseStatus = state.enrollmentStep || rawStatus;
+  const enrollmentPath = currentPath.split("#")[0];
+  if (["awaiting_release", "fee_paid", "fee_scheduled"].includes(releaseStatus) && enrollmentPath === "/student/enrollment") {
+    const section = currentPath.split("#")[1] || "tracking";
+    return [
+      { id: "tracking", title: "Acompanhamento", icon: <IconProgress className="h-full w-full" />, href: "/student/enrollment", isActive: section === "tracking", statusIndicator: "normal" },
+      { id: "documents", title: "Meus documentos", icon: <IconFileText className="h-full w-full" />, href: "/student/enrollment#documents", isActive: section === "documents", statusIndicator: "normal" },
+      { id: "payment", title: "Pagamento", icon: <IconCreditCard className="h-full w-full" />, href: "/student/enrollment#payment", isActive: section === "payment", statusIndicator: "normal" },
+      { id: "contact", title: "Falar com o polo", icon: <IconMessages className="h-full w-full" />, href: "/student/enrollment#contact", isActive: section === "contact", statusIndicator: "normal" },
     ];
   }
 

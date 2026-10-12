@@ -60,6 +60,7 @@ Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo eve
 |---|---|---|---|
 | **1. Envio de Documentos** | `awaiting_documents` | `!` (Warning) | Foco em **Documentação**; provas e certificado inativos. |
 | **2. Análise da Secretaria** | `documents_under_review` | `•` (Info) | Foco em **Documentação** (em validação pelo polo). |
+| **Preparando acesso ao parceiro** | `awaiting_release`, `fee_paid`, `fee_scheduled` (andamento de `enrollment`) | Sem aprovação presumida | **Acompanhamento**, **Meus documentos**, **Pagamento**, **Falar com o polo** na rota `/student/enrollment`; as subrotas documentais preservam o wizard. |
 | **3. Prova Liberada** | `exam_released` | `Liberada` (Success) | Foco em **Provas & Avaliações**; agendamento presencial. |
 | **4. Emissão de Diploma** | `awaiting_diploma_issuance` | `Emissão` (Info) | Foco em **Certificação e Diploma** (registro MEC). |
 | **5. Formado / Concluído** | `veteran` | `Concluído` (Success) | Diploma digital liberado para download ICP-Brasil. |
@@ -143,6 +144,8 @@ window.dispatchEvent(
   })
 );
 ```
+
+O acompanhamento da liberação emite `supletivo:enrollment-state` com `{ status }`. O dock armazena esse andamento em `enrollmentStep`, separado de `role_statuses.student` do `whoami`: uma hidratação tardia da identidade não devolve o aluno ao wizard. A consulta de matrícula também hidrata esse campo quando o evento ocorrer antes da montagem do dock. Os links locais `#documents`, `#payment` e `#contact` selecionam a seção sem prometer conclusão nem inventar contato externo.
 
 ---
 

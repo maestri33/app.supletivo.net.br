@@ -25,6 +25,7 @@ function stubIbge(page: Page) {
 }
 
 async function signIn(page: Page, roles: string[], statuses: Record<string, string>) {
+  await page.route("**/api/v1/clients/lead/me", route => route.fulfill({ json: { checkout: null } }));
   await page.addInitScript(() => {
     localStorage.setItem("supletivo.login", JSON.stringify({ access_token: "fixture-access", refresh_token: "fixture-refresh" }));
     localStorage.setItem("supletivo.session", JSON.stringify({ phone: "11900000000", externalId: "user-fixture" }));
@@ -105,7 +106,7 @@ test("selfie exibe contrato vigente, exige ciência e espera liberação do polo
   await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
   await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
   await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
-  await expect(page.getByRole("heading", { name: "Aguardando liberação do polo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Teu próximo passo é começar a estudar" })).toBeVisible();
   expect(uploaded).toBe(true);
   await expect(page).toHaveURL(/\/student\/enrollment$/);
   await expect(page.getByText(/100% Homologada|matrícula está autorizada/i)).toHaveCount(0);

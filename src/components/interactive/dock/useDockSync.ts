@@ -1,6 +1,6 @@
 import * as React from "react";
 import { getAccessToken, clearSession } from "@/lib/session";
-import { getStudentMe, whoami } from "@/lib/api";
+import { getEnrollmentMe, getStudentMe, whoami } from "@/lib/api";
 import type { RoleIdentity } from "@/lib/roles";
 import type {
   UserRole,
@@ -148,6 +148,13 @@ export function useDockSync({
       }
     };
 
+    const handleEnrollmentStateChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ status?: string }>).detail;
+      if (detail?.status) {
+        setStudentState(prev => ({ ...prev, enrollmentStep: detail.status }));
+      }
+    };
+
     const handlePromoterStateChange = (e: Event) => {
       const customEvent = e as CustomEvent<PromoterDockState>;
       if (customEvent.detail) {
@@ -204,6 +211,7 @@ export function useDockSync({
     window.addEventListener("supletivo:role-change", handleRoleChange);
     window.addEventListener("supletivo:lock-change", handleLockChange);
     window.addEventListener("supletivo:student-state", handleStudentStateChange);
+    window.addEventListener("supletivo:enrollment-state", handleEnrollmentStateChange);
     window.addEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
     window.addEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
@@ -218,6 +226,11 @@ export function useDockSync({
           if (!isMounted) return;
           applyIdentity(w);
           const stStatus = w.role_statuses?.student;
+          if (stStatus === "enrollment" && (initialRole === "student" || initialRole === "aluno")) {
+            getEnrollmentMe().then(enrollment => {
+              if (isMounted) setStudentState(prev => ({ ...prev, enrollmentStep: enrollment.status }));
+            }).catch((err: unknown) => console.debug("[useDockSync] enrollment hydration fallback:", err));
+          }
           if (stStatus === "active" && (initialRole === "student" || initialRole === "aluno")) {
             getStudentMe()
               .then((s) => {
@@ -247,6 +260,7 @@ export function useDockSync({
       window.removeEventListener("supletivo:role-change", handleRoleChange);
       window.removeEventListener("supletivo:lock-change", handleLockChange);
       window.removeEventListener("supletivo:student-state", handleStudentStateChange);
+      window.removeEventListener("supletivo:enrollment-state", handleEnrollmentStateChange);
       window.removeEventListener("supletivo:lead-wizard-phase", handleLeadPhaseChange);
       window.removeEventListener("supletivo:lead-checkout-status", handleLeadCheckoutStatus);
       window.removeEventListener("supletivo:promoter-state", handlePromoterStateChange);

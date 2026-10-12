@@ -51,6 +51,13 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   promoterState: controlledPromoterState,
   poloState: controlledPoloState,
 }) => {
+  const [currentHash, setCurrentHash] = React.useState("");
+  React.useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
   const {
     activeRole,
     isAuthenticated,
@@ -81,7 +88,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   }
 
   const context: AdapterContext = {
-    currentPath,
+    currentPath: currentPath.split("#")[0] + currentHash,
     onNavigate,
     onLogout: handleLogout,
   };
@@ -146,7 +153,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               </>
             );
 
-            const commonClasses = `flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
+            const commonClasses = `flex min-h-12 min-w-12 flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
               item.isActive
                 ? "text-[var(--yellow)] font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
                 : "text-white/70 hover:text-white"
@@ -170,6 +177,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               <a
                 key={`${item.title}-${index}`}
                 href={item.href || "#"}
+                aria-current={item.isActive ? "page" : undefined}
                 onClick={(e) => {
                   if (item.disabled) {
                     e.preventDefault();

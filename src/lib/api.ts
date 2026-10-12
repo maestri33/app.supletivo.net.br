@@ -848,6 +848,17 @@ export interface AddressProofSection {
 }
 
 export interface EnrollmentMe {
+  release?: {
+    stage: "document_review" | "partner_setup" | "access_preparation" | "ready";
+    next_action: string;
+    hub_name: string;
+    coordinator_name: string | null;
+    contact_url: string | null;
+    updated_at: string | null;
+    payment_confirmed: boolean;
+    action_required: boolean;
+    action_route: string | null;
+  } | null;
   external_id: string;
   status: string;
   hub_external_id: string;
