@@ -565,13 +565,22 @@
     </div>
 
     {#if errorMessage}
-      <div class="mb-6 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-200 text-center flex items-center justify-center gap-2">
-        <svg class="size-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span>{errorMessage}</span>
+      <div class="mb-6 rounded-3xl border border-rose-300/20 bg-rose-950/30 p-5 text-rose-100 shadow-lg sm:p-6">
+        <div class="flex items-start gap-4">
+          <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-rose-400/15 text-rose-200" aria-hidden="true">
+            <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3 2.8 20h18.4L12 3Z" />
+              <path d="M12 9v4m0 3h.01" />
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="font-display text-base text-white sm:text-lg">Sua proposta não carregou</h2>
+            <p class="mt-1 text-sm leading-relaxed text-rose-100/80">{errorMessage}</p>
+            <button type="button" class="mt-4 inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--yellow)] px-5 text-sm font-bold text-[var(--ink)] transition hover:-translate-y-0.5" onclick={() => window.location.reload()}>
+              Atualizar proposta
+            </button>
+          </div>
+        </div>
       </div>
     {/if}
 

@@ -9,6 +9,7 @@
   import EducationDeclarationModal from "./EducationDeclarationModal.svelte";
   import PromoterReferralShare from "./PromoterReferralShare.svelte";
   import LiveSelfieCamera from "./LiveSelfieCamera.svelte";
+  import ReferralLinkIcon from "@/components/icons/ReferralLinkIcon.svelte";
 
   interface DocumentSection {
     doc_type?: string | null;
@@ -313,12 +314,23 @@
   {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
   {#if loading}<p role="status">Consultando seu credenciamento…</p>
   {:else if candidate}
-    <section class="candidate-card" aria-label="Seu link de indicação">
-      <h2>Você já pode indicar</h2>
-      <p>O cadastro de promotor é gratuito. Suas comissões ficam acumuladas até a aprovação do cadastro. Depois da ativação, o saldo entra no próximo fechamento de sexta-feira às 18h.</p>
-      <label for="candidate-referral">Seu link de indicação</label>
-      <input id="candidate-referral" type="url" value={candidate.ref_url} readonly />
-      <PromoterReferralShare url={candidate.ref_url} />
+    <section class="candidate-card candidate-referral-summary" aria-label="Indicações">
+      <div>
+        <p class="eyebrow">Comissões</p>
+        <h2>Você já pode indicar</h2>
+        <p>O cadastro é gratuito. As comissões ficam acumuladas até a ativação e entram no próximo fechamento de sexta-feira às 18h.</p>
+      </div>
+      <div class="referral-details">
+        <div class="referral-heading">
+          <span class="referral-icon"><ReferralLinkIcon /></span>
+          <span><strong>Link de indicação</strong><small>Copiar ou compartilhar</small></span>
+        </div>
+        <div class="referral-panel">
+          <label for="candidate-referral">Seu link de indicação</label>
+          <input id="candidate-referral" aria-label="Seu link de indicação" type="url" value={candidate.ref_url} readonly />
+          <PromoterReferralShare url={candidate.ref_url} />
+        </div>
+      </div>
     </section>
     <section class="candidate-card">
       {#if step === "documents"}
@@ -424,6 +436,19 @@
   .candidate-header, .candidate-card { border-radius: var(--radius-lg); padding: clamp(1.25rem, 4vw, 2rem); }
   .candidate-header { background: var(--blue); }
   .candidate-card { display: grid; gap: 1rem; background: var(--ink-soft); border: 1px solid var(--glass-border-dark); }
+  .candidate-referral-summary { gap: 1.25rem; }
+  .candidate-referral-summary > div:first-child { display: grid; gap: .45rem; }
+  .candidate-referral-summary .eyebrow { margin: 0; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+  .candidate-referral-summary h2, .candidate-referral-summary p { margin: 0; }
+  .referral-details { border: 1px solid color-mix(in srgb, var(--yellow) 28%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--blue-deep) 72%, transparent); overflow: hidden; }
+  .referral-heading { min-height: 4rem; display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; }
+  .referral-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; flex: none; border-radius: .85rem; color: var(--ink); background: var(--yellow); }
+  .referral-heading strong, .referral-heading small { display: block; }
+  .referral-heading strong { color: var(--paper); font-size: .95rem; }
+  .referral-heading small { color: var(--muted-on-dark); font-size: .75rem; margin-top: .15rem; }
+  .referral-panel { display: grid; gap: .75rem; padding: 0 1rem 1rem; border-top: 1px solid color-mix(in srgb, var(--paper) 12%, transparent); }
+  .referral-panel label { padding-top: .85rem; color: var(--muted-on-dark); font-size: .8rem; font-weight: 700; }
+  .referral-panel input { color: var(--ink); background: var(--paper); }
   h1, h2 { font-family: var(--font-display); line-height: 1.08; }
   h1 { font-size: var(--text-h2-sm); margin-block: .5rem 1rem; }
   h2 { font-size: var(--text-h3); }
