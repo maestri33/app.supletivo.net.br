@@ -53,7 +53,8 @@
       return s;
     });
     const uniqueNorm = Array.from(new Set(normRoles));
-    userRoles = ALL_ROLES.filter((r) => uniqueNorm.includes(r.id));
+    // Administração é um produto separado; nunca aparece como papel de negócio no app.
+    userRoles = ALL_ROLES.filter((r) => r.id !== "admin" && uniqueNorm.includes(r.id));
     roleStatuses = statuses || {};
   }
 
