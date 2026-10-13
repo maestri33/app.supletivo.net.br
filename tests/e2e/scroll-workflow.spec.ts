@@ -17,13 +17,17 @@ async function openSelfie(page: Page, role: 'student' | 'promoter') {
   await expect(page.getByRole('checkbox')).toBeVisible();
 }
 
+async function appScrollTop(page: Page) {
+  return page.evaluate(() => document.querySelector<HTMLElement>('#conteudo')?.scrollTop ?? window.scrollY);
+}
+
 for (const role of ['student', 'promoter'] as const) {
   test(`${role}: wheel scrolls the page outside the contract`, async ({ page }) => {
     await page.setViewportSize({ width: 502, height: 648 });
     await openSelfie(page, role);
     await page.mouse.move(350, 180);
     await page.mouse.wheel(0, 350);
-    await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 3000 }).toBeGreaterThan(30);
+    await expect.poll(() => appScrollTop(page), { timeout: 3000 }).toBeGreaterThan(30);
     await page.getByRole('checkbox').scrollIntoViewIfNeeded();
     const box = await page.getByRole('checkbox').boundingBox();
     const dock = await page.locator('nav[aria-label^="Navegação principal"]').boundingBox();
@@ -41,7 +45,7 @@ for (const role of ['student', 'promoter'] as const) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 270, y }] });
     }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 3000 }).toBeGreaterThan(30);
+    await expect.poll(() => appScrollTop(page), { timeout: 3000 }).toBeGreaterThan(30);
     await context.close();
   });
 }
@@ -56,7 +60,7 @@ test('student: scrolling past the contract end continues on the page', async ({ 
   await page.mouse.move(rect!.x + rect!.width / 2, Math.min(450, rect!.y + 60));
   await page.mouse.wheel(0, 3000);
   await expect.poll(() => contract.evaluate(el => el.scrollTop), { timeout: 3000 }).toBeGreaterThan(0);
-  const before = await page.evaluate(() => window.scrollY);
+  const before = await appScrollTop(page);
   await page.mouse.wheel(0, 350);
-  await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 3000 }).toBeGreaterThan(before);
+  await expect.poll(() => appScrollTop(page), { timeout: 3000 }).toBeGreaterThan(before);
 });

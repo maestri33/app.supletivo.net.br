@@ -152,10 +152,11 @@ O acompanhamento da liberação emite `supletivo:enrollment-state` com `{ status
 ## 4. Variantes Visuais e Ergonomia Touch
 
 1. **`variant="bottom-bar"` (Padrão Mandatório para Aplicação)**:
-   - Fixado em `bottom-0`, `z-40`, com fundo `bg-brand-ink/90 backdrop-blur-2xl`.
+   - Ocupa a linha inferior do shell autenticado (o componente ainda usa o estilo `bottom-0` como fallback fora do shell), `z-40`, com fundo `bg-brand-ink/90 backdrop-blur-2xl`.
    - Borda superior de 2px com gradiente patriótico (`brand-green` ➔ `brand-yellow` ➔ `brand-blue`).
    - Padding inferior dinâmico: `pb-[env(safe-area-inset-bottom)]`.
    - **Zero colisão com rodapé**: Suprime o rodapé institucional em telas de app (`showFooter={false}`).
+   - Dentro de `RootLayout`, `body.app-shell` tem altura `100dvh`; `#conteudo` é o único scroller e o wrapper `astro-island` do dock reserva a altura da barra. Não medir a rolagem por `window.scrollY` em testes de páginas autenticadas.
 
 2. **`variant="floating"` (Cápsula Flutuante Antigravity)**:
    - Cápsula elevada centralizada em `bottom-6 left-1/2 -translate-x-1/2`.
