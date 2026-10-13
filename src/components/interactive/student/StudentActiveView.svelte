@@ -6,11 +6,13 @@
   import "./workflow.css";
   type Exam = { external_id: string; subject: string; scheduled_at: string; result: string; notes?: string | null; attempt_number: number };
   type State = Omit<StudentMe, "documents"> & { documents?: (StudentDocument & { photo?: string | null })[]; exam_available_at?: string | null; exam_can_schedule?: boolean; exams?: Exam[] };
-  let { view = "dashboard" }: { view?: "dashboard" | "documents" | "subjects" | "assessments" } = $props();
+  let { view = "dashboard" }: { view?: "dashboard" | "documents" | "access" | "subjects" | "assessments" } = $props();
   let me = $state<State | null>(null), enrollment = $state<EnrollmentMe | null>(null), loading = $state(true), busy = $state(false), error = $state(""), actionError = $state(""), message = $state("");
   let pendencies = $state<Awaited<ReturnType<typeof getStudentPendencies>>>([]);
   let subject = $state(""), scheduledAt = $state(""), bloodType = $state<BloodType | "">("");
   let showPassword = $state(false), active = true;
+  const feeLabels: Record<string, string> = { queued: "Na fila de pagamento", submitted: "Enviado ao provedor", paid: "Pago", failed: "Falha no pagamento", cancelled: "Cancelado", canceled: "Cancelado", pending: "Pendente" };
+  function feeAmount(value: string) { const amount = Number(value); return Number.isFinite(amount) ? amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "Valor não informado"; }
   const statusLabel = $derived(STUDENT_STATUS_LABELS[me?.status ?? ""] ?? "Status não informado");
   const partnerUrl = $derived(safePartnerUrl(me?.platform?.url));
   const enrollmentFiles = $derived([
@@ -88,8 +90,21 @@
         <label>Tipo sanguíneo (opcional)<select bind:value={bloodType}><option value="">Selecione</option>{#each ["A+","A-","B+","B-","AB+","AB-","O+","O-"] as option}<option value={option}>{option}</option>{/each}</select></label>
         <button type="button" class="btn" onclick={saveBloodType} disabled={!bloodType || busy}>Salvar tipo sanguíneo</button>
       </div>
-    {:else if view === "subjects"}
-      <div class="panel"><h2>Ambiente de estudos</h2><p>As disciplinas e conteúdos são disponibilizados exclusivamente pelo parceiro educacional.</p>{#if partnerUrl}<a class="btn" href={partnerUrl} target="_blank" rel="noopener noreferrer">Abrir ambiente do parceiro</a>{/if}</div>
+    {:else if view === "access" || view === "subjects"}
+      <div class="panel"><h2>Acesso à plataforma parceira</h2><p>As disciplinas, aulas e conteúdos ficam exclusivamente no ambiente externo da instituição parceira.</p>{#if partnerUrl}<a class="btn" href={partnerUrl} target="_blank" rel="noopener noreferrer">Abrir plataforma parceira</a>{:else}<p class="warning">O polo ainda não informou o endereço da plataforma.</p>{/if}
+        {#if me.platform?.login}<dl><div><dt>Login</dt><dd>{me.platform.login}</dd></div>{#if me.platform.password}<div><dt>Senha</dt><dd>{showPassword ? me.platform.password : "••••••••"}</dd></div>{/if}{#if me.platform.notes}<div><dt>Orientações do polo</dt><dd>{me.platform.notes}</dd></div>{/if}</dl><button type="button" class="secondary" onclick={() => { showPassword = !showPassword; }}>{showPassword ? "Ocultar senha" : "Mostrar senha"}</button>{:else}<p class="muted">O polo ainda não cadastrou o login da plataforma parceira.</p>{/if}
+      </div>
+      <div class="panel"><h2>Taxas da instituição parceira</h2>
+        <p class="muted">O polo paga a primeira taxa e agenda o pagamento da segunda.</p>
+        {#if me.partner_fees}
+          {#each [{ label: "Primeira taxa", fee: me.partner_fees.first }, { label: "Segunda taxa", fee: me.partner_fees.second }] as item}
+            <div class="stack"><h3>{item.label}</h3>
+              {#if item.fee}<dl><div><dt>Situação</dt><dd>{item.fee.paid ? "Pago" : feeLabels[item.fee.status] ?? "Situação em conferência"}</dd></div><div><dt>Valor</dt><dd>{feeAmount(item.fee.amount)}</dd></div>{#if item.fee.scheduled_for}<div><dt>Pagamento programado para</dt><dd>{dateLabel(item.fee.scheduled_for)}</dd></div>{/if}</dl>
+              {:else}<p class="muted">Pagamento ainda não registrado pelo polo.</p>{/if}
+            </div>
+          {/each}
+        {:else}<p class="muted">A situação das taxas não foi disponibilizada nesta consulta.</p>{/if}
+      </div>
     {:else}
       {#if me.exams?.length}<div class="panel"><h2>Suas provas</h2>{#each me.exams as exam (exam.external_id)}<div class="stack"><strong>{exam.subject}</strong><p>{dateLabel(exam.scheduled_at)} — tentativa {exam.attempt_number}</p><p>Resultado: {exam.result === "passed" ? "Aprovado" : exam.result === "failed" ? "Reprovado" : "Aguardando resultado"}</p>{#if exam.notes}<p>{exam.notes}</p>{/if}</div>{/each}</div>{/if}
       <div class="panel"><h2>Agendamento de prova</h2>{#if me.exam_can_schedule === true}<form class="stack" onsubmit={schedule}><label>Matéria da prova<input aria-label="Matéria da prova" bind:value={subject} required maxlength="120" /></label><label>Data e hora combinadas com o polo<input aria-label="Data e hora combinadas com o polo" type="datetime-local" bind:value={scheduledAt} required /></label><button type="submit" class="btn" disabled={busy}>Confirmar agendamento</button></form>{:else}<p class="muted">O agendamento exige documentos aprovados e dois meses completos desde a confirmação do pagamento.</p>{#if me.exam_available_at}<p>Prazo mínimo: {dateLabel(me.exam_available_at)}.</p>{/if}{/if}</div>

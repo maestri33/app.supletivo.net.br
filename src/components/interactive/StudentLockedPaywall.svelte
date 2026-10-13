@@ -59,6 +59,7 @@
 
   // Valores dinâmicos da plataforma. Sem resposta do servidor, não exibimos um preço inventado.
   let livePricing = $state<Pricing | null>(null);
+  let leadSnapshot = $state<Awaited<ReturnType<typeof getLeadMe>> | null>(null);
   let hasRef = $state(false);
   let quotedCard = $derived(hasRef && livePricing?.promo_card ? livePricing.promo_card : livePricing?.card);
   let cardInstallments = $derived(quotedCard?.installments ?? 0);
@@ -169,6 +170,7 @@
     // Checa proativamente se já existe um checkout emitido no backend
     getLeadMe()
       .then((lead) => {
+        leadSnapshot = lead;
         if (lead?.pricing) {
           livePricing = lead.pricing;
           hasRef = Boolean(lead.pricing.has_discount);
@@ -558,6 +560,31 @@
       <p class="text-xs sm:text-sm text-white/70 max-w-lg mx-auto">
         Escolha abaixo como prefere realizar o pagamento único da sua formação do Ensino Médio.
       </p>
+
+      {#if leadSnapshot}
+        <div id="lead-context" class="mt-5 rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-left">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Dados da sua proposta</p>
+              <p class="mt-1 text-sm font-semibold text-white">{leadSnapshot.customer?.name ?? "Lead em atendimento"}</p>
+              <p class="text-xs text-white/60">{leadSnapshot.customer?.phone ?? leadSnapshot.customer?.email ?? "Dados de contato ainda não informados"}</p>
+            </div>
+            <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70">{leadSnapshot.status ?? "lead"}</span>
+          </div>
+          <div class="mt-3 grid gap-2 text-xs text-white/70 sm:grid-cols-2">
+            <p><strong class="text-white/90">Promotor:</strong> {String(leadSnapshot.promoter?.name ?? "Não informado")}</p>
+            <p><strong class="text-white/90">Polo:</strong> {leadSnapshot.hub?.name ?? "Não informado pelo servidor"}</p>
+            {#if leadSnapshot.hub?.coordinator_name}<p><strong class="text-white/90">Coordenador:</strong> {leadSnapshot.hub.coordinator_name}</p>{/if}
+            {#if leadSnapshot.customer?.cpf}<p><strong class="text-white/90">CPF:</strong> {leadSnapshot.customer.cpf}</p>{/if}
+            {#if leadSnapshot.customer?.email}<p><strong class="text-white/90">E-mail:</strong> {leadSnapshot.customer.email}</p>{/if}
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {#if leadSnapshot.promoter.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(leadSnapshot.promoter.contact_url)}<a class="secondary" href={leadSnapshot.promoter.contact_url} target="_blank" rel="noopener noreferrer">Falar com promotor</a>{/if}
+            {#if leadSnapshot.hub?.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(leadSnapshot.hub.contact_url)}<a class="secondary" href={leadSnapshot.hub.contact_url} target="_blank" rel="noopener noreferrer">Falar com polo</a>{/if}
+          </div>
+          <p class="mt-2 text-[11px] text-white/50">Os valores da proposta são calculados pelo servidor e permanecem vinculados a esta cobrança.</p>
+        </div>
+      {/if}
 
       {#if discountBadge}
         <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-bold border border-emerald-500/30 shadow-sm">

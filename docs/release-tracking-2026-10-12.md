@@ -7,8 +7,10 @@ No invented progress percentage, ETA, partner enrollment confirmation or contact
 
 View: branded inline document/seal/key SVG, responsible coordinator and next action,
 authenticated document opening, original checkout/payment/receipt, and polo contact.
-There is currently no dedicated official contact field on Hub, so the section
-explains its absence and never exposes a private phone number. Student sees no
+Owner clarified the contact rule in patch .100: once the lead pays, responsibility
+belongs to the manager of the hub inherited from the promoter. The backend uses
+that manager's profile phone for the WhatsApp button, independently of the
+promoter. A separate public contact field is not required. Student sees no
 internal partner fees. No additional payment is created from this screen.
 
 Dock uses Acompanhamento, Meus documentos, Pagamento and Falar com o polo anchors.

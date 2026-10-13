@@ -179,6 +179,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               <a
                 key={`${item.title}-${index}`}
                 href={item.href || "#"}
+                aria-disabled={item.disabled || undefined}
                 aria-current={item.isActive ? "page" : undefined}
                 onClick={(e) => {
                   if (item.disabled) {

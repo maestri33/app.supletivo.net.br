@@ -19,6 +19,8 @@
       <div><dt>Valor da cobrança</dt><dd>{amount(data.checkout.amount)}</dd></div>
       <div><dt>Situação</dt><dd>{data.checkout.is_paid ? "Pagamento confirmado" : "Sem confirmação de pagamento"}</dd></div>
       <div><dt>Meio de pagamento</dt><dd>{data.checkout.payment_method === "pix" ? "Pix" : data.checkout.payment_method === "credit_card" || data.checkout.payment_method === "card" ? "Cartão" : data.checkout.payment_method}</dd></div>
+      <div><dt>Provedor</dt><dd>{data.checkout.provider === "asaas" ? "Asaas" : data.checkout.provider === "infinitepay" ? "InfinitePay" : data.checkout.provider || "Não informado"}</dd></div>
+      {#if data.checkout.due_date}<div><dt>Vencimento</dt><dd>{dateLabel(data.checkout.due_date)}</dd></div>{/if}
       <div><dt>Confirmação registrada</dt><dd>{dateLabel(data.checkout.paid_at)}</dd></div>
     </dl>{#if receipt}<a class="btn" href={receipt} target="_blank" rel="noopener noreferrer">Abrir comprovante</a>{:else}<p class="muted">O provedor ainda não disponibilizou um comprovante nesta consulta.</p>{/if}</div>
   {:else}<p class="muted">Nenhuma cobrança disponível nesta consulta.</p>{/if}

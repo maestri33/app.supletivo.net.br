@@ -16,7 +16,7 @@
     { id: "student", label: "Aluno", icon: "🎓" },
     { id: "promoter", label: "Promotor", icon: "💼" },
     { id: "hub", label: "Polo", icon: "🏫" },
-    { id: "admin", label: "Admin", icon: "⚙️", external: true, url: "https://admin.supletivo.net.br" },
+    { id: "admin", label: "Administrador", icon: "⚙️", external: true, url: "https://admin.supletivo.net.br" },
   ];
 
   let currentRole = $state<"student" | "promoter" | "hub" | "admin">("student");
@@ -53,8 +53,9 @@
       return s;
     });
     const uniqueNorm = Array.from(new Set(normRoles));
-    // Administração é um produto separado; nunca aparece como papel de negócio no app.
-    userRoles = ALL_ROLES.filter((r) => r.id !== "admin" && uniqueNorm.includes(r.id));
+    // O administrador aparece como uma aba externa somente quando o backend
+    // confirmou esse papel. A operação administrativa continua no frontend próprio.
+    userRoles = ALL_ROLES.filter((r) => uniqueNorm.includes(r.id));
     roleStatuses = statuses || {};
   }
 

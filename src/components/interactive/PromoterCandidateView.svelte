@@ -10,6 +10,9 @@
   import PromoterReferralShare from "./PromoterReferralShare.svelte";
   import LiveSelfieCamera from "./LiveSelfieCamera.svelte";
   import ReferralLinkIcon from "@/components/icons/ReferralLinkIcon.svelte";
+  import IdCardIcon from "@/components/icons/IdCardIcon.svelte";
+  import CameraIcon from "@/components/icons/CameraIcon.svelte";
+  import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
 
   interface DocumentSection {
     doc_type?: string | null;
@@ -70,6 +73,9 @@
   let pollUntil = 0;
   let pollReads = 0;
   let disposed = false;
+  let selectedSection = $state("");
+  let sourceDialog: HTMLDialogElement;
+  let documentFileInput: HTMLInputElement, documentCameraInput: HTMLInputElement;
   async function loadEducationCities(nextState: string, keepCity = false) {
     educationState = nextState; if (!keepCity) educationCity = ""; educationCities = []; educationLocationError = "";
     if (!nextState) return;
@@ -95,6 +101,31 @@
     if (candidate.status === "pix" && candidate.pix_validated) return "education";
     return "review";
   });
+  let educationReady = $derived(Boolean(candidate && ["education", "selfie", "completed", "approved"].includes(candidate.status)));
+  let displayStep = $derived.by(() => {
+    if (selectedSection === "referral") return "referral";
+    if (selectedSection === "documents") return "documents";
+    if (selectedSection === "address" && documentReady) return "address";
+    if (selectedSection === "education" && documentReady && proofReady) return candidate?.pix_validated ? "education" : "pix";
+    if (selectedSection === "selfie" && educationReady) return "selfie";
+    return step;
+  });
+  function health(value?: string | null) {
+    return value === "approved" ? "approved" : value === "rejected" ? "rejected" : ["pending", "review", "needs_kinship"].includes(value ?? "") ? "under_review" : "pending";
+  }
+  function notifyDock() {
+    window.dispatchEvent(new CustomEvent("supletivo:promoter-state", { detail: {
+      status: "candidate", registrationStep: step, selectedSection: displayStep,
+      documentStatus: health(documentStatus), addressStatus: health(candidate?.address_proof?.status),
+      educationStatus: educationReady ? "approved" : "pending", selfieStatus: health(selfieStatus),
+      documentReady, addressReady: proofReady, educationReady,
+    } }));
+  }
+  $effect(() => { if (candidate) notifyDock(); });
+  function chooseDocumentSource(source: "camera" | "file") {
+    sourceDialog.close();
+    (source === "camera" ? documentCameraInput : documentFileInput).click();
+  }
   function documentPath(slot: RgCaptureSlot): string | null {
     return captureView.paths[slot];
   }
@@ -196,17 +227,23 @@
   }
 
   onMount(() => {
+    const readSection = () => { selectedSection = window.location.hash.slice(1); };
+    readSection();
+    window.addEventListener("hashchange", readSection);
+    window.addEventListener("supletivo:request-promoter-state", notifyDock);
     pollUntil = Date.now() + 300_000;
     void refresh();
     const onFocus = () => { if (!busy) void refresh(); };
     window.addEventListener("focus", onFocus);
-    return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); };
+    return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); window.removeEventListener("hashchange", readSection); window.removeEventListener("supletivo:request-promoter-state", notifyDock); };
   });
 
   async function mutate(path: string, json: unknown) {
     busy = true; error = null; notice = null; mutationRevision += 1;
     try {
       candidate = await requestAuth<Candidate>(`${base}${path}`, { method: "POST", json });
+      selectedSection = "";
+      window.history.replaceState(null, "", window.location.pathname);
       await refresh();
     } catch (cause) { error = cause instanceof Error && !(cause instanceof ApiError) ? cause.message : getErrorMessage(cause); }
     finally { busy = false; scheduleRefresh(); }
@@ -305,15 +342,16 @@
 </script>
 
 <div class="candidate-view" data-testid="promoter-candidate">
-  <header class="glass-panel candidate-header">
+  <header class="candidate-header">
     <p class="eyebrow">Credenciamento</p>
-    <h1>Credenciamento de Promotor</h1>
+    <div class="candidate-heading"><h1>Seu cadastro</h1><a class="referral-shortcut" href="#referral" aria-label="Comece a indicar"><ReferralLinkIcon /><span>Comece a indicar</span></a></div>
     <p>Envie seus documentos. Os dados de identidade e endereço são extraídos automaticamente.</p>
   </header>
   {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
   {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
   {#if loading}<p role="status">Consultando seu credenciamento…</p>
   {:else if candidate}
+    {#if displayStep === "referral"}
     <section id="referral" class="candidate-card candidate-referral-summary" aria-label="Indicações">
       <div>
         <p class="eyebrow">Comissões</p>
@@ -332,24 +370,35 @@
         </div>
       </div>
     </section>
+    <a class="refresh-action" href="#documents">Voltar ao cadastro</a>
+    {:else}
     <section class="candidate-card">
-      {#if step === "documents"}
+      {#if displayStep === "documents"}
         <h2>Documento de identidade</h2>
         <p>{statusLabel(documentStatus)}</p>
         {#if documentSection?.analysis_reason}<p>{documentSection.analysis_reason}</p>{/if}
-        {#if documentCaptureSlot}
-          {#if !documentSection?.doc_type}<p>Envie RG ou CNH. Identificamos o documento e os lados automaticamente.</p>{/if}
-          <p>{documentCaptureSlot === "back" ? "Frente recebida. Agora envie o verso." : documentCaptureSlot === "front" && captureView.received.back ? "Verso recebido. Agora envie a frente." : "Pode começar por qualquer lado. Frente e verso na mesma imagem também valem."}</p>
-          <label class="upload-action" for="candidate-document">{busy ? "Enviando…" : "Anexar documento"}</label>
-          <input id="candidate-document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onchange={event => upload(event, "document")} />
-          <label class="upload-action" for="candidate-document-camera">Tirar foto do documento</label>
-          <input id="candidate-document-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "document")} />
+        {#if documentReady}
+          <p>{documentType.toUpperCase()} conferido · número {documentSection?.number}</p>
+          {#if candidate.profile?.name}<p>{candidate.profile.name}</p>{/if}
+          <a class="btn" href="#address">Continuar para endereço</a>
+        {:else if documentCaptureSlot}
+          <button class="capture-space" type="button" disabled={busy} onclick={() => sourceDialog.showModal()}>
+            <IdCardIcon />
+            <strong>{busy ? "Identificando e enviando…" : documentCaptureSlot === "back" ? "Agora, envie o verso" : documentCaptureSlot === "front" && captureView.received.back ? "Agora, envie a frente" : "Envie seu RG ou CNH"}</strong>
+            <span>Tirar foto ou escolher arquivo</span>
+          </button>
+          <p class="capture-hint">Pode começar por qualquer lado. Frente e verso na mesma imagem também valem.</p>
+          <p class="capture-hint">JPG, PNG, WebP ou PDF · até 15 MB</p>
         {:else}<p>{identityCollectionMessage(documentStatus)}</p>{/if}
-      {:else if step === "address"}
+      {:else if displayStep === "address"}
         <h2>Comprovante de residência</h2>
         <p>{statusLabel(candidate.address_proof?.status)}</p>
         {#if candidate.address_proof?.reason}<p>{candidate.address_proof.reason}</p>{/if}
-        {#if candidate.address_proof?.needs_kinship}
+        {#if proofReady}
+          <p>{candidate.address?.street}, {candidate.address?.number}</p>
+          <p>{candidate.address?.city}/{candidate.address?.state}</p>
+          <a class="btn" href="#education">Continuar para escolaridade</a>
+        {:else if candidate.address_proof?.needs_kinship}
           <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/documents/address-proof/kinship", { relation: relationship }); }}>
             <label for="candidate-relationship">Qual seu vínculo com o titular?</label>
             <select id="candidate-relationship" bind:value={relationship} disabled={busy}>
@@ -365,7 +414,7 @@
           <label class="upload-action" for="candidate-address-camera">Tirar foto da conta</label>
           <input id="candidate-address-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "address")} />
         {:else}<p>{candidate.address_proof?.status === "pending" ? "A leitura do comprovante está em andamento. Acompanhe o resultado nesta tela." : "O polo está revisando o comprovante enviado."}</p>{/if}
-      {:else if step === "pix"}
+      {:else if displayStep === "pix"}
         <h2>Dados de recebimento de comissões</h2>
         <p>Informe uma chave PIX em seu nome. A titularidade será conferida.</p>
         <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/pix", { key: pixKey.trim(), key_type: pixKeyType }); }}>
@@ -375,8 +424,12 @@
           <input id="pixKey" type="text" bind:value={pixKey} required disabled={busy} autocomplete="off" />
           <button class="btn" type="submit" disabled={busy || !pixKey.trim()}>{busy ? "Salvando…" : "Salvar e Continuar"}</button>
         </form>
-      {:else if step === "education"}
+      {:else if displayStep === "education"}
         <h2>Sua escolaridade</h2>
+        {#if educationReady}
+          <p>Escolaridade registrada: {educationLevel === "superior" ? "Ensino Superior" : educationLevel === "medio" ? "Ensino Médio" : "Ensino Fundamental"}.</p>
+          <a class="btn" href="#selfie">Continuar para assinatura</a>
+        {:else}
         <form onsubmit={event => { event.preventDefault(); void saveEducation(); }}>
           <label for="candidate-education">Qual o seu nível de ensino?</label>
           <select id="candidate-education" bind:value={educationLevel} onchange={updateEducationLevel} disabled={busy}><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option><option value="superior">Ensino Superior</option></select>
@@ -405,7 +458,8 @@
           {/if}
           <button class="btn" type="submit" disabled={busy || (educationLevel !== "superior" && !gradeOptions.includes(educationGrade))}>Continuar para assinatura</button>
         </form>
-      {:else if step === "selfie"}
+        {/if}
+      {:else if displayStep === "selfie"}
         <h2>Termo de adesão e selfie</h2>
         <p>{statusLabel(selfieStatus)}</p>
         {#if selfieStatus === "review"}<p>Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora.</p>
@@ -418,23 +472,42 @@
             <LiveSelfieCamera disabled={busy || !consentAccepted} onCapture={file => sendUpload(file, "selfie")} />
           {:else}<p>Não foi possível carregar o termo vigente. Atualize o status para tentar novamente.</p>{/if}
         {:else}<p>Acompanhe a conferência da sua assinatura. Seu cadastro será ativado quando os requisitos forem aprovados.</p>{/if}
-      {:else if step === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>
+      {:else if displayStep === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>
       {:else}<h2>Credenciamento em análise</h2><p>A documentação e sua assinatura estão sendo conferidas. Esta tela acompanha a liberação pelo polo.</p>{/if}
     </section>
-    {#if documentReady && documentSection?.number}<section class="candidate-card" aria-label="Dados extraídos do documento"><h2>Identidade conferida</h2><p>{documentType.toUpperCase()} · número {documentSection.number}</p>{#if candidate.profile?.name}<p>{candidate.profile.name}</p>{/if}<p>{statusLabel(documentStatus)}</p></section>{/if}
-    {#if candidate.address?.street}
-      <section class="candidate-card" aria-label="Endereço extraído"><h2>Endereço extraído do comprovante</h2><p>{candidate.address.street}{candidate.address.number ? `, ${candidate.address.number}` : ""}</p><p>{candidate.address.neighborhood} — {candidate.address.city}/{candidate.address.state}</p>{#if candidate.address.missing_fields?.length}<p>A leitura ainda precisa completar dados do endereço. O polo acompanhará a conferência.</p>{/if}</section>
     {/if}
     {#each currentBlocks as block}{#if block.reason || block.description}<p class="feedback warning">{#if block.title}<strong>{block.title}</strong> {/if}{block.reason ?? block.description}</p>{/if}{/each}
   {/if}
   <button class="refresh-action" type="button" disabled={busy || loading} onclick={() => refresh()}>Atualizar status</button>
 </div>
+{#if candidate && !loading}
+<input bind:this={documentFileInput} id="candidate-document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden disabled={busy} onchange={event => upload(event, "document")} aria-label="Selecionar arquivo do RG ou CNH" />
+<input bind:this={documentCameraInput} id="candidate-document-camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden disabled={busy} onchange={event => upload(event, "document")} aria-label="Fotografar RG ou CNH" />
+{/if}
+<dialog bind:this={sourceDialog} class="source-dialog" aria-labelledby="candidate-source-title">
+  <h2 id="candidate-source-title">Como quer enviar o documento?</h2><p>Uma foto, uma imagem com os dois lados ou um PDF.</p>
+  <button type="button" class="btn source-action" onclick={() => chooseDocumentSource("camera")}><CameraIcon /> Tirar foto</button>
+  <button type="button" class="refresh-action source-action" onclick={() => chooseDocumentSource("file")}><UploadFileIcon /> Escolher arquivo</button>
+  <button type="button" class="refresh-action" onclick={() => sourceDialog.close()}>Cancelar</button>
+</dialog>
 <EducationDeclarationModal role="promoter" open={educationDeclarationOpen} onConfirm={confirmEducationDeclaration} />
 
 <style>
   .candidate-view { width: min(100%, var(--container-narrow)); margin-inline: auto; display: grid; gap: 1.25rem; color: var(--paper); font-family: var(--font-sans); }
   .candidate-header, .candidate-card { border-radius: var(--radius-lg); padding: clamp(1.25rem, 4vw, 2rem); }
-  .candidate-header { background: var(--blue); }
+  .candidate-header { padding: 0; }
+  .candidate-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .candidate-heading h1 { margin: .5rem 0; }
+  .referral-shortcut { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: var(--input-height); padding: .5rem .75rem; border-radius: var(--input-radius); color: var(--yellow); background: var(--ink-soft); font-size: .8rem; text-decoration: none; font-weight: 700; }
+  .referral-shortcut :global(svg) { width: 1.4rem; height: 1.4rem; flex: none; }
+  .capture-space { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; width: 100%; min-height: 180px; padding: 1.25rem .75rem; border: 1px dashed var(--line-light); border-radius: var(--input-radius); background: var(--paper-soft); color: var(--ink); cursor: pointer; font: inherit; }
+  .capture-space :global(svg) { width: 2.5rem; height: 2.5rem; color: var(--blue); }
+  .capture-hint { margin: 0; text-align: center; font-size: .9rem; color: var(--muted-on-dark); }
+  .source-dialog { margin: auto; width: min(92vw, 26rem); padding: 1.5rem; border: 1px solid var(--line-light); border-radius: var(--radius-lg); background: var(--paper); color: var(--ink); max-height: 90dvh; overflow: auto; }
+  .source-dialog::backdrop { background: color-mix(in srgb, var(--ink) 75%, transparent); }
+  .source-dialog > button { width: 100%; margin-top: .75rem; }
+  .source-action { display: flex; align-items: center; justify-content: center; gap: .5rem; }
+  .source-action :global(svg) { width: 1.25rem; height: 1.25rem; }
   .candidate-card { display: grid; gap: 1rem; background: var(--ink-soft); border: 1px solid var(--glass-border-dark); }
   .candidate-referral-summary { gap: 1.25rem; }
   #referral { scroll-margin-top: 1.25rem; }

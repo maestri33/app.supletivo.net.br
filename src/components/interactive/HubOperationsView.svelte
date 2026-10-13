@@ -159,7 +159,7 @@
 </script>
 
 <div class="student-workflow" aria-busy={loading || busy}>
-  <header class="stack"><h1>Processos do polo</h1><p class="muted">Matrículas, documentação, provas e entrega de diploma.</p></header>
+  <header class="stack"><h1>Alunos do polo</h1><p class="muted">Matrículas, documentação, provas e entrega de diploma.</p></header>
   <div class="choices" aria-label="Tipo de processo">
     <button class="choice" aria-pressed={section === "enrollment"} disabled={busy || loading} onclick={() => choose("enrollment")}>Matrículas</button>
     <button class="choice" aria-pressed={section === "student"} disabled={busy || loading} onclick={() => choose("student")}>Alunos</button>
@@ -169,8 +169,8 @@
   {#if message}<p role="status" class="success">{message}</p>{/if}
   <button class="secondary" disabled={busy || loading} onclick={refresh}>Atualizar situação</button>
   <a class="secondary" href="/hub/review">Fila de revisões</a>
-  {#if loading}<p role="status">Consultando processos...</p>{/if}
-  <section class="panel" aria-label="Lista de processos">
+  {#if loading}<p role="status">Consultando alunos...</p>{/if}
+  <section class="panel" aria-label="Lista de alunos">
     <h2>{section === "enrollment" ? "Matrículas" : section === "student" ? "Alunos" : "Candidatos aguardando decisão"}</h2>
     {#if !loading && !error && rows.length === 0}<p>Nenhum processo nesta lista.</p>{/if}
     {#each rows as row (row.external_id)}

@@ -27,7 +27,7 @@
 <section class="w-full max-w-4xl mx-auto flex-1 flex flex-col p-4 sm:p-6 pb-28 space-y-6" aria-busy={loading}>
   <div class="border-b border-white/10 pb-4">
     <span class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Secretaria de Polo</span>
-    <h1 class="text-2xl sm:text-3xl font-extrabold text-white font-display">Bancas e provas</h1>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-white font-display">Provas presenciais</h1>
     <p class="text-sm text-white/70 mt-2">Esta fila mostra somente alunos que o servidor liberou ou agendou para avaliação.</p>
   </div>
 

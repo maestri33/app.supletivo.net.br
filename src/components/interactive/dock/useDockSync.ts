@@ -217,6 +217,7 @@ export function useDockSync({
     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
     window.addEventListener("supletivo:identity", handleIdentity);
+    window.dispatchEvent(new Event("supletivo:request-promoter-state"));
 
     // Hidratação proativa assíncrona com flag de montagem
     const currentToken = getAccessToken();

@@ -5,8 +5,8 @@ import {
   IconHome,
   IconFileCheck,
   IconDoorExit,
-  IconSchool,
   IconUsers,
+  IconSchool,
 } from "@tabler/icons-react";
 
 /**
@@ -21,7 +21,6 @@ export function getPoloDockItems(
   const { currentPath, onLogout } = ctx;
   const rawStatus = state.status || "active";
   const pendingReviews = state.pendingValidationCount ?? 0;
-  const pendingExams = state.pendingExamsCount ?? 0;
 
   const isReviews =
     rawStatus === "review" ||
@@ -29,6 +28,7 @@ export function getPoloDockItems(
 
   if (isReviews) {
     const isStudentsActive =
+      currentPath === "/hub/active/operations" ||
       currentPath === "/hub/review/students" ||
       currentPath === "/hub/review";
     const isPromotersActive = currentPath === "/hub/review/promoters";
@@ -44,9 +44,9 @@ export function getPoloDockItems(
       },
       {
         id: "students",
-        title: "Matrículas",
+        title: "Alunos",
         icon: <IconFileCheck className="h-full w-full" />,
-        href: "/hub/review/students",
+        href: "/hub/active/operations",
         badge: pendingReviews > 0 ? pendingReviews : undefined,
         badgeVariant: "warning",
         statusIndicator: pendingReviews > 0 ? "warning" : "normal",
@@ -61,12 +61,12 @@ export function getPoloDockItems(
         isActive: isPromotersActive,
       },
       {
-        id: "operations",
-        title: "Processos",
-        icon: <IconFileCheck className="h-full w-full" />,
-        href: "/hub/active/operations",
-        isActive: currentPath === "/hub/active/operations",
+        id: "exams",
+        title: "Provas",
+        icon: <IconSchool className="h-full w-full" />,
+        href: "/hub/active/exams",
         statusIndicator: "normal",
+        isActive: currentPath === "/hub/active/exams",
       },
       {
         id: "logout",
@@ -82,9 +82,9 @@ export function getPoloDockItems(
     currentPath === "/hub/active/dashboard" ||
     currentPath === "/hub/active" ||
     currentPath === "/hub";
-  const isExamsActive = currentPath === "/hub/active/exams";
   const isStudentsActive =
-    currentPath === "/hub/review/students" ||
+    currentPath === "/hub/active/operations" ||
+      currentPath === "/hub/review/students" ||
     currentPath === "/hub/review";
   const isPromotersActive = currentPath === "/hub/review/promoters";
 
@@ -98,24 +98,14 @@ export function getPoloDockItems(
       statusIndicator: "normal",
     },
     {
-      id: "exams",
-      title: "Bancas",
-      icon: <IconSchool className="h-full w-full" />,
-      href: "/hub/active/exams",
-      badge: pendingExams > 0 ? pendingExams : undefined,
-      badgeVariant: "info",
-      statusIndicator: "normal",
-      isActive: isExamsActive,
-    },
-    {
       id: "students",
-      title: "Processos",
+        title: "Alunos",
       icon: <IconFileCheck className="h-full w-full" />,
-      href: "/hub/active/operations",
+        href: "/hub/active/operations",
       badge: pendingReviews > 0 ? pendingReviews : undefined,
       badgeVariant: "warning",
       statusIndicator: pendingReviews > 0 ? "warning" : "normal",
-      isActive: isStudentsActive || currentPath === "/hub/active/operations",
+        isActive: isStudentsActive,
     },
     {
       id: "promoters",
@@ -125,6 +115,14 @@ export function getPoloDockItems(
       statusIndicator: "normal",
       isActive: isPromotersActive,
     },
+      {
+        id: "exams",
+        title: "Provas",
+        icon: <IconSchool className="h-full w-full" />,
+        href: "/hub/active/exams",
+        statusIndicator: "normal",
+        isActive: currentPath === "/hub/active/exams",
+      },
     {
       id: "logout",
       title: "Sair",

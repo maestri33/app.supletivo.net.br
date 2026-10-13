@@ -1,6 +1,4 @@
 ---
-import RootLayout from '../../../layouts/RootLayout.astro';
-import StudentActiveView from '../../../components/interactive/student/StudentActiveView.svelte';
 export const prerender = false;
+return Astro.redirect('/student/active/access', 308);
 ---
-<RootLayout title="Ambiente do parceiro — Supletivo Brasil"><StudentActiveView client:load view="subjects" /></RootLayout>

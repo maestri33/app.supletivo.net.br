@@ -31,7 +31,10 @@ for (const role of ['student', 'promoter'] as const) {
     await page.getByRole('checkbox').scrollIntoViewIfNeeded();
     const box = await page.getByRole('checkbox').boundingBox();
     const dock = await page.locator('nav[aria-label^="Navegação principal"]').boundingBox();
+    const main = await page.locator('#conteudo').boundingBox();
     expect(box).not.toBeNull(); expect(dock).not.toBeNull();
+    expect(main!.y + main!.height).toBeLessThanOrEqual(dock!.y + 1);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(box!.y + box!.height).toBeLessThanOrEqual(dock!.y);
   });
 
@@ -47,6 +50,33 @@ for (const role of ['student', 'promoter'] as const) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect.poll(() => appScrollTop(page), { timeout: 3000 }).toBeGreaterThan(30);
     await context.close();
+  });
+}
+
+for (const width of [320, 390, 1280]) {
+  test(`candidate dock navigates completed steps and locks future steps at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 });
+    await openSelfie(page, 'promoter');
+    const dock = page.getByRole('navigation', { name: 'Navegação principal do promoter' });
+    await dock.getByRole('link', { name: /1\. RG ou CNH/ }).click();
+    await expect(page.getByText('RG conferido')).toBeVisible();
+    await expect(dock.getByRole('link', { name: /1\. RG ou CNH/ })).toHaveAttribute('aria-current', 'page');
+    await page.screenshot({ path: `test-results/candidate-dock-${width}.png` });
+    await dock.getByRole('link', { name: /2\. Endereço/ }).click();
+    await expect(page.getByRole('heading', { name: 'Comprovante de residência' })).toBeVisible();
+    await dock.getByRole('link', { name: /3\. Escolaridade/ }).click();
+    await expect(page.getByText('Escolaridade registrada:')).toBeVisible();
+    await dock.getByRole('link', { name: /4\. Selfie/ }).click();
+    await expect(page.getByRole('checkbox')).toBeVisible();
+    await page.getByRole('link', { name: 'Comece a indicar' }).click();
+    await expect(page.getByRole('textbox', { name: 'Seu link de indicação' })).toBeVisible();
+    const geometry = await page.evaluate(() => {
+      const main = document.querySelector('#conteudo')!.getBoundingClientRect();
+      const dock = document.querySelector('[data-app-dock]')!.getBoundingClientRect();
+      return { mainBottom: main.bottom, dockTop: dock.top, pageWidth: document.documentElement.scrollWidth, width: innerWidth };
+    });
+    expect(geometry.mainBottom).toBeLessThanOrEqual(geometry.dockTop + 1);
+    expect(geometry.pageWidth).toBeLessThanOrEqual(geometry.width);
   });
 }
 

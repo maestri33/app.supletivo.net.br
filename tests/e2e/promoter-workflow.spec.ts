@@ -65,15 +65,18 @@ test("canonical candidate gets a referral link immediately and stays in registra
   await page.route("**/api/v1/collaborators/candidate/me", route => route.fulfill({ json: readyCandidate }));
   await page.route("**/api/v1/collaborators/candidate/document", route => route.fulfill({ json: readyDocument }));
   await page.goto("/promoter/candidate");
+  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
+  await expect(dock.getByRole("link", { name: /1\. RG ou CNH/ })).toHaveAttribute("href", "#documents");
+  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("href", "#address");
+  await expect(dock.getByRole("link", { name: /3\. Escolaridade/ })).toHaveAttribute("href", "#education");
+  await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Comece a indicar", exact: true }).click();
+  await expect(page).toHaveURL(/#referral$/);
   await expect(page.getByRole("heading", { name: "Você já pode indicar" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveValue(readyCandidate.ref_url);
-  await expect(page).toHaveURL(/\/promoter\/candidate$/);
-  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
-  await expect(dock.getByRole("link", { name: "Cadastro", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding");
-  await expect(dock.getByRole("link", { name: "Começar a indicar", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding#referral");
-  await expect(dock.getByRole("link", { name: "Chave PIX", exact: true })).toHaveCount(0);
-  await dock.getByRole("link", { name: "Começar a indicar", exact: true }).click();
-  await expect(page).toHaveURL(/\/promoter\/candidate\/onboarding#referral$/);
+  await dock.getByRole("link", { name: /2\. Endereço/ }).click();
+  await expect(page.getByRole("heading", { name: "Comprovante de residência" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
@@ -97,6 +100,12 @@ test("candidate blocks a wrong document in the browser before the authoritative 
     return route.fulfill({ json: { stored: true, analysis_status: "pending", poll_after_ms: 500 } });
   });
   await page.goto("/promoter/candidate");
+  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
+  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(dock.getByRole("link", { name: /4\. Selfie/ })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("button", { name: /Envie seu RG ou CNH/ }).click();
+  await expect(page.getByRole("dialog", { name: "Como quer enviar o documento?" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
   await page.locator("#candidate-document").setInputFiles({ name: "conta.png", mimeType: "image/png", buffer: Buffer.from("valid-image-fixture") });
   await expect(page.getByRole("alert")).toContainText("parece ser um comprovante de residência");
   expect(uploadCalled).toBe(false);

@@ -66,6 +66,10 @@ Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo eve
 | **5. Formado / Concluído** | `veteran` | `Concluído` (Success) | Diploma digital liberado para download ICP-Brasil. |
 
 ### 2.2. Promotor / Consultor (`promoter` / `promotor`)
+O candidato usa o mesmo construtor de itens documentais do aluno em matrícula: identidade, endereço, escolaridade e selfie. No aluno, a identidade admite apenas RG; no candidato, RG ou CNH. O acesso `Comece a indicar` fica no cabeçalho e abre uma seção própria, disponível desde o cadastro inicial. Os hashes do candidato selecionam o conteúdo exibido, com travas para etapas futuras e consulta das já aprovadas. A chave PIX continua no fluxo existente antes da escolaridade e não implica cobrança para o promotor.
+
+O aluno `lead` conserva o pagamento antes da coleta documental. Equivalência de shell e estilo não altera essa regra de negócio, nem a escolaridade máxima do aluno; o promotor admite formação superior.
+
 | Status / Etapa | Identificador | Badge Dock | Ação Principal / Destaque |
 |---|---|---|---|
 | **1. Credenciamento** | `candidate` | `Onboarding` | Acesso restrito a termo de adesão, docs e chave PIX. |

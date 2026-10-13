@@ -130,7 +130,7 @@
       </div>
 
       <div>
-        <a href="/hub/active/operations" class="btn inline-flex items-center gap-2 text-xs py-3 px-6 font-bold text-[var(--ink)] cursor-pointer">Operar processos →</a>
+        <a href="/hub/active/operations" class="btn inline-flex items-center gap-2 text-xs py-3 px-6 font-bold text-[var(--ink)] cursor-pointer">Gerenciar alunos →</a>
         <a
           href="/hub/review"
           class="btn inline-flex items-center gap-2 text-xs py-3 px-6 font-bold uppercase tracking-wider text-[var(--ink)] cursor-pointer"
@@ -168,7 +168,7 @@
         <p class="text-xs text-white/60 mt-1.5">RG, histórico e selfies</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-xs text-white/60 uppercase font-semibold">Bancas Presenciais</span>
+        <span class="text-xs text-white/60 uppercase font-semibold">Provas presenciais</span>
         <p class="text-3xl font-bold text-blue-300 mt-1">
           {#if isLoading}
             <span class="text-sm font-normal text-white/50">Carregando...</span>

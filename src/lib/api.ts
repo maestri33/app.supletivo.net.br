@@ -376,7 +376,8 @@ export interface LeadMe {
   failed_reason?: string | null;
   created_at: string;
   customer: { name?: string | null; phone?: string | null; email?: string | null; cpf?: string | null };
-  promoter: Record<string, unknown>;
+  promoter: { external_id: string; name?: string | null; contact_url?: string | null };
+  hub?: { name?: string | null; coordinator_name?: string | null; contact_url?: string | null } | null;
   checkout?: CheckoutOut | null;
   pricing?: Pricing | null;
 }
@@ -578,10 +579,23 @@ export interface StudentMe {
   name?: string | null;
   status?: string | null;
   platform?: StudentPlatform | null;
+  partner_fees?: {
+    first: PartnerFee | null;
+    second: PartnerFee | null;
+    first_paid: boolean;
+    second_scheduled: boolean;
+  } | null;
   documents?: StudentDocument[];
   blood_type?: BloodType | null;
   pendencies?: StudentPendency[];
   diploma?: StudentDiploma | null;
+}
+
+export interface PartnerFee {
+  status: string;
+  amount: string;
+  scheduled_for?: string | null;
+  paid: boolean;
 }
 
 export function getStudentMe(): Promise<StudentMe> {

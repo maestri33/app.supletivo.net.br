@@ -1,6 +1,7 @@
 import * as React from "react";
-import type { FloatingDockItem, DockStatusIndicator } from "@/components/ui/floating-dock";
-import type { AdapterContext, PromoterDockState, ItemHealthStatus } from "./types";
+import { identityDockItems } from "./identityDockItems";
+import type { FloatingDockItem } from "@/components/ui/floating-dock";
+import type { AdapterContext, PromoterDockState } from "./types";
 import {
   IconHome,
   IconUsers,
@@ -10,24 +11,8 @@ import {
   IconLock,
   IconFileText,
   IconAlertTriangle,
-  IconUserCheck,
   IconHeadset,
-  IconLink,
 } from "@tabler/icons-react";
-
-function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
-  switch (health) {
-    case "rejected":
-      return "danger";
-    case "under_review":
-      return "warning";
-    case "approved":
-      return "success";
-    case "pending":
-    default:
-      return "normal";
-  }
-}
 
 /**
  * Adapter do Ambiente do Promotor / Consultor Educacional.
@@ -67,41 +52,15 @@ export function getPromoterDockItems(
 
   // ── 1. STATUS CANDIDATE: Credenciamento & Onboarding Inicial ──
   if (isCandidate) {
-    // O candidato usa a mesma casca do lead do aluno. O credenciamento é um
-    // único wizard (documento, endereço, escolaridade, termo e selfie), então
-    // o dock não oferece atalhos para telas que não existem.
-    const [candidatePath, candidateHash] = currentPath.split("#");
-    const isOnboardingActive =
-      !candidateHash &&
-      (candidatePath === "/promoter/candidate/onboarding" ||
-        candidatePath === "/promoter/candidate" ||
-        candidatePath === "/promoter");
-    const isReferralActive = candidateHash === "referral";
-
-    return [
-      {
-        id: "onboarding",
-        title: "Cadastro",
-        icon: <IconUserCheck className="h-full w-full" />,
-        href: "/promoter/candidate/onboarding",
-        isActive: isOnboardingActive,
-        statusIndicator: mapHealthToIndicator(state.onboardingStatus),
-      },
-      {
-        id: "referral",
-        title: "Começar a indicar",
-        icon: <IconLink className="h-full w-full" />,
-        href: "/promoter/candidate/onboarding#referral",
-        isActive: isReferralActive,
-        statusIndicator: "success",
-      },
-      {
-        id: "logout",
-        title: "Sair",
-        icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-        onClick: onLogout,
-      },
-    ];
+    const next = state.registrationStep ?? "documents";
+    return identityDockItems({
+      documentTitle: "1. RG ou CNH",
+      active: state.selectedSection === "pix" ? "education" : state.selectedSection ?? (next === "pix" ? "education" : next),
+      paths: { documents: "#documents", address: "#address", education: "#education", selfie: "#selfie" },
+      health: { documents: state.documentStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
+      enabled: { documents: true, address: state.documentReady === true, education: state.documentReady === true && state.addressReady === true, selfie: state.educationReady === true },
+      onLogout,
+    });
   }
 
   // ── 2. STATUS TRAINING: Capacitação Obrigatória (LMS) com Painel Travado ──
