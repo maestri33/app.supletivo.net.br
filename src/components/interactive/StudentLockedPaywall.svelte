@@ -285,7 +285,10 @@
         if (cleanCpf.length !== 11) {
           throw new Error("CPF deve conter 11 dígitos numéricos.");
         }
-        await confirmIdentity(cleanCpf);
+        const identity = await confirmIdentity(cleanCpf);
+        if (identity.pending) {
+          throw new Error("Seu CPF está em conferência. A consulta continua automaticamente; tente continuar em instantes.");
+        }
       }
 
       if (missingFields.includes("email") && profileEmail.trim()) {

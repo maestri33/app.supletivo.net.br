@@ -393,6 +393,11 @@ export function getLeadCheckoutUrl(): Promise<{ url: string }> {
 /** IdentityOut — passo 3 do funil v2: o CPF confirmado e a identidade do pergaminho. */
 export interface IdentityOut {
   cpf: string;
+  status?: "pending" | "success";
+  pending?: boolean;
+  lookup_id?: string | null;
+  attempts?: number;
+  last_error?: string | null;
   name: string | null;
   /** ISO YYYY-MM-DD — quem calcula a idade é o front. */
   birth_date: string | null;
@@ -412,7 +417,18 @@ export interface IdentityOut {
  * tentativa e avisa o titular) · 409 `CPF_ALREADY_SET` · 502 `CPF_SERVICE_DOWN`.
  */
 export function confirmIdentity(cpf: string): Promise<IdentityOut> {
-  return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } });
+  return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } }).then(async (result) => {
+    if (!result.pending) return result;
+    // O worker pode precisar de mais tempo que a tela; espera alguns ciclos sem
+    // repetir a chamada externa. Se ainda estiver pendente, o próximo passo do
+    // usuário poderá consultar novamente pelo mesmo job idempotente.
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2500));
+      const current = await requestAuth<IdentityOut>("/api/v1/clients/lead/identity/status");
+      if (!current.pending) return current;
+    }
+    return result;
+  });
 }
 
 /** EmailOut — passo 5 do funil v2: o e-mail gravado (normalizado pelo backend). */
