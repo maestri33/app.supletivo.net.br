@@ -165,6 +165,11 @@ export function getPromoterDockItems(
       statusIndicator: "normal",
     },
     {
+      id: "referral", title: "Indicar", icon: <IconLink className="h-full w-full" />,
+      href: "/promoter/active/dashboard#referral",
+      isActive: currentPath.endsWith("#referral"), statusIndicator: "normal",
+    },
+    {
       id: "leads",
       title: "Leads",
       icon: <IconUsers className="h-full w-full" />,

@@ -63,7 +63,7 @@
     </div>
 
     <!-- Link Box -->
-    <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+    <div id="referral" class="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
       <span class="text-white/60">Seu Link Oficial:</span>
       <code class="text-[var(--yellow)] font-mono truncate select-all">{referralUrl}</code>
     </div>

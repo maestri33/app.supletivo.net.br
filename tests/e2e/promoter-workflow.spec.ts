@@ -210,6 +210,9 @@ test("active promoter has actual share actions and a documents navigation entry"
   await expect(page.getByRole("link", { name: "Facebook", exact: true })).toHaveAttribute("href", `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(ref)}`);
   await expect(page.getByRole("button", { name: "Instagram", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /Documentos/ })).toHaveAttribute("href", "/promoter/active/documents");
+  await page.getByRole("navigation", { name: "Navegação principal do promoter" }).getByRole("link", { name: "Indicar", exact: true }).click();
+  await expect(page).toHaveURL(/\/promoter\/active\/dashboard#referral$/);
+  await expect(page.getByText("Seu Link Oficial:")).toBeVisible();
 });
 
 test("promoter documents download includes authentication rather than a public media link", async ({ page }) => {
