@@ -87,7 +87,10 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
       </script>
     )}
   </head>
-  <body class="flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink">
+  <body
+    class:list={["flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink", shouldRenderDock && "app-shell"]}
+    data-app-shell={shouldRenderDock ? "true" : undefined}
+  >
     <a
       href="#conteudo"
       class="sr-only rounded-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:bg-brand-ink focus:px-4 focus:py-2 focus:font-bold focus:text-white"

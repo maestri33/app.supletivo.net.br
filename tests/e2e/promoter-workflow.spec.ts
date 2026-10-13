@@ -68,6 +68,12 @@ test("canonical candidate gets a referral link immediately and stays in registra
   await expect(page.getByRole("heading", { name: "Você já pode indicar" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveValue(readyCandidate.ref_url);
   await expect(page).toHaveURL(/\/promoter\/candidate$/);
+  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
+  await expect(dock.getByRole("link", { name: "Cadastro", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding");
+  await expect(dock.getByRole("link", { name: "Começar a indicar", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding#referral");
+  await expect(dock.getByRole("link", { name: "Chave PIX", exact: true })).toHaveCount(0);
+  await dock.getByRole("link", { name: "Começar a indicar", exact: true }).click();
+  await expect(page).toHaveURL(/\/promoter\/candidate\/onboarding#referral$/);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 

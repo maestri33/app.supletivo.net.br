@@ -9,10 +9,10 @@ import {
   IconSchool,
   IconLock,
   IconFileText,
-  IconFileCheck,
   IconAlertTriangle,
   IconUserCheck,
   IconHeadset,
+  IconLink,
 } from "@tabler/icons-react";
 
 function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
@@ -26,19 +26,6 @@ function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
     case "pending":
     default:
       return "normal";
-  }
-}
-
-function getBadgeFromHealth(health?: ItemHealthStatus): { badge?: string; badgeVariant?: "danger" | "warning" | "success" } {
-  switch (health) {
-    case "rejected":
-      return { badge: "!", badgeVariant: "danger" };
-    case "under_review":
-      return { badge: "Análise", badgeVariant: "warning" };
-    case "approved":
-      return { badge: "OK", badgeVariant: "success" };
-    default:
-      return {};
   }
 }
 
@@ -80,47 +67,33 @@ export function getPromoterDockItems(
 
   // ── 1. STATUS CANDIDATE: Credenciamento & Onboarding Inicial ──
   if (isCandidate) {
-    const onboardingHealth = getBadgeFromHealth(state.onboardingStatus);
-    const pixHealth = getBadgeFromHealth(state.pixStatus);
-    const termsHealth = getBadgeFromHealth(state.termsStatus);
-
+    // O candidato usa a mesma casca do lead do aluno. O credenciamento é um
+    // único wizard (documento, endereço, escolaridade, termo e selfie), então
+    // o dock não oferece atalhos para telas que não existem.
+    const [candidatePath, candidateHash] = currentPath.split("#");
     const isOnboardingActive =
-      currentPath === "/promoter/candidate/onboarding" ||
-      currentPath === "/promoter/candidate" ||
-      currentPath === "/promoter";
-    const isPixActive = currentPath === "/promoter/candidate/pix";
-    const isTermsActive = currentPath === "/promoter/candidate/terms";
+      !candidateHash &&
+      (candidatePath === "/promoter/candidate/onboarding" ||
+        candidatePath === "/promoter/candidate" ||
+        candidatePath === "/promoter");
+    const isReferralActive = candidateHash === "referral";
 
     return [
       {
         id: "onboarding",
-        title: "1. Cadastro",
+        title: "Cadastro",
         icon: <IconUserCheck className="h-full w-full" />,
         href: "/promoter/candidate/onboarding",
         isActive: isOnboardingActive,
-        badge: onboardingHealth.badge,
-        badgeVariant: onboardingHealth.badgeVariant,
         statusIndicator: mapHealthToIndicator(state.onboardingStatus),
       },
       {
-        id: "pix",
-        title: "2. Chave PIX",
-        icon: <IconCash className="h-full w-full" />,
-        href: "/promoter/candidate/pix",
-        isActive: isPixActive,
-        badge: pixHealth.badge,
-        badgeVariant: pixHealth.badgeVariant,
-        statusIndicator: mapHealthToIndicator(state.pixStatus),
-      },
-      {
-        id: "terms",
-        title: "3. Termos",
-        icon: <IconFileCheck className="h-full w-full" />,
-        href: "/promoter/candidate/terms",
-        isActive: isTermsActive,
-        badge: termsHealth.badge,
-        badgeVariant: termsHealth.badgeVariant,
-        statusIndicator: mapHealthToIndicator(state.termsStatus),
+        id: "referral",
+        title: "Começar a indicar",
+        icon: <IconLink className="h-full w-full" />,
+        href: "/promoter/candidate/onboarding#referral",
+        isActive: isReferralActive,
+        statusIndicator: "success",
       },
       {
         id: "logout",

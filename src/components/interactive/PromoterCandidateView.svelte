@@ -314,7 +314,7 @@
   {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
   {#if loading}<p role="status">Consultando seu credenciamento…</p>
   {:else if candidate}
-    <section class="candidate-card candidate-referral-summary" aria-label="Indicações">
+    <section id="referral" class="candidate-card candidate-referral-summary" aria-label="Indicações">
       <div>
         <p class="eyebrow">Comissões</p>
         <h2>Você já pode indicar</h2>
@@ -437,6 +437,7 @@
   .candidate-header { background: var(--blue); }
   .candidate-card { display: grid; gap: 1rem; background: var(--ink-soft); border: 1px solid var(--glass-border-dark); }
   .candidate-referral-summary { gap: 1.25rem; }
+  #referral { scroll-margin-top: 1.25rem; }
   .candidate-referral-summary > div:first-child { display: grid; gap: .45rem; }
   .candidate-referral-summary .eyebrow { margin: 0; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
   .candidate-referral-summary h2, .candidate-referral-summary p { margin: 0; }

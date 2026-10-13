@@ -77,6 +77,7 @@ export const FloatingDock: React.FC<FloatingDockProps> = ({
     <nav
       aria-label={dockAriaLabel}
       data-testid="role-adaptive-dock"
+      data-app-dock="true"
       className={cn("fixed bottom-6 inset-x-0 z-50 flex justify-center items-center pointer-events-none", className)}
     >
       <div className="pointer-events-auto">

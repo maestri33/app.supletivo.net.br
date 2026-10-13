@@ -125,6 +125,30 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * Shell de produto: o cabeçalho e o dock ocupam suas próprias camadas; a
+ * área central é o único scroller. Isso evita que um card fique escondido
+ * atrás da navegação fixa em telas pequenas e com teclado aberto.
+ */
+body.app-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+body.app-shell > #conteudo {
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+body.app-shell > #conteudo.app-scroll {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+
+body.app-shell [data-app-dock="true"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* Seleção com contraste canônico */
 ::selection {
   background: var(--yellow);
