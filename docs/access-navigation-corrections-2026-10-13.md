@@ -15,6 +15,8 @@
 
 - Verificação Astro: zero erros/avisos, com hints relativos a alterações concorrentes.
 - Build em diretório alternativo: concluído (o build inicial em `dist` encontrou bloqueio de arquivo no Windows).
-- Sem deploy nem smoke autenticado desta entrega. Mudanças simultâneas de outra execução precisam ser separadas antes da publicação.
-- O backend precisa publicar os campos de responsáveis e `partner_fees` antes dos frontends.
+- Publicado: app `.112`, Worker `d3f272ce-b6a4-477c-aec2-c6b7e7a7cd6a`, código `df6bb9a8b75206ed0f9575d319078e50ad95a0e9`. Rollback: Worker `668a12ce-cf1e-4055-a51f-e261b181ab66`.
+- Os contratos foram publicados primeiro no backend `.110`; o backend `.113` também corrige a inferência indevida de papel de aluno após revogação.
+- Smoke autenticado de produção: painel e arquivo de documentos do promotor carregam dados reais; abas agora respeitam os papéis ativos. Não foi feita nova aprovação documental ou transação financeira.
+- Acesso e financeiro do aluno ativo permanecem sem smoke real: a consulta de produção encontrou zero registros Student e Enrollment. Não foram criados estados fictícios para apresentar a tela como testada.
 - Apenas o usuário homologa a entrega.
