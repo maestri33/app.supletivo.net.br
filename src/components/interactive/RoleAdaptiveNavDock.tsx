@@ -117,6 +117,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
       <nav
         aria-label={`Navegação principal do ${activeRole}`}
         data-app-dock="true"
+        data-app-dock-mode="bottom-bar"
         className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[var(--ink)]/90 backdrop-blur-2xl shadow-2xl pb-[env(safe-area-inset-bottom)]"
       >
         <div className="h-[2px] w-full bg-gradient-to-r from-[var(--green)] via-[var(--yellow)] to-[var(--blue)]" />

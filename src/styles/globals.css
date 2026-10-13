@@ -149,6 +149,14 @@ body.app-shell [data-app-dock="true"] {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* No modo barra, o dock participa do layout e reserva sua própria altura. */
+body.app-shell > [data-app-dock-mode="bottom-bar"] {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
 /* Seleção com contraste canônico */
 ::selection {
   background: var(--yellow);
