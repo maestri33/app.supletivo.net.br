@@ -5,6 +5,8 @@ const materialId = "44444444-4444-4444-8444-444444444444";
 
 async function authenticate(page: Page, roles: string[]) {
   await page.addInitScript(({ roles, userId }) => {
+    if (sessionStorage.getItem("fixture-session-seeded")) return;
+    sessionStorage.setItem("fixture-session-seeded", "true");
     localStorage.setItem("supletivo.login", JSON.stringify({
       access_token: "test-token", refresh_token: "test-refresh", roles,
     }));
@@ -66,18 +68,24 @@ test("canonical candidate gets a referral link immediately and stays in registra
   await page.route("**/api/v1/collaborators/candidate/document", route => route.fulfill({ json: readyDocument }));
   await page.goto("/promoter/candidate");
   const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
-  await expect(dock.getByRole("link", { name: /1\. RG ou CNH/ })).toHaveAttribute("href", "#documents");
-  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("href", "#address");
-  await expect(dock.getByRole("link", { name: /3\. Escolaridade/ })).toHaveAttribute("href", "#education");
+  await expect(dock.getByRole("button", { name: "Sair", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("banner").getByRole("button", { name: "Sair", exact: true })).toBeVisible();
+  await expect(dock.getByRole("link", { name: "Indicar", exact: true })).toBeVisible();
+  await expect(dock.getByRole("link", { name: /RG ou CNH/ })).toHaveAttribute("href", "#documents");
+  await expect(dock.getByRole("link", { name: /Endereço/ })).toHaveAttribute("href", "#address");
+  await expect(dock.getByRole("link", { name: /Escolaridade/ })).toHaveAttribute("href", "#education");
   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Comece a indicar", exact: true }).click();
+  await page.getByRole("link", { name: "Indicar", exact: true }).click();
   await expect(page).toHaveURL(/#referral$/);
   await expect(page.getByRole("heading", { name: "Você já pode indicar" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveValue(readyCandidate.ref_url);
-  await dock.getByRole("link", { name: /2\. Endereço/ }).click();
+  await dock.getByRole("link", { name: /Endereço/ }).click();
   await expect(page.getByRole("heading", { name: "Comprovante de residência" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("banner").getByRole("button", { name: "Sair", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  expect(await page.evaluate(() => localStorage.getItem("supletivo.login"))).toBeNull();
 });
 
 test("candidate blocks a wrong document in the browser before the authoritative upload", async ({ page }) => {
@@ -101,8 +109,8 @@ test("candidate blocks a wrong document in the browser before the authoritative 
   });
   await page.goto("/promoter/candidate");
   const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
-  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("aria-disabled", "true");
-  await expect(dock.getByRole("link", { name: /4\. Selfie/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(dock.getByRole("link", { name: /Endereço/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(dock.getByRole("link", { name: /Selfie/ })).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: /Envie seu RG ou CNH/ }).click();
   await expect(page.getByRole("dialog", { name: "Como quer enviar o documento?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancelar", exact: true }).click();

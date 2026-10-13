@@ -21,6 +21,19 @@ async function appScrollTop(page: Page) {
   return page.evaluate(() => document.querySelector<HTMLElement>('#conteudo')?.scrollTop ?? window.scrollY);
 }
 
+test('student lead has unnumbered payment buttons and logout only in navbar', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.addInitScript(() => localStorage.setItem('supletivo.login', JSON.stringify({ access_token: 'fixture', refresh_token: 'fixture' })));
+  await page.route('**/api/v1/clients/whoami', route => route.fulfill({ json: { roles: ['lead'], role_statuses: { student: 'lead' }, name: 'Aluno de teste' } }));
+  await page.route('**/api/v1/clients/lead/me', route => route.fulfill({ json: { status: 'started', checkout: null } }));
+  await page.goto('/student/lead/payment');
+  const dock = page.getByRole('navigation', { name: 'Navegação principal do student' });
+  await expect(dock.getByRole('button', { name: 'Forma de pagamento', exact: true })).toBeVisible();
+  await expect(dock.getByRole('button', { name: 'Checkout', exact: true })).toBeDisabled();
+  await expect(dock.getByRole('button', { name: 'Sair', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Sair', exact: true })).toBeVisible();
+});
+
 for (const role of ['student', 'promoter'] as const) {
   test(`${role}: wheel scrolls the page outside the contract`, async ({ page }) => {
     await page.setViewportSize({ width: 502, height: 648 });
@@ -31,6 +44,8 @@ for (const role of ['student', 'promoter'] as const) {
     await page.getByRole('checkbox').scrollIntoViewIfNeeded();
     const box = await page.getByRole('checkbox').boundingBox();
     const dock = await page.locator('nav[aria-label^="Navegação principal"]').boundingBox();
+    await expect(page.locator('[data-app-dock]').getByRole('button', { name: 'Sair', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Sair', exact: true })).toBeVisible();
     const main = await page.locator('#conteudo').boundingBox();
     expect(box).not.toBeNull(); expect(dock).not.toBeNull();
     expect(main!.y + main!.height).toBeLessThanOrEqual(dock!.y + 1);
@@ -58,17 +73,17 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 700 });
     await openSelfie(page, 'promoter');
     const dock = page.getByRole('navigation', { name: 'Navegação principal do promoter' });
-    await dock.getByRole('link', { name: /1\. RG ou CNH/ }).click();
+    await dock.getByRole('link', { name: /RG ou CNH/ }).click();
     await expect(page.getByText('RG conferido')).toBeVisible();
-    await expect(dock.getByRole('link', { name: /1\. RG ou CNH/ })).toHaveAttribute('aria-current', 'page');
+    await expect(dock.getByRole('link', { name: /RG ou CNH/ })).toHaveAttribute('aria-current', 'page');
     await page.screenshot({ path: `test-results/candidate-dock-${width}.png` });
-    await dock.getByRole('link', { name: /2\. Endereço/ }).click();
+    await dock.getByRole('link', { name: /Endereço/ }).click();
     await expect(page.getByRole('heading', { name: 'Comprovante de residência' })).toBeVisible();
-    await dock.getByRole('link', { name: /3\. Escolaridade/ }).click();
+    await dock.getByRole('link', { name: /Escolaridade/ }).click();
     await expect(page.getByText('Escolaridade registrada:')).toBeVisible();
-    await dock.getByRole('link', { name: /4\. Selfie/ }).click();
+    await dock.getByRole('link', { name: /Selfie/ }).click();
     await expect(page.getByRole('checkbox')).toBeVisible();
-    await page.getByRole('link', { name: 'Comece a indicar' }).click();
+    await page.getByRole('link', { name: 'Indicar' }).click();
     await expect(page.getByRole('textbox', { name: 'Seu link de indicação' })).toBeVisible();
     const geometry = await page.evaluate(() => {
       const main = document.querySelector('#conteudo')!.getBoundingClientRect();

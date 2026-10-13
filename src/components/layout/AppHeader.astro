@@ -11,7 +11,7 @@ const { appName = "Supletivo", brandColor } = Astro.props;
 ---
 
 <header class="sticky top-0 z-30 flex justify-center border-b border-white/10 bg-brand-ink/35 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
-  <div class="flex w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5">
+  <div class="flex flex-wrap w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6 py-2.5">
     <div class="flex items-center gap-2">
       <span class="flex gap-1" aria-hidden="true">
         <span class="size-2 rounded-full bg-brand-green"></span>
@@ -36,12 +36,12 @@ const { appName = "Supletivo", brandColor } = Astro.props;
     </div>
 
     <!-- Abas de Roles Superiores -->
-    <div class="flex items-center justify-center">
+    <div class="order-3 basis-full sm:order-none sm:basis-auto flex items-center justify-center">
       <RoleTabsHeader client:load />
     </div>
 
     <div class="flex items-center gap-2">
-      <AppHeaderUser client:load />
+      <AppHeaderUser client:load showLogout={/^\/(student|promoter)(\/|$)/.test(Astro.url.pathname)} />
     </div>
   </div>
 </header>

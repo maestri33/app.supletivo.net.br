@@ -12,6 +12,7 @@ import {
   IconFileText,
   IconAlertTriangle,
   IconHeadset,
+  IconLink,
 } from "@tabler/icons-react";
 
 /**
@@ -53,14 +54,17 @@ export function getPromoterDockItems(
   // ── 1. STATUS CANDIDATE: Credenciamento & Onboarding Inicial ──
   if (isCandidate) {
     const next = state.registrationStep ?? "documents";
-    return identityDockItems({
-      documentTitle: "1. RG ou CNH",
+    return [...identityDockItems({
+      documentTitle: "RG ou CNH",
       active: state.selectedSection === "pix" ? "education" : state.selectedSection ?? (next === "pix" ? "education" : next),
       paths: { documents: "#documents", address: "#address", education: "#education", selfie: "#selfie" },
       health: { documents: state.documentStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
       enabled: { documents: true, address: state.documentReady === true, education: state.documentReady === true && state.addressReady === true, selfie: state.educationReady === true },
-      onLogout,
-    });
+    }), {
+      id: "referral", title: "Indicar", icon: <IconLink className="h-full w-full" />,
+      href: "#referral", isActive: state.selectedSection === "referral" || currentPath.endsWith("#referral"),
+      statusIndicator: "normal",
+    }];
   }
 
   // ── 2. STATUS TRAINING: Capacitação Obrigatória (LMS) com Painel Travado ──

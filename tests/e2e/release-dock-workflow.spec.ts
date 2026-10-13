@@ -36,7 +36,7 @@ for (const status of ["awaiting_release", "fee_paid", "fee_scheduled"]) {
     await expect(page).toHaveURL(/\/student\/enrollment#payment$/);
     await expect(dock.getByRole("link", { name: "Pagamento", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(dock.getByRole("link", { name: "Acompanhamento", exact: true })).not.toHaveAttribute("aria-current", "page");
-    await expect(dock.getByText("4. Selfie", { exact: true })).toHaveCount(0);
+    await expect(dock.getByText("Selfie", { exact: true })).toHaveCount(0);
   });
 }
 
@@ -45,7 +45,7 @@ test("rota documental mantém wizard durante liberação", async ({ page }) => {
   await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture", hash: "fixture", text: "Contrato de teste." } }));
   await page.goto("/student/enrollment/selfie");
   const dock = page.getByRole("navigation", { name: "Navegação principal do student" });
-  await expect(dock.getByRole("link", { name: /4\. Selfie/ })).toBeVisible();
+  await expect(dock.getByRole("link", { name: /Selfie/ })).toBeVisible();
   await expect(dock.getByRole("link", { name: "Pagamento", exact: true })).toHaveCount(0);
 });
 

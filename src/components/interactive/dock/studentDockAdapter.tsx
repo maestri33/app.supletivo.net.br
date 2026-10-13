@@ -55,10 +55,10 @@ export function getStudentDockItems(
 
     const checkoutTitle =
       modality === "pix"
-        ? "2. Checkout PIX"
+        ? "Checkout PIX"
         : modality === "credit_card"
-          ? "2. Checkout Cartão"
-          : "2. Checkout";
+          ? "Checkout Cartão"
+          : "Checkout";
 
     const checkoutIcon =
       modality === "credit_card" ? (
@@ -70,7 +70,7 @@ export function getStudentDockItems(
     return [
       {
         id: "payment",
-        title: "1. Forma de Pagamento",
+        title: "Forma de pagamento",
         icon: <IconCreditCard className="h-full w-full" />,
         href: "/student/lead/payment",
         onClick: () => {
@@ -267,9 +267,8 @@ export function getStudentDockItems(
   const documentPath = currentPath.split("#")[0];
   const active = documentPath.endsWith("/address") ? "address" : documentPath.endsWith("/education") ? "education" : documentPath.endsWith("/selfie") ? "selfie" : "documents";
   return identityDockItems({
-    documentTitle: "1. RG", active,
+    documentTitle: "RG", active,
     paths: { documents: "/student/enrollment/rg", address: "/student/enrollment/address", education: "/student/enrollment/education", selfie: "/student/enrollment/selfie" },
     health: { documents: state.rgStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
-    onLogout,
   });
 }

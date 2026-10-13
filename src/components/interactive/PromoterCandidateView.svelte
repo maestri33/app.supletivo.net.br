@@ -344,7 +344,7 @@
 <div class="candidate-view" data-testid="promoter-candidate">
   <header class="candidate-header">
     <p class="eyebrow">Credenciamento</p>
-    <div class="candidate-heading"><h1>Seu cadastro</h1><a class="referral-shortcut" href="#referral" aria-label="Comece a indicar"><ReferralLinkIcon /><span>Comece a indicar</span></a></div>
+    <h1>Seu cadastro</h1>
     <p>Envie seus documentos. Os dados de identidade e endereço são extraídos automaticamente.</p>
   </header>
   {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
@@ -496,10 +496,6 @@
   .candidate-view { width: min(100%, var(--container-narrow)); margin-inline: auto; display: grid; gap: 1.25rem; color: var(--paper); font-family: var(--font-sans); }
   .candidate-header, .candidate-card { border-radius: var(--radius-lg); padding: clamp(1.25rem, 4vw, 2rem); }
   .candidate-header { padding: 0; }
-  .candidate-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  .candidate-heading h1 { margin: .5rem 0; }
-  .referral-shortcut { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: var(--input-height); padding: .5rem .75rem; border-radius: var(--input-radius); color: var(--yellow); background: var(--ink-soft); font-size: .8rem; text-decoration: none; font-weight: 700; }
-  .referral-shortcut :global(svg) { width: 1.4rem; height: 1.4rem; flex: none; }
   .capture-space { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; width: 100%; min-height: 180px; padding: 1.25rem .75rem; border: 1px dashed var(--line-light); border-radius: var(--input-radius); background: var(--paper-soft); color: var(--ink); cursor: pointer; font: inherit; }
   .capture-space :global(svg) { width: 2.5rem; height: 2.5rem; color: var(--blue); }
   .capture-hint { margin: 0; text-align: center; font-size: .9rem; color: var(--muted-on-dark); }

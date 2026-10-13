@@ -75,7 +75,7 @@ test.describe("Wizard Guia do Dock no Status Aluno > Lead (/student/lead)", () =
 
     // Valida que existem estritamente as duas fases: 1. Modalidade e 2. Checkout
     const btnModalidade = navBar.getByRole("button", { name: /1\. Modalidade/i });
-    const btnCheckout = navBar.getByRole("button", { name: /2\. Checkout/i });
+    const btnCheckout = navBar.getByRole("button", { name: /Checkout/i });
 
     await expect(btnModalidade).toBeVisible();
     await expect(btnCheckout).toBeVisible();
@@ -128,7 +128,7 @@ test.describe("Wizard Guia do Dock no Status Aluno > Lead (/student/lead)", () =
     await expect(navBar).toBeVisible();
 
     const btnModalidade = navBar.getByRole("button", { name: /1\. Modalidade/i });
-    const btnCheckout = navBar.getByRole("button", { name: /2\. Checkout/i });
+    const btnCheckout = navBar.getByRole("button", { name: /Checkout/i });
 
     // Inicialmente bloqueado
     await expect(btnCheckout).toBeDisabled();

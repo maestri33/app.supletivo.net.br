@@ -66,7 +66,7 @@ Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo eve
 | **5. Formado / Concluído** | `veteran` | `Concluído` (Success) | Diploma digital liberado para download ICP-Brasil. |
 
 ### 2.2. Promotor / Consultor (`promoter` / `promotor`)
-O candidato usa o mesmo construtor de itens documentais do aluno em matrícula: identidade, endereço, escolaridade e selfie. No aluno, a identidade admite apenas RG; no candidato, RG ou CNH. O acesso `Comece a indicar` fica no cabeçalho e abre uma seção própria, disponível desde o cadastro inicial. Os hashes do candidato selecionam o conteúdo exibido, com travas para etapas futuras e consulta das já aprovadas. A chave PIX continua no fluxo existente antes da escolaridade e não implica cobrança para o promotor.
+O candidato usa o mesmo construtor de itens documentais do aluno em matrícula: identidade, endereço, escolaridade e selfie. No aluno, a identidade admite apenas RG; no candidato, RG ou CNH. O botão `Indicar` fica no dock do candidato e abre uma seção própria, disponível desde o cadastro inicial. Os hashes do candidato selecionam o conteúdo exibido, com travas para etapas futuras e consulta das já aprovadas. A chave PIX continua no fluxo existente antes da escolaridade e não implica cobrança para o promotor.
 
 O aluno `lead` conserva o pagamento antes da coleta documental. Equivalência de shell e estilo não altera essa regra de negócio, nem a escolaridade máxima do aluno; o promotor admite formação superior.
 
@@ -195,3 +195,7 @@ O acompanhamento da liberação emite `supletivo:enrollment-state` com `{ status
 - [ ] `pwsh scripts/checkpoint/checkpoint.ps1 -Tier fast` validado.
 - [ ] O oráculo de versão global (`https://version.v7m.live/api/version`) foi consultado e respeitado.
 - [ ] Este documento (`docs/skills/role-status-dock.md`) foi mantido atualizado.
+
+## Ajuste de navegação — 13/10/2026
+
+Os rótulos dos botões documentais e de pagamento não têm prefixos numéricos. `Sair` fica na navbar superior do aluno e do promotor e usa `clearSession`; não aparece no dock desses papéis. O dock do candidato contém RG ou CNH, Endereço, Escolaridade, Selfie e Indicar. A indicação abre `#referral` com link e compartilhamento, sem aguardar ativação.

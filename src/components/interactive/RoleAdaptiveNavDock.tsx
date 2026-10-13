@@ -112,6 +112,9 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   }
 
   // Renderização Opção 1: Bottom Bar Nativa (sem sobreposição de rodapé)
+  if (["student", "aluno", "promoter", "promotor"].includes(activeRole)) {
+    items = items.filter(item => item.id !== "logout");
+  }
   if (variant === "bottom-bar") {
     return (
       <nav
