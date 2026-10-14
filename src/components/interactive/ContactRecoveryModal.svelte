@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchJsonWithDeadline } from "@/lib/deadline";
   import { maskBrPhone, isValidBrMobile } from "@/lib/phone";
   import Modal from "@/components/ui/Modal.svelte";
 
@@ -101,7 +102,7 @@
     errorMessage = null;
 
     try {
-      const res = await fetch("/api/v1/auth/recovery/contact", {
+      const { response: res, data } = await fetchJsonWithDeadline<Record<string, any>>("/api/v1/auth/recovery/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,7 +115,6 @@
         }),
       });
 
-      const data = await res.json();
 
       if (!res.ok || (!data.success && !data.requires_challenge)) {
         throw new Error(data.error || "Não foi possível processar a recuperação de contato.");
@@ -152,7 +152,7 @@
       const cleanCpf = cpf.replace(/\D/g, "");
       const cleanPhone = newPhone.replace(/\D/g, "");
 
-      const res = await fetch("/api/v1/auth/recovery/contact", {
+      const { response: res, data } = await fetchJsonWithDeadline<Record<string, any>>("/api/v1/auth/recovery/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -164,7 +164,6 @@
         }),
       });
 
-      const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Código de verificação incorreto ou expirado.");
       }

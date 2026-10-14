@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "@/lib/config";
+import { withDeadline } from "./deadline";
 import type { Pricing } from "@/lib/payment";
 import { clearSession, getAccessToken, getRefreshToken, getLogin, saveLogin } from "@/lib/session";
 
@@ -51,24 +52,28 @@ interface RequestOptions {
 const RETRY_DELAYS_MS = [250, 900];
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
+  const attempt = () => {
+    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+    return requestOnce<T>(path, { ...opts, timeoutMs: deadline - Date.now() });
+  };
   const method = opts.method ?? (opts.json !== undefined || opts.file || opts.formData ? "POST" : "GET");
-  if (method !== "GET") return requestOnce<T>(path, opts);
+  if (method !== "GET") return attempt();
   for (const delay of RETRY_DELAYS_MS) {
     try {
-      return await requestOnce<T>(path, opts);
+      return await attempt();
     } catch (err) {
       // Só conexão morta (TypeError do fetch); ApiError e AbortError sobem na hora.
       if (!(err instanceof TypeError)) throw err;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delay, Math.max(0, deadline - Date.now()))));
     }
   }
-  return await requestOnce<T>(path, opts);
+  return await attempt();
 }
 
 async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? API_TIMEOUT_MS);
-  try {
+  return withDeadline(async () => {
     const headers: Record<string, string> = { Accept: "application/json" };
     let body: BodyInit | undefined;
     if (opts.formData) {
@@ -105,9 +110,7 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
       );
     }
     return data as T;
-  } finally {
-    clearTimeout(timeout);
-  }
+  }, opts.timeoutMs ?? API_TIMEOUT_MS, () => controller.abort());
 }
 
 let refreshPromise: Promise<LoginResponse> | null = null;
@@ -139,6 +142,7 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
  * Single-flight mutex eliminates concurrent 401 refresh race conditions.
  */
 export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
   const token = getAccessToken();
   if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
   try {
@@ -146,7 +150,7 @@ export async function requestAuth<T>(path: string, opts: RequestOptions = {}): P
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
     let tokens: LoginResponse;
-    try { tokens = await refreshAuthTokens(); }
+    try { tokens = await withDeadline(refreshAuthTokens, deadline - Date.now()); }
     catch (failure) {
       if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
         clearSession();
@@ -154,7 +158,8 @@ export async function requestAuth<T>(path: string, opts: RequestOptions = {}): P
       }
       throw failure;
     }
-    return await request<T>(path, { ...opts, token: tokens.access_token });
+    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+    return await request<T>(path, { ...opts, timeoutMs: deadline - Date.now(), token: tokens.access_token });
   }
 }
 
@@ -418,18 +423,8 @@ export interface IdentityOut {
  * tentativa e avisa o titular) · 409 `CPF_ALREADY_SET` · 502 `CPF_SERVICE_DOWN`.
  */
 export function confirmIdentity(cpf: string): Promise<IdentityOut> {
-  return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } }).then(async (result) => {
-    if (!result.pending) return result;
-    // O worker pode precisar de mais tempo que a tela; espera alguns ciclos sem
-    // repetir a chamada externa. Se ainda estiver pendente, o próximo passo do
-    // usuário poderá consultar novamente pelo mesmo job idempotente.
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2500));
-      const current = await requestAuth<IdentityOut>("/api/v1/clients/lead/identity/status");
-      if (!current.pending) return current;
-    }
-    return result;
-  });
+  // A pending ACK releases the form immediately; the durable server job is independent.
+  return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } });
 }
 
 /** EmailOut — passo 5 do funil v2: o e-mail gravado (normalizado pelo backend). */

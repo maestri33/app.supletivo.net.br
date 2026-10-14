@@ -1,3 +1,4 @@
+import { fetchJsonWithDeadline } from "./deadline";
 /**
  * TypeSafe System One (Jev) Integration Client for app.supletivo.net.br
  *
@@ -92,19 +93,15 @@ export async function triageDocument(params: {
   };
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TYPESAFE_TIMEOUT_MS);
 
-    const response = await fetch(TYPESAFE_API_URL, {
+    const { response, data: rawData } = await fetchJsonWithDeadline<unknown>(TYPESAFE_API_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    }, TYPESAFE_TIMEOUT_MS);
 
     if (response.ok) {
       interface SystemOneResponse {
@@ -116,7 +113,7 @@ export async function triageDocument(params: {
           probabilities?: Record<string, number>;
         }>;
       }
-      const data = (await response.json()) as SystemOneResponse;
+      const data = rawData as SystemOneResponse;
       const answers = data.answers || {};
 
       const tipoChoice = answers.tipo_documento?.choice || 'outro';

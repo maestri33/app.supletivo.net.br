@@ -4,6 +4,7 @@
  * through `pollUntil` — keep the surface minimal and side-effect-free.
  */
 import type { AnalysisAck } from "@/lib/api";
+import { withDeadline } from "./deadline";
 import { isSettledStatus, SETTLED_STATUSES } from "@/lib/validation";
 
 const POLL_INTERVAL_MS = 2500;
@@ -32,7 +33,7 @@ export function ackPoll(ack: AnalysisAck | null | undefined): {
   const intervalMs =
     ack?.poll_after_ms && ack.poll_after_ms > 0 ? ack.poll_after_ms : POLL_INTERVAL_MS;
   const exp = ack?.expires_at ? Date.parse(ack.expires_at) : NaN;
-  const deadlineMs = Number.isFinite(exp) ? exp : Date.now() + POLL_MAX_MS;
+  const deadlineMs = Number.isFinite(exp) ? Math.min(exp, Date.now() + POLL_MAX_MS) : Date.now() + POLL_MAX_MS;
   return { intervalMs, deadlineMs };
 }
 
@@ -46,12 +47,17 @@ export async function pollUntil<T>(
   settled: (v: T) => boolean,
   opts: { intervalMs?: number; deadlineMs?: number } = {},
 ): Promise<T> {
-  const intervalMs = opts.intervalMs ?? POLL_INTERVAL_MS;
-  const deadlineMs = opts.deadlineMs ?? Date.now() + POLL_MAX_MS;
-  let last = await fetch();
+  const intervalMs = Math.max(250, Math.min(10_000, opts.intervalMs ?? POLL_INTERVAL_MS));
+  const deadlineMs = Math.min(opts.deadlineMs ?? Infinity, Date.now() + POLL_MAX_MS);
+  let last = await withDeadline(fetch, deadlineMs - Date.now());
   while (!settled(last) && Date.now() < deadlineMs) {
-    await sleep(intervalMs);
-    last = await fetch();
+    await sleep(Math.min(intervalMs, Math.max(0, deadlineMs - Date.now())));
+    if (Date.now() >= deadlineMs) break;
+    try { last = await withDeadline(fetch, deadlineMs - Date.now()); }
+    catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") break;
+      throw error;
+    }
   }
   return last;
 }

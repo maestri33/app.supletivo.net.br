@@ -1,5 +1,6 @@
 import { ApiError, requestAuth } from "./api";
 import { getAccessToken } from "./session";
+import { withDeadline } from "./deadline";
 
 /** Restrict authenticated downloads to the same-origin media proxy. */
 export function privateMediaPath(path: string): string {
@@ -21,12 +22,11 @@ async function downloadOnce(path: string): Promise<Blob> {
   const token = getAccessToken();
   if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
-  try {
+  return withDeadline(async () => {
     const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` }, credentials: "same-origin", cache: "no-store", signal: controller.signal });
     if (!response.ok) throw new ApiError(response.status === 403 ? "Você não tem acesso a este documento." : response.status === 404 ? "O documento não foi encontrado." : response.status === 401 ? "Sessão expirada. Entre novamente." : "Não foi possível carregar o documento.", response.status);
     return await response.blob();
-  } finally { clearTimeout(timeout); }
+  }, 30_000, () => controller.abort());
 }
 
 export async function fetchPrivateMedia(path: string): Promise<Blob> {
