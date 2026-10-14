@@ -199,3 +199,5 @@ O acompanhamento da liberação emite `supletivo:enrollment-state` com `{ status
 ## Ajuste de navegação — 13/10/2026
 
 Os rótulos dos botões documentais e de pagamento não têm prefixos numéricos. `Sair` fica na navbar superior do aluno e do promotor e usa `clearSession`; não aparece no dock desses papéis. O dock do candidato contém RG ou CNH, Endereço, Escolaridade, Selfie e Indicar. A indicação abre `#referral` com link e compartilhamento, sem aguardar ativação.
+
+No lead, `leadPhase` escolhe uma única fase ativa entre forma de pagamento e checkout, inclusive quando a rota conserva `/payment` após a emissão. A prontidão vem do checkout autenticado; voltar para revisar o meio não emite uma cobrança. Os estados financeiros `pending`, `provider_confirmed`, `completed` e `review` explicam o processamento e não criam papéis. O retorno do cartão envia suas referências ao endpoint autorizado; somente `completed` com destino devolvido pelo servidor permite continuar a matrícula.

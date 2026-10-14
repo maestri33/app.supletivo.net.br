@@ -385,10 +385,27 @@ export interface LeadMe {
   hub?: { name?: string | null; coordinator_name?: string | null; contact_url?: string | null } | null;
   checkout?: CheckoutOut | null;
   pricing?: Pricing | null;
+  payment_status?: {
+    stage: "pending" | "provider_confirmed" | "completed" | "review";
+    continuation_url: string | null;
+    actual_capture_method?: string | null;
+    paid_amount?: string | null;
+  } | null;
 }
 
 export function getLeadMe(): Promise<LeadMe> {
   return requestAuth<LeadMe>("/api/v1/clients/lead/me");
+}
+
+export interface CardPaymentReferences {
+  order_nsu: string;
+  transaction_nsu: string;
+  slug: string;
+}
+
+/** Return references request server-side verification; they never confirm payment locally. */
+export function confirmLeadCardPayment(references: CardPaymentReferences): Promise<LeadMe> {
+  return requestAuth<LeadMe>("/api/v1/clients/lead/card-confirmation", { json: references });
 }
 
 /** UrlOut — single lead link (checkout when unpaid, receipt when paid). */

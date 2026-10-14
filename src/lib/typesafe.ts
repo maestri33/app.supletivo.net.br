@@ -1,4 +1,4 @@
-import { fetchJsonWithDeadline } from "./deadline";
+import { fetchJsonWithDeadline } from "./deadline.ts";
 /**
  * TypeSafe System One (Jev) Integration Client for app.supletivo.net.br
  *

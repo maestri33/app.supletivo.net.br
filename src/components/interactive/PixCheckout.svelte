@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ApiError, getPixPage, getLeadMe, type PixPage, type CheckoutOut } from "@/lib/api";
+  import { ApiError, getPixPage, getLeadMe, getErrorMessage, type PixPage, type CheckoutOut } from "@/lib/api";
   import PixIcon from "@/components/icons/PixIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
   import CopyFeedbackIcon from "@/components/icons/CopyFeedbackIcon.svelte";
@@ -17,9 +17,16 @@
   const POLL_MS = 3_000;
 
   let phase = $state<Phase>(initialData ? "ready" : "loading");
-  let data = $state<any>(initialData || null);
+  let data = $state<CheckoutOut | PixPage | null>(initialData);
   let copied = $state(false);
   let isPaid = $state(false);
+  let copyError = $state<string | null>(null);
+  let payloadField: HTMLTextAreaElement | undefined;
+  let checking = $state(false);
+  let consultationError = $state<string | null>(null);
+  let lastCheckedAt = $state<string | null>(null);
+  let continuationUrl = $state<string | null>(null);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
   function formatMoney(amount: string | number | undefined): string {
     if (!amount) return "Valor indisponível";
@@ -29,12 +36,16 @@
   }
 
   async function load() {
+    if (checking) return;
+    checking = true;
     try {
       if (token === "demo") { phase = "notfound"; return; }
 
       if (token && token !== "default" && !token.startsWith("sandbox")) {
         const next = await getPixPage(token);
         data = next;
+        consultationError = null;
+        lastCheckedAt = new Date().toLocaleTimeString("pt-BR");
         if (next.is_paid) {
           isPaid = true;
           phase = "paid";
@@ -49,36 +60,51 @@
 
       // Consulta status do lead logado (atualizado via webhook Asaas na borda)
       const lead = await getLeadMe();
-      if (lead?.checkout?.is_paid || (lead as any)?.status === "paid") {
+      consultationError = null;
+      lastCheckedAt = new Date().toLocaleTimeString("pt-BR");
+      if (lead?.checkout) data = lead.checkout;
+      if (lead.payment_status?.stage === "completed" || (!lead.payment_status && (lead.checkout?.is_paid || lead.status === "paid"))) {
         isPaid = true;
         phase = "paid";
+        const nextUrl = lead.payment_status?.continuation_url;
+        continuationUrl = nextUrl && /^\/student\/(enrollment|active|veteran)(?:[/?#]|$)/.test(nextUrl) ? nextUrl : null;
         return;
       }
       if (lead?.checkout) {
         data = { ...data, ...lead.checkout };
         phase = "ready";
+      } else {
+        phase = "notfound";
       }
     } catch (err) {
+      consultationError = err instanceof ApiError && err.status === 404
+        ? "Esta cobrança não está disponível. Confira a proposta no seu ambiente antes de pagar."
+        : getErrorMessage(err);
       if (err instanceof ApiError && err.status === 404) {
         if (!data) phase = "notfound";
       } else {
         if (!data) phase = "error";
       }
+    } finally {
+      checking = false;
     }
   }
 
   async function copyPix() {
     const payload = data?.qrcode_payload;
     if (!payload) return;
+    copied = false;
+    copyError = null;
+    clearTimeout(copyTimer);
     try {
       await navigator.clipboard.writeText(payload);
+      copied = true;
+      copyTimer = setTimeout(() => { copied = false; }, 2800);
     } catch {
-      // Fallback
+      payloadField?.focus();
+      payloadField?.select();
+      copyError = "Não conseguimos copiar automaticamente. O código está selecionado; use a opção Copiar do seu dispositivo.";
     }
-    copied = true;
-    setTimeout(() => {
-      copied = false;
-    }, 2800);
   }
 
   function handleVisibilityChange() {
@@ -86,15 +112,6 @@
       void load();
     }
   }
-
-  $effect(() => {
-    if (phase === "paid") {
-      const timer = setTimeout(() => {
-        window.location.href = "/student/enrollment";
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  });
 
   onMount(() => {
     void load();
@@ -108,6 +125,7 @@
 
     return () => {
       clearInterval(timer);
+      clearTimeout(copyTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
@@ -133,15 +151,14 @@
         </div>
         <h1 class="text-xl font-display text-white">Cobrança PIX não encontrada</h1>
         <p class="text-xs text-white/70 leading-relaxed">
-          Esta cobrança já foi confirmada ou ainda não foi emitida. Acesse suas opções de pagamento abaixo.
+          Não encontramos uma cobrança disponível neste link. Entre na sua conta para consultar a proposta ou fale com o atendimento.
         </p>
-        <button
-          type="button"
-          onclick={() => window.location.reload()}
+        <a
+          href="/"
           class="btn mt-2 w-full min-h-[48px] py-3 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
         >
-          Recarregar Opções →
-        </button>
+          Abrir minha conta →
+        </a>
       </div>
 
     {:else if phase === "error"}
@@ -153,13 +170,14 @@
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </div>
-        <h1 class="text-xl font-display text-white">Aguardando emissão no gateway</h1>
-        <p class="text-xs text-white/70 leading-relaxed">
-          O gateway está processando a chave. Toque abaixo para verificar novamente.
+        <h1 class="text-xl font-display text-white">Não conseguimos consultar a cobrança</h1>
+        <p class="text-xs text-white/70 leading-relaxed" role="alert">
+          {consultationError} Tente consultar novamente antes de pagar.
         </p>
         <button
           type="button"
           onclick={() => void load()}
+          disabled={checking}
           class="btn mt-2 w-full min-h-[48px] py-3 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
         >
           Tentar Novamente ↺
@@ -179,21 +197,20 @@
         <div>
           <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento Confirmado!</h1>
           <p class="mt-2 text-xs sm:text-sm text-emerald-200/90 leading-relaxed max-w-sm mx-auto">
-            O Asaas confirmou seu PIX. Abrindo a próxima etapa da matrícula...
+            O pagamento desta cobrança foi confirmado. O aluno responsável acompanha a matrícula na própria conta.
           </p>
-        </div>
-
-        <div class="w-full bg-white/10 rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
-          <div class="h-full bg-emerald-400 rounded-full animate-[progress_1.8s_ease-out_forwards]"></div>
         </div>
 
         <div class="mt-2">
           <a
-            href="/student/enrollment"
+            href={continuationUrl ?? "/"}
             class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 text-xs font-extrabold uppercase tracking-wider text-[var(--ink)] transition-all shadow-lg cursor-pointer"
           >
-            Continuar para a Matrícula →
+            {continuationUrl ? "Continuar matrícula →" : "Entrar na minha conta →"}
           </a>
+          {#if data?.receipt_url}
+            <a href={data.receipt_url} target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Ver comprovante ↗</a>
+          {/if}
         </div>
       </div>
 
@@ -255,11 +272,16 @@
             </div>
             <textarea
               id="pix-payload"
+              bind:this={payloadField}
               readonly
               value={data.qrcode_payload}
               onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}
               class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)] select-all"
             ></textarea>
+            {#if copyError}
+              <p class="text-xs text-[var(--muted-on-dark)]" role="alert">{copyError}</p>
+            {/if}
+            <span class="sr-only" role="status">{copied ? "Código PIX copiado para a área de transferência." : ""}</span>
             <button
               type="button"
               onclick={copyPix}
@@ -272,15 +294,14 @@
         {/if}
 
         <!-- Radar de Compensação em Tempo Real -->
-        <div class="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-2xl bg-white/[0.04] border border-white/10 mt-1">
-          <div class="relative flex size-3.5 items-center justify-center">
-            <span class="absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
-            <span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
-          </div>
-          <p class="text-[11px] text-white/80 font-medium">
-            <strong class="text-emerald-400 font-semibold">Radar Bancário Ativo:</strong> 
-            Aguardando compensação em tempo real. Não precisa recarregar.
-          </p>
+        <div class="w-full py-3 px-4 rounded-2xl bg-white/[0.04] border border-white/10 mt-1 text-left">
+          {#if consultationError}
+            <p class="text-xs text-[var(--muted-on-dark)]" role="alert"><strong>Não conseguimos atualizar agora.</strong> {consultationError} Se já pagou, aguarde a confirmação e evite pagar novamente.</p>
+            <button type="button" onclick={() => void load()} disabled={checking} class="mt-2 inline-flex min-h-12 items-center text-xs font-bold text-[var(--yellow)] underline">{checking ? "Consultando…" : "Consultar pagamento novamente"}</button>
+          {:else}
+            <p class="text-xs text-[var(--muted-on-dark)]" role="status">{checking ? "Consultando confirmação do pagamento…" : "Aguardando confirmação do pagamento. A consulta é atualizada automaticamente."}</p>
+          {/if}
+          <p class="mt-1 text-[11px] text-[var(--muted-on-dark)]">Última consulta ao servidor: {lastCheckedAt ?? "ainda não concluída"}</p>
         </div>
 
         <!-- Guia Ilustrado em 4 Passos para Celular -->

@@ -52,6 +52,7 @@ export function getStudentDockItems(
     );
     const modality = state.selectedModality;
     const isMethodSelected = Boolean(modality && isCheckoutReady);
+    const phase = state.leadPhase ?? (currentPath.endsWith("/checkout") ? "checkout" : "selection");
 
     const checkoutTitle =
       modality === "pix"
@@ -80,7 +81,7 @@ export function getStudentDockItems(
             );
           }
         },
-        isActive: currentPath.endsWith("/payment") || (!isMethodSelected && currentPath.startsWith("/student/lead")),
+        isActive: phase === "selection" || !isMethodSelected,
         disabled: false,
         statusIndicator: isMethodSelected ? "normal" : "warning",
       },
@@ -97,7 +98,7 @@ export function getStudentDockItems(
             );
           }
         },
-        isActive: currentPath.endsWith("/checkout") || (isMethodSelected && currentPath.startsWith("/student/lead")),
+        isActive: phase === "checkout" && isMethodSelected,
         disabled: !isMethodSelected,
         statusIndicator: !isMethodSelected ? "disabled" : "success",
       },

@@ -171,6 +171,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
                   type="button"
                   onClick={item.onClick}
                   disabled={item.disabled}
+                  aria-current={item.isActive ? "page" : undefined}
                   className={commonClasses}
                 >
                   {content}
