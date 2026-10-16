@@ -1,6 +1,6 @@
 {
   "name": "app.supletivo.net.br",
-  "version": "0.0.0-sandbox.122",
+  "version": "0.0.1-beta",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,6 +15,8 @@
     "test:unit": "node --experimental-strip-types --test test/typesafe-test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts tests/unit/camera-session.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "test:cli": "playwright-cli",
+    "test:cli:show": "playwright-cli show",
     "checkpoint": "sh scripts/checkpoint/checkpoint.sh",
     "checkpoint:fast": "pwsh scripts/checkpoint/checkpoint.ps1 -Tier fast",
     "checkpoint:agent": "pwsh scripts/checkpoint/checkpoint.ps1 -Tier agent"
