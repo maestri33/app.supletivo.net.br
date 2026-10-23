@@ -129,6 +129,7 @@
       status: "candidate", registrationStep: step, selectedSection: displayStep,
       documentStatus: health(documentStatus), addressStatus: health(candidate?.address_proof?.status),
       educationStatus: educationReady ? "approved" : "pending", selfieStatus: health(selfieStatus),
+      pixStatus: candidate?.pix_validated ? "approved" : "pending",
       documentReady, addressReady: proofReady, educationReady,
     } }));
   }
