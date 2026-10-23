@@ -109,8 +109,9 @@ test("candidate blocks a wrong document in the browser before the authoritative 
   });
   await page.goto("/promoter/candidate");
   const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
-  await expect(dock.getByRole("link", { name: /Endereço/ })).toHaveAttribute("aria-disabled", "true");
-  await expect(dock.getByRole("link", { name: /Selfie/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(dock.getByRole("link", { name: /Endereço/ })).toHaveAttribute("href", "#address");
+  await expect(dock.getByRole("link", { name: /Selfie/ })).toHaveAttribute("href", "#selfie");
+  await expect(dock.getByRole("link", { name: /Endereço/ })).not.toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: /Envie seu RG ou CNH/ }).click();
   await expect(page.getByRole("dialog", { name: "Como quer enviar o documento?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancelar", exact: true }).click();

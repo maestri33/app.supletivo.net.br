@@ -204,7 +204,7 @@
         <div class="mt-2">
           <a
             href={continuationUrl ?? "/"}
-            class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 text-xs font-extrabold uppercase tracking-wider text-[var(--ink)] transition-all shadow-lg cursor-pointer"
+            class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 text-xs font-extrabold uppercase tracking-wider text-[var(--ink)] transition-[background-color,transform,box-shadow] duration-200 shadow-lg cursor-pointer touch-manipulation"
           >
             {continuationUrl ? "Continuar matrícula →" : "Entrar na minha conta →"}
           </a>
@@ -276,7 +276,7 @@
               readonly
               value={data.qrcode_payload}
               onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}
-              class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)] select-all"
+              class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30 select-all"
             ></textarea>
             {#if copyError}
               <p class="text-xs text-[var(--muted-on-dark)]" role="alert">{copyError}</p>
@@ -285,7 +285,7 @@
             <button
               type="button"
               onclick={copyPix}
-              class="copy-btn-elastic btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2"
+              class="copy-btn-elastic btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-lg hover:opacity-95 transition-[opacity,transform,box-shadow] duration-200 flex items-center justify-center gap-2 touch-manipulation"
             >
               <CopyFeedbackIcon copied={copied} class="size-4" />
               <span>{copied ? "Código PIX Copiado!" : "Copiar Código PIX"}</span>
@@ -341,7 +341,7 @@
             href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20pagamento%20da%20minha%20matr%C3%ADcula%20do%20Supletivo%20e%20preciso%20de%20ajuda."
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-all cursor-pointer"
+            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-colors duration-200 cursor-pointer touch-manipulation"
           >
             <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"/>

@@ -192,7 +192,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "all")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'all'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'all'
           ? 'bg-[var(--yellow)] text-[var(--ink)] font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -201,7 +201,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "paid")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'paid'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'paid'
           ? 'bg-emerald-500 text-white font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -210,7 +210,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "pending")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'pending'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'pending'
           ? 'bg-amber-500 text-white font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -223,9 +223,9 @@
         id="leads-search"
         data-hydrated="true"
         type="text"
-        placeholder="Buscar por nome ou WhatsApp..."
+        placeholder="Buscar por nome ou WhatsApp…"
         bind:value={searchQuery}
-        class="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs placeholder-white/40 focus:outline-none focus:border-[var(--yellow)]"
+        class="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs placeholder-white/40 focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
       />
     </div>
   </div>

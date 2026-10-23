@@ -568,7 +568,7 @@
               type="text"
               bind:value={profileCpf}
               placeholder="000.000.000-00"
-              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)]"
+              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
             />
           </div>
         {/if}
@@ -581,7 +581,7 @@
               type="email"
               bind:value={profileEmail}
               placeholder="seu-email@exemplo.com"
-              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)]"
+              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
             />
           </div>
         {/if}
@@ -590,9 +590,9 @@
           type="button"
           onclick={submitProfileCompletion}
           disabled={profileBusy}
-          class="w-full py-3 rounded-xl bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 transition-all cursor-pointer disabled:opacity-50 mt-2"
+          class="w-full py-3 rounded-xl bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 transition-[opacity,transform] duration-200 cursor-pointer disabled:opacity-50 mt-2 touch-manipulation"
         >
-          {profileBusy ? "Salvando Dados..." : "Confirmar e Ir para o Pagamento →"}
+          {profileBusy ? "Salvando Dados…" : "Confirmar e Ir para o Pagamento →"}
         </button>
 
         <button

@@ -512,7 +512,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("aluno")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "aluno"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -523,7 +523,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("promotor")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "promotor"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -534,7 +534,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("polo")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "polo"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -552,7 +552,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setDockVariant("bottom-bar")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   dockVariant === "bottom-bar"
                     ? "bg-emerald-600 text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -564,7 +564,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setDockVariant("floating")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   dockVariant === "floating"
                     ? "bg-[var(--yellow)] text-black shadow-md"
                     : "text-white/70 hover:text-white"

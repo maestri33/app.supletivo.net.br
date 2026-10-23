@@ -27,6 +27,9 @@ test('promoter dashboard uses the backend referral URL, summary and real ledger'
   await page.route('**/api/v1/collaborators/promoter/commissions', route => route.fulfill({ json: ledger }));
   await page.goto('/promoter/active');
   await expect(page.locator('code')).toHaveText(profile.ref_url);
+  await expect(page.getByText('Comissões Recebidas')).toBeVisible();
+  await expect(page.getByText(/100,00/)).toBeVisible();
+  await expect(page.getByText('Comissão a Receber na Semana')).toBeVisible();
   await expect(page.getByText(/75,11/)).toBeVisible();
   await expect(page.getByText('Nesta semana: 1 matrícula(s) paga(s)')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);

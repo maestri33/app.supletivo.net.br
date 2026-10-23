@@ -141,7 +141,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               <>
                 <div
                   className={cn(
-                    "relative flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
+                    "relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200",
                     indicatorClasses
                   )}
                 >
@@ -158,7 +158,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               </>
             );
 
-            const commonClasses = `flex min-h-12 min-w-12 flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
+            const commonClasses = `flex min-h-12 min-w-12 flex-col items-center gap-1 p-2 rounded-xl transition-[color,transform] duration-200 active:scale-95 cursor-pointer touch-manipulation ${
               item.isActive
                 ? "text-[var(--yellow)] font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
                 : "text-white/70 hover:text-white"

@@ -34,7 +34,7 @@
     missing_requirements?: string[];
     pix_validated: boolean;
     selfie_verified: boolean;
-    profile?: { name?: string; education_level?: string | null; education_completed?: boolean | null; education_qualification?: string | null; education_grade?: number | null; education_last_completed_grade?: number | null; education_status?: string | null; education_city?: string | null; education_state?: string | null; education_year?: number | null; education_school?: string | null } | null;
+    profile?: { cpf?: string; name?: string; education_level?: string | null; education_completed?: boolean | null; education_qualification?: string | null; education_grade?: number | null; education_last_completed_grade?: number | null; education_status?: string | null; education_city?: string | null; education_state?: string | null; education_year?: number | null; education_school?: string | null } | null;
     address?: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zipcode?: string; missing_fields?: string[] } | null;
     address_proof?: AddressAnalysis & { reason?: string | null; needs_kinship?: boolean; kinship_relation?: string | null; holder_name?: string | null } | null;
     documents?: { rg?: DocumentSection | null; cnh?: DocumentSection | null } | null;
@@ -52,6 +52,14 @@
   let snapshotSequence = 0;
   let mutationRevision = 0, appliedSnapshotSequence = 0;
   let captureView = $derived(deriveRgCapture(documentCapture));
+  let documentManualNumber = $state("");
+  let addressCep = $state("");
+  let addressStreet = $state("");
+  let addressNumber = $state("");
+  let addressNeighborhood = $state("");
+  let addressCity = $state("");
+  let addressState = $state("");
+  let showManualAddress = $state(false);
   let pixKey = $state("");
   let pixKeyType = $state("CPF");
   let educationLevel = $state("medio");
@@ -87,27 +95,30 @@
 
   let documentStatus = $derived(documentSection?.analysis_status ?? documentSection?.validation_status);
   let selfieStatus = $derived(candidate?.selfie?.analysis_status ?? candidate?.selfie?.status);
-  let documentReady = $derived(Boolean(documentSection?.number && !documentSection?.next_slot && documentStatus === "approved"));
-  let proofReady = $derived(candidate?.address_proof?.status === "approved" && !(candidate?.address?.missing_fields?.length) && ["street", "number", "city", "state", "zipcode"].every(key => Boolean(candidate?.address?.[key as keyof NonNullable<Candidate["address"]>])));
+  let hasDocumentMedia = $derived(Boolean(documentSection?.front_photo || documentSection?.full_photo || captureView.received.front || captureView.received.full));
+  let documentReady = $derived(Boolean(documentStatus === "approved" || (documentSection?.number && !documentSection?.next_slot)));
+  let addressHasData = $derived(Boolean(candidate?.address && ["street", "number", "city", "state", "zipcode"].every(key => Boolean(candidate?.address?.[key as keyof NonNullable<Candidate["address"]>]))));
+  let proofReady = $derived(candidate?.address_proof?.status === "approved" && !(candidate?.address?.missing_fields?.length) && addressHasData);
   let gradeOptions = $derived(educationGrades(educationLevel));
+  let educationReady = $derived(Boolean(candidate && ["education", "selfie", "completed", "approved"].includes(candidate.status)));
   let step = $derived.by(() => {
     if (!candidate) return "loading";
     if (candidate.status === "rejected") return "rejected";
-    if (!documentReady) return "documents";
-    if (!proofReady) return "address";
     if (["completed", "approved"].includes(candidate.status)) return "review";
-    if (["education", "selfie"].includes(candidate.status)) return "selfie";
-    if (!candidate.pix_validated && ["documents", "pix"].includes(candidate.status)) return "pix";
-    if (candidate.status === "pix" && candidate.pix_validated) return "education";
+    if (!documentReady && !hasDocumentMedia) return "documents";
+    if (!addressHasData && !proofReady) return "address";
+    if (!candidate.pix_validated) return "pix";
+    if (!educationReady) return "education";
+    if (["education", "selfie"].includes(candidate.status) || !candidate.selfie_verified) return "selfie";
     return "review";
   });
-  let educationReady = $derived(Boolean(candidate && ["education", "selfie", "completed", "approved"].includes(candidate.status)));
   let displayStep = $derived.by(() => {
     if (selectedSection === "referral") return "referral";
     if (selectedSection === "documents") return "documents";
-    if (selectedSection === "address" && documentReady) return "address";
-    if (selectedSection === "education" && documentReady && proofReady) return candidate?.pix_validated ? "education" : "pix";
-    if (selectedSection === "selfie" && educationReady) return "selfie";
+    if (selectedSection === "address") return "address";
+    if (selectedSection === "pix") return "pix";
+    if (selectedSection === "education") return "education";
+    if (selectedSection === "selfie") return "selfie";
     return step;
   });
   function health(value?: string | null) {
@@ -196,6 +207,20 @@
       if (disposed || mutationSnapshot !== mutationRevision || snapshotToken.sequence < appliedSnapshotSequence) return;
       appliedSnapshotSequence = snapshotToken.sequence;
       candidate = data;
+      if (data.status === "approved") {
+        try {
+          const promoter = await requestAuth<{ locked: boolean; status: string }>(`${base}/promoter/me`);
+          window.location.replace(promoter.locked ? "/promoter/training" : "/promoter/active");
+          return;
+        } catch { /* aguarda sincronização */ }
+      }
+      if (section?.number) documentManualNumber = section.number;
+      if (data.address?.zipcode) addressCep = data.address.zipcode;
+      if (data.address?.street) addressStreet = data.address.street;
+      if (data.address?.number) addressNumber = data.address.number;
+      if (data.address?.neighborhood) addressNeighborhood = data.address.neighborhood;
+      if (data.address?.city) addressCity = data.address.city;
+      if (data.address?.state) addressState = data.address.state;
       if (data.address_proof?.status === "pending") {
         pollDelay = Math.max(500, Math.min(data.address_proof.poll_after_ms || 2500, 30_000));
         const expiry = Date.parse(data.address_proof.expires_at ?? "");
@@ -238,10 +263,10 @@
     return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); window.removeEventListener("hashchange", readSection); window.removeEventListener("supletivo:request-promoter-state", notifyDock); };
   });
 
-  async function mutate(path: string, json: unknown) {
+  async function mutate(path: string, json: unknown, method: "POST" | "PATCH" = "POST") {
     busy = true; error = null; notice = null; mutationRevision += 1;
     try {
-      candidate = await requestAuth<Candidate>(`${base}${path}`, { method: "POST", json });
+      candidate = await requestAuth<Candidate>(`${base}${path}`, { method, json });
       selectedSection = "";
       window.history.replaceState(null, "", window.location.pathname);
       await refresh();
@@ -324,6 +349,49 @@
     finally { busy = false; scheduleRefresh(); }
   }
 
+
+  async function saveManualDocumentNumber() {
+    if (!documentManualNumber.trim()) return;
+    try {
+      await mutate("/candidate/documents", {
+        doc_type: documentType,
+        number: documentManualNumber.trim(),
+      }, "POST");
+    } catch {
+      await mutate("/candidate/document", {
+        doc_type: documentType,
+        number: documentManualNumber.trim(),
+      }, "PATCH");
+    }
+  }
+
+  async function saveAddressCep() {
+    if (!addressCep.trim()) return;
+    await mutate("/candidate/address", { cep: addressCep.replace(/\D/g, "") }, "POST");
+  }
+
+  async function saveManualAddress() {
+    if (!addressStreet.trim() || !addressNumber.trim() || !addressCity.trim() || !addressState.trim()) {
+      error = "Preencha rua, número, cidade e estado do endereço.";
+      return;
+    }
+    await mutate("/candidate/address", {
+      street: addressStreet.trim(),
+      number: addressNumber.trim(),
+      neighborhood: addressNeighborhood.trim() || undefined,
+      city: addressCity.trim(),
+      state: addressState.trim().toUpperCase(),
+    }, "PATCH");
+    showManualAddress = false;
+  }
+
+  function fillPixWithCpf() {
+    if (candidate?.profile?.cpf) {
+      pixKeyType = "CPF";
+      pixKey = candidate.profile.cpf;
+    }
+  }
+
   function updateEducationLevel() {
     educationGrade = 0;
     lastCompletedGrade = 0;
@@ -377,10 +445,16 @@
         <h2>Documento de identidade</h2>
         <p>{statusLabel(documentStatus)}</p>
         {#if documentSection?.analysis_reason}<p>{documentSection.analysis_reason}</p>{/if}
-        {#if documentReady}
-          <p>{documentType.toUpperCase()} conferido · número {documentSection?.number}</p>
-          {#if candidate.profile?.name}<p>{candidate.profile.name}</p>{/if}
-          <a class="btn" href="#address">Continuar para endereço</a>
+        {#if documentStatus === "approved" || documentReady}
+          <div class="feedback info">
+            <p><strong>Documento aprovado pelo coordenador.</strong></p>
+            <p>{documentType.toUpperCase()} conferido {#if documentSection?.number}· número {documentSection.number}{/if}</p>
+            {#if candidate.profile?.name}<p>Titular: {candidate.profile.name}</p>{/if}
+          </div>
+          <div class="action-row">
+            <a class="btn" href="#address">Continuar para endereço</a>
+            <a class="btn secondary" href="#education">Ir para escolaridade</a>
+          </div>
         {:else if documentCaptureSlot}
           <button class="capture-space" type="button" disabled={busy} onclick={() => sourceDialog.showModal()}>
             <IdCardIcon />
@@ -389,16 +463,35 @@
           </button>
           <p class="capture-hint">Pode começar por qualquer lado. Frente e verso na mesma imagem também valem.</p>
           <p class="capture-hint">JPG, PNG, WebP ou PDF · até 15 MB</p>
-        {:else}<p>{identityCollectionMessage(documentStatus)}</p>{/if}
+          <form onsubmit={event => { event.preventDefault(); void saveManualDocumentNumber(); }}>
+            <label for="manual-doc-num">Número do {documentType.toUpperCase()}</label>
+            <div class="inline-input-group">
+              <input id="manual-doc-num" type="text" bind:value={documentManualNumber} placeholder="Digite o número se não foi lido automaticamente" disabled={busy} />
+              <button class="btn" type="submit" disabled={busy || !documentManualNumber.trim()}>{busy ? "Salvando…" : "Salvar número"}</button>
+            </div>
+          </form>
+          {#if hasDocumentMedia}
+            <a class="btn secondary" href="#address">Continuar para endereço</a>
+          {/if}
+        {:else}
+          <p>{identityCollectionMessage(documentStatus)}</p>
+          <a class="btn" href="#address">Continuar para endereço</a>
+        {/if}
       {:else if displayStep === "address"}
         <h2>Comprovante de residência</h2>
         <p>{statusLabel(candidate.address_proof?.status)}</p>
         {#if candidate.address_proof?.reason}<p>{candidate.address_proof.reason}</p>{/if}
-        {#if proofReady}
-          <p>{candidate.address?.street}, {candidate.address?.number}</p>
-          <p>{candidate.address?.city}/{candidate.address?.state}</p>
-          <a class="btn" href="#education">Continuar para escolaridade</a>
-        {:else if candidate.address_proof?.needs_kinship}
+        {#if addressHasData || proofReady}
+          <div class="feedback info">
+            <p><strong>Endereço cadastrado:</strong></p>
+            <p>{candidate.address?.street}, {candidate.address?.number}{candidate.address?.neighborhood ? ` - ${candidate.address.neighborhood}` : ""} · {candidate.address?.city}/{candidate.address?.state}{candidate.address?.zipcode ? ` (CEP ${candidate.address.zipcode})` : ""}</p>
+          </div>
+          <div class="action-row">
+            <a class="btn" href={candidate.pix_validated ? "#education" : "#pix"}>{candidate.pix_validated ? "Continuar para escolaridade" : "Continuar para chave Pix"}</a>
+            <button class="refresh-action" type="button" onclick={() => showManualAddress = !showManualAddress}>{showManualAddress ? "Ocultar formulário de endereço" : "Editar endereço"}</button>
+          </div>
+        {/if}
+        {#if candidate.address_proof?.needs_kinship}
           <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/documents/address-proof/kinship", { relation: relationship }); }}>
             <label for="candidate-relationship">Qual seu vínculo com o titular?</label>
             <select id="candidate-relationship" bind:value={relationship} disabled={busy}>
@@ -406,17 +499,70 @@
             </select>
             <button class="btn" disabled={busy} type="submit">Confirmar vínculo</button>
           </form>
-        {:else if !candidate.address_proof?.exists || candidate.address_proof?.status === "rejected" || candidate.address_proof?.status === "approved"}
-          {#if candidate.address_proof?.status === "approved"}<p>O comprovante foi conferido, mas faltam dados do endereço. Envie uma imagem completa e legível para nova leitura.</p>{/if}
-          <p>Envie uma conta de luz, água, gás ou internet. A leitura do comprovante preenche seu endereço.</p>
+        {/if}
+        {#if !candidate.address_proof?.exists || candidate.address_proof?.status === "rejected" || candidate.address_proof?.status === "approved" || !proofReady}
+          {#if candidate.address_proof?.status === "approved" && !addressHasData}<p>O comprovante foi conferido, mas faltam dados do endereço. Complete abaixo ou envie uma nova imagem.</p>{/if}
+          <p>Envie uma conta de luz, água, gás ou internet (opcional caso prefira digitar diretamente).</p>
           <label class="upload-action" for="candidate-address">{busy ? "Enviando…" : "Anexar comprovante"}</label>
           <input id="candidate-address" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onchange={event => upload(event, "address")} />
           <label class="upload-action" for="candidate-address-camera">Tirar foto da conta</label>
           <input id="candidate-address-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "address")} />
-        {:else}<p>{candidate.address_proof?.status === "pending" ? "A leitura do comprovante está em andamento. Acompanhe o resultado nesta tela." : "O polo está revisando o comprovante enviado."}</p>{/if}
+        {:else if candidate.address_proof?.status === "pending"}
+          <p>A leitura do comprovante está em andamento. Você pode aguardar ou preencher seu endereço abaixo.</p>
+        {:else}
+          <p>O polo está revisando o comprovante enviado.</p>
+        {/if}
+        {#if !addressHasData || showManualAddress}
+          <form onsubmit={event => { event.preventDefault(); void saveAddressCep(); }}>
+            <label for="address-cep">CEP</label>
+            <div class="inline-input-group">
+              <input id="address-cep" type="text" bind:value={addressCep} placeholder="00000-000" maxlength="9" disabled={busy} />
+              <button class="btn" type="submit" disabled={busy || !addressCep.trim()}>{busy ? "Buscando…" : "Buscar CEP"}</button>
+            </div>
+          </form>
+          <form onsubmit={event => { event.preventDefault(); void saveManualAddress(); }}>
+            <label for="address-street">Rua / Logradouro</label>
+            <input id="address-street" type="text" bind:value={addressStreet} required disabled={busy} />
+            <div class="form-row">
+              <div>
+                <label for="address-number">Número</label>
+                <input id="address-number" type="text" bind:value={addressNumber} required disabled={busy} />
+              </div>
+              <div>
+                <label for="address-neighborhood">Bairro</label>
+                <input id="address-neighborhood" type="text" bind:value={addressNeighborhood} disabled={busy} />
+              </div>
+            </div>
+            <div class="form-row">
+              <div>
+                <label for="address-city">Cidade</label>
+                <input id="address-city" type="text" bind:value={addressCity} required disabled={busy} />
+              </div>
+              <div>
+                <label for="address-state">UF</label>
+                <input id="address-state" type="text" bind:value={addressState} maxlength="2" required disabled={busy} />
+              </div>
+            </div>
+            <button class="btn" type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar endereço"}</button>
+          </form>
+        {/if}
+        <div class="action-row">
+          <a class="btn secondary" href="#documents">Voltar para documento</a>
+          <a class="btn secondary" href={candidate.pix_validated ? "#education" : "#pix"}>{candidate.pix_validated ? "Ir para escolaridade" : "Continuar para chave Pix"}</a>
+        </div>
       {:else if displayStep === "pix"}
         <h2>Dados de recebimento de comissões</h2>
-        <p>Informe uma chave PIX em seu nome. A titularidade será conferida.</p>
+        <p>Informe uma chave PIX em seu nome. A titularidade será conferida para pagamento das suas comissões.</p>
+        {#if candidate.profile?.cpf}
+          <button class="refresh-action" type="button" disabled={busy} onclick={fillPixWithCpf}>Usar meu CPF como chave Pix ({candidate.profile.cpf})</button>
+        {/if}
+        {#if candidate.pix_validated}
+          <p class="feedback info">Chave PIX validada com sucesso!</p>
+          <div class="action-row">
+            <a class="btn" href="#education">Continuar para escolaridade</a>
+            <a class="btn secondary" href="#selfie">Ir para selfie</a>
+          </div>
+        {:else}
         <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/pix", { key: pixKey.trim(), key_type: pixKeyType }); }}>
           <label for="pixType">Tipo de chave</label>
           <select id="pixType" bind:value={pixKeyType} disabled={busy}><option value="CPF">CPF</option><option value="PHONE">Telefone celular</option><option value="EMAIL">E-mail</option><option value="EVP">Chave aleatória</option></select>
@@ -424,12 +570,16 @@
           <input id="pixKey" type="text" bind:value={pixKey} required disabled={busy} autocomplete="off" />
           <button class="btn" type="submit" disabled={busy || !pixKey.trim()}>{busy ? "Salvando…" : "Salvar e Continuar"}</button>
         </form>
+        <div class="action-row">
+          <a class="btn secondary" href="#education">Preencher escolaridade agora</a>
+          <a class="btn secondary" href="#selfie">Ir para selfie</a>
+        </div>
+        {/if}
       {:else if displayStep === "education"}
         <h2>Sua escolaridade</h2>
         {#if educationReady}
-          <p>Escolaridade registrada: {educationLevel === "superior" ? "Ensino Superior" : educationLevel === "medio" ? "Ensino Médio" : "Ensino Fundamental"}.</p>
-          <a class="btn" href="#selfie">Continuar para assinatura</a>
-        {:else}
+          <p class="feedback info">Escolaridade registrada: {educationLevel === "superior" ? "Ensino Superior" : educationLevel === "medio" ? "Ensino Médio" : "Ensino Fundamental"}.</p>
+        {/if}
         <form onsubmit={event => { event.preventDefault(); void saveEducation(); }}>
           <label for="candidate-education">Qual o seu nível de ensino?</label>
           <select id="candidate-education" bind:value={educationLevel} onchange={updateEducationLevel} disabled={busy}><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option><option value="superior">Ensino Superior</option></select>
@@ -458,7 +608,32 @@
           {/if}
           <button class="btn" type="submit" disabled={busy || (educationLevel !== "superior" && !gradeOptions.includes(educationGrade))}>Continuar para assinatura</button>
         </form>
-        {/if}
+
+        <hr class="separator" />
+
+        <div class="pix-subcard">
+          <h3>Chave PIX de Comissões</h3>
+          <p>Informe sua chave PIX para recebimento das comissões pelas matrículas indicadas.</p>
+          {#if candidate.profile?.cpf}
+            <button class="refresh-action" type="button" disabled={busy} onclick={fillPixWithCpf}>Usar meu CPF como chave Pix ({candidate.profile.cpf})</button>
+          {/if}
+          {#if candidate.pix_validated}
+            <p class="feedback info">Chave PIX validada com sucesso!</p>
+          {:else}
+            <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/pix", { key: pixKey.trim(), key_type: pixKeyType }); }}>
+              <label for="pixTypeEdu">Tipo de chave</label>
+              <select id="pixTypeEdu" bind:value={pixKeyType} disabled={busy}><option value="CPF">CPF</option><option value="PHONE">Telefone celular</option><option value="EMAIL">E-mail</option><option value="EVP">Chave aleatória</option></select>
+              <label for="pixKeyEdu">Chave PIX</label>
+              <input id="pixKeyEdu" type="text" bind:value={pixKey} required disabled={busy} autocomplete="off" />
+              <button class="btn" type="submit" disabled={busy || !pixKey.trim()}>{busy ? "Salvando…" : "Salvar Chave Pix"}</button>
+            </form>
+          {/if}
+        </div>
+
+        <div class="action-row">
+          <a class="btn" href="#selfie">Continuar para assinatura / selfie</a>
+          <a class="btn secondary" href="#address">Voltar para endereço</a>
+        </div>
       {:else if displayStep === "selfie"}
         <h2>Termo de adesão e selfie</h2>
         <p>{statusLabel(selfieStatus)}</p>
@@ -471,9 +646,24 @@
             <label class="consent"><input type="checkbox" bind:checked={consentAccepted} disabled={busy} /> Li e aceito o termo. O envio da selfie registra minha assinatura.</label>
             <LiveSelfieCamera disabled={busy || !consentAccepted} onCapture={file => sendUpload(file, "selfie")} />
           {:else}<p>Não foi possível carregar o termo vigente. Atualize o status para tentar novamente.</p>{/if}
-        {:else}<p>Acompanhe a conferência da sua assinatura. Seu cadastro será ativado quando os requisitos forem aprovados.</p>{/if}
-      {:else if displayStep === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>
-      {:else}<h2>Credenciamento em análise</h2><p>A documentação e sua assinatura estão sendo conferidas. Esta tela acompanha a liberação pelo polo.</p>{/if}
+        {:else}
+          <p class="feedback info">Acompanhe a conferência da sua assinatura. Seu cadastro será ativado assim que os requisitos forem aprovados.</p>
+        {/if}
+        <div class="action-row">
+          <a class="btn secondary" href="#education">Voltar para escolaridade</a>
+          <a class="btn secondary" href="#referral">Ver link de indicação</a>
+        </div>
+      {:else if displayStep === "rejected"}
+        <h2>Credenciamento precisa de revisão</h2>
+        <p>Consulte as orientações do polo sobre sua candidatura.</p>
+      {:else if candidate.status === "approved"}
+        <h2>Credenciamento aprovado!</h2>
+        <p>Seu cadastro foi homologado com sucesso pelo polo. Você já pode acessar seu painel de promotor.</p>
+        <a class="btn" href="/promoter/active">Acessar painel do promotor</a>
+      {:else}
+        <h2>Credenciamento em análise</h2>
+        <p>A documentação e sua assinatura estão sendo conferidas. Esta tela acompanha a liberação pelo polo.</p>
+      {/if}
     </section>
     {/if}
     {#each currentBlocks as block}{#if block.reason || block.description}<p class="feedback warning">{#if block.title}<strong>{block.title}</strong> {/if}{block.reason ?? block.description}</p>{/if}{/each}
@@ -538,4 +728,13 @@
   .contract-text { max-height: 20rem; overflow-y: auto; white-space: pre-wrap; background: var(--paper); color: var(--ink); padding: 1rem; border-radius: var(--input-radius); line-height: 1.6; }
   .consent { display: flex; align-items: start; gap: .75rem; min-height: var(--input-height); }
   .consent input { min-width: 1.25rem; min-height: 1.25rem; margin-top: .25rem; }
+  .inline-input-group { display: flex; gap: .5rem; }
+  .inline-input-group input { flex: 1; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .btn.secondary { background: var(--ink-soft); border: 1px solid var(--glass-border-dark); color: var(--paper); text-align: center; }
+  .action-row { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
+  .action-row > * { flex: 1; min-width: 140px; }
+  .separator { border: none; border-top: 1px solid var(--glass-border-dark); margin: 1.25rem 0; }
+  .pix-subcard { display: grid; gap: .75rem; padding: 1rem; border-radius: var(--radius); background: color-mix(in srgb, var(--paper-soft) 5%, transparent); border: 1px dashed var(--line-light); }
+  .pix-subcard h3 { margin: 0; font-size: 1rem; color: var(--paper); }
 </style>

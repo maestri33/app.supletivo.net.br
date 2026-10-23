@@ -166,7 +166,7 @@
           value={phone}
           oninput={onInput}
           disabled={busy}
-          class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus:ring-1 focus:ring-[var(--yellow)] transition-all disabled:opacity-50"
+          class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/40 transition-colors duration-200 disabled:opacity-50"
         />
         {#if busy}
           <div class="absolute right-4 top-1/2 -translate-y-1/2">

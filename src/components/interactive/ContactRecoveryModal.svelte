@@ -289,7 +289,7 @@
                 placeholder="DD/MM/AAAA"
                 value={birthDate}
                 oninput={onBirthDateInput}
-                class="h-10 w-full rounded-lg bg-white/10 border border-white/20 px-3 text-sm font-mono text-white focus:border-yellow focus:outline-none"
+                class="h-10 w-full rounded-lg bg-white/10 border border-white/20 px-3 text-sm font-mono text-white focus:border-yellow focus:outline-none focus:ring-2 focus:ring-yellow/30 transition"
               />
             </div>
           {/if}

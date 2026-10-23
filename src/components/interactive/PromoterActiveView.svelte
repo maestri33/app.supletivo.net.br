@@ -3,6 +3,7 @@
   import { requestAuth, getErrorMessage } from "@/lib/api";
   import { commissionTotal, moneyLabel, type PromoterProfile, type PromoterSummary, type PromoterLead, type PromoterCommission } from "@/lib/promoter";
   import PromoterReferralShare from "./PromoterReferralShare.svelte";
+  import PromoterWeeklyCommissions from "./PromoterWeeklyCommissions.svelte";
 
   let promoterName = $state<string>("Promotor");
   let referralUrl = $state<string>("");
@@ -14,26 +15,30 @@
   let payoutLocked = $state(false);
 
   let weekPaidLeads = $state(0);
+  let summary = $state<PromoterSummary | null>(null);
+  let commissions = $state<PromoterCommission[]>([]);
 
   async function load() {
     loading = true;
     error = "";
     try {
-      const [profile, summary, leads, commissions] = await Promise.all([
+      const [profileData, summaryData, leadsData, commissionsData] = await Promise.all([
         requestAuth<PromoterProfile>("/api/v1/collaborators/promoter/me"),
         requestAuth<PromoterSummary>("/api/v1/collaborators/promoter/summary"),
         requestAuth<PromoterLead[]>("/api/v1/collaborators/promoter/leads"),
         requestAuth<PromoterCommission[]>("/api/v1/collaborators/promoter/commissions"),
       ]);
-      if (profile.status === "suspended") { window.location.replace("/promoter/suspended"); return; }
-      if (profile.locked) { window.location.replace("/promoter/training"); return; }
-      promoterName = profile.name ?? "Promotor";
-      referralUrl = profile.ref_url;
-      payoutLocked = profile.payout_locked;
-      leadsCount = leads.length;
-      paidEnrollmentsCount = summary.lifetime.total_students;
-      weekPaidLeads = summary.week_paid_leads;
-      pendingPixBalance = moneyLabel(commissionTotal(commissions, ["pending", "processed"]));
+      if (profileData.status === "suspended") { window.location.replace("/promoter/suspended"); return; }
+      if (profileData.locked) { window.location.replace("/promoter/training"); return; }
+      promoterName = profileData.name ?? "Promotor";
+      referralUrl = profileData.ref_url;
+      payoutLocked = profileData.payout_locked;
+      leadsCount = leadsData.length;
+      summary = summaryData;
+      commissions = commissionsData;
+      paidEnrollmentsCount = summaryData?.lifetime?.total_students ?? 0;
+      weekPaidLeads = summaryData?.week_paid_leads ?? 0;
+      pendingPixBalance = moneyLabel(commissionTotal(commissionsData, ["pending", "processed"]));
       window.dispatchEvent(new CustomEvent("supletivo:promoter-state", { detail: { status: "active", newLeadsCount: leadsCount } }));
     } catch (cause) { error = getErrorMessage(cause); }
     finally { loading = false; }
@@ -69,9 +74,18 @@
     </div>
     <div class="mt-4"><PromoterReferralShare url={referralUrl} /></div>
 
-    <!-- Métricas Reais -->
-    {#if payoutLocked}<p role="status" class="text-[var(--warning)]">O repasse tem pendências cadastrais. Consulte suas comissões e regularize a chave Pix.</p>{/if}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+    <!-- Componente Separado: Comissões Recebidas + Comissão a Receber na Semana -->
+    <div class="mt-6">
+      <PromoterWeeklyCommissions
+        {summary}
+        {commissions}
+        {payoutLocked}
+      />
+    </div>
+
+    <!-- Métricas Operacionais de Indicação e Matrícula -->
+    {#if payoutLocked}<p role="status" class="text-[var(--warning)] mt-4">O repasse tem pendências cadastrais. Consulte suas comissões e regularize a chave Pix.</p>{/if}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Indicados no extrato recente</span>
         <p class="text-3xl font-bold text-white mt-1">{leadsCount}</p>
@@ -81,11 +95,6 @@
         <span class="text-xs text-white/60 uppercase font-semibold">Matrículas Pagas</span>
         <p class="text-3xl font-bold text-white mt-1">{paidEnrollmentsCount}</p>
         <p class="text-xs text-white/70 mt-1.5">Nesta semana: {weekPaidLeads} matrícula(s) paga(s)</p>
-      </div>
-      <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-xs text-white/60 uppercase font-semibold">Comissões do extrato recente</span>
-        <p class="text-3xl font-bold text-[var(--yellow)] mt-1">{pendingPixBalance}</p>
-        <p class="text-xs text-white/70 mt-1.5">Pendentes e processadas nos últimos 200 registros</p>
       </div>
     </div>
   </div>

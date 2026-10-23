@@ -59,7 +59,7 @@ export function getPromoterDockItems(
       active: state.selectedSection === "pix" ? "education" : state.selectedSection ?? (next === "pix" ? "education" : next),
       paths: { documents: "#documents", address: "#address", education: "#education", selfie: "#selfie" },
       health: { documents: state.documentStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
-      enabled: { documents: true, address: state.documentReady === true, education: state.documentReady === true && state.addressReady === true, selfie: state.educationReady === true },
+      enabled: { documents: true, address: true, education: true, selfie: true },
     }), {
       id: "referral", title: "Indicar", icon: <IconLink className="h-full w-full" />,
       href: "#referral", isActive: state.selectedSection === "referral" || currentPath.endsWith("#referral"),
