@@ -3,9 +3,8 @@ import { test, expect, type Page } from "@playwright/test";
 const userId = "77777777-7777-4777-8777-777777777777";
 const artifactDir = "C:/Users/maestri33/.gemini/antigravity/brain/6b0d2140-f7a1-491e-a802-6cee741a8ed6";
 
-test("candidato transita livremente entre todos os icones do dock sem bloqueios", async ({ page }) => {
-  // Simula exatamente o estado do print do usuário:
-  // Documento aprovado pelo coordenador, sem endereço, sem escolaridade, sem selfie
+test("candidato transita livremente entre todos os 6 icones do dock sem bloqueios incluindo chave pix", async ({ page }) => {
+  // Simula o estado do candidato: documento aprovado, transitando livremente
   const candidateState = {
     external_id: userId,
     hub_external_id: userId,
@@ -70,6 +69,7 @@ test("candidato transita livremente entre todos os icones do dock sem bloqueios"
   const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
   const linkDoc = dock.getByRole("link", { name: /RG ou CNH/ });
   const linkAddr = dock.getByRole("link", { name: /Endereço/ });
+  const linkPix = dock.getByRole("link", { name: /Chave Pix/ });
   const linkEdu = dock.getByRole("link", { name: /Escolaridade/ });
   const linkSelfie = dock.getByRole("link", { name: /Selfie/ });
   const linkRef = dock.getByRole("link", { name: /Indicar/ });
@@ -77,9 +77,17 @@ test("candidato transita livremente entre todos os icones do dock sem bloqueios"
   // 1. Como documento já está aprovado, a aplicação posiciona em endereço
   await expect(page.getByRole("heading", { name: "Comprovante de residência" })).toBeVisible();
 
-  // Verifica que NENHUM item do dock está desabilitado
+  // Verifica que TODOS os 6 itens do dock existem e NENHUM está desabilitado
+  await expect(linkDoc).toBeVisible();
+  await expect(linkAddr).toBeVisible();
+  await expect(linkPix).toBeVisible();
+  await expect(linkEdu).toBeVisible();
+  await expect(linkSelfie).toBeVisible();
+  await expect(linkRef).toBeVisible();
+
   await expect(linkDoc).not.toHaveAttribute("aria-disabled", "true");
   await expect(linkAddr).not.toHaveAttribute("aria-disabled", "true");
+  await expect(linkPix).not.toHaveAttribute("aria-disabled", "true");
   await expect(linkEdu).not.toHaveAttribute("aria-disabled", "true");
   await expect(linkSelfie).not.toHaveAttribute("aria-disabled", "true");
   await expect(linkRef).not.toHaveAttribute("aria-disabled", "true");
@@ -94,28 +102,34 @@ test("candidato transita livremente entre todos os icones do dock sem bloqueios"
   await expect(page.getByRole("link", { name: "Continuar para endereço" })).toBeVisible();
   await page.screenshot({ path: `${artifactDir}/dock-02-transicao-documentos-aprovado.png` });
 
-  // 3. Transita livremente para Escolaridade clicando no ícone do Dock
+  // 3. Transita livremente para o Ícone DEDICADO do PIX clicando no Dock
+  await linkPix.click();
+  await expect(page).toHaveURL(/#pix$/);
+  await expect(page.getByRole("heading", { name: "Dados de recebimento de comissões" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Chave PIX" })).toBeVisible();
+  await page.screenshot({ path: `${artifactDir}/dock-03-transicao-pix-icone-dedicado.png` });
+
+  // 4. Transita livremente para Escolaridade clicando no ícone do Dock
   await linkEdu.click();
   await expect(page).toHaveURL(/#education$/);
   await expect(page.getByRole("heading", { name: "Sua escolaridade" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Chave PIX de Comissões" })).toBeVisible();
-  await page.screenshot({ path: `${artifactDir}/dock-03-transicao-escolaridade-pix.png` });
+  await page.screenshot({ path: `${artifactDir}/dock-04-transicao-escolaridade.png` });
 
-  // 4. Transita livremente para Selfie clicando no ícone do Dock
+  // 5. Transita livremente para Selfie clicando no ícone do Dock
   await linkSelfie.click();
   await expect(page).toHaveURL(/#selfie$/);
   await expect(page.getByRole("heading", { name: "Termo de adesão e selfie" })).toBeVisible();
-  await page.screenshot({ path: `${artifactDir}/dock-04-transicao-selfie.png` });
+  await page.screenshot({ path: `${artifactDir}/dock-05-transicao-selfie.png` });
 
-  // 5. Transita livremente para Indicar clicando no ícone do Dock
+  // 6. Transita livremente para Indicar clicando no ícone do Dock
   await linkRef.click();
   await expect(page).toHaveURL(/#referral$/);
   await expect(page.getByRole("heading", { name: "Você já pode indicar" })).toBeVisible();
-  await page.screenshot({ path: `${artifactDir}/dock-05-transicao-indicar.png` });
+  await page.screenshot({ path: `${artifactDir}/dock-06-transicao-indicar.png` });
 
-  // 6. Transita livremente de volta para Endereço clicando no ícone do Dock
+  // 7. Transita livremente de volta para Endereço clicando no ícone do Dock
   await linkAddr.click();
   await expect(page).toHaveURL(/#address$/);
   await expect(page.getByRole("heading", { name: "Comprovante de residência" })).toBeVisible();
-  await page.screenshot({ path: `${artifactDir}/dock-06-retorno-endereco.png` });
+  await page.screenshot({ path: `${artifactDir}/dock-07-retorno-endereco.png` });
 });
