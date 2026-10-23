@@ -1,0 +1,17 @@
+10:45:31 [@astrojs/node] Enabling sessions with filesystem storage
+10:45:31 [vite] Re-optimizing dependencies because vite config has changed
+10:45:31 [types] Generated 390ms
+10:45:31 [build] output: "server"
+10:45:31 [build] mode: "server"
+10:45:31 [build] directory: C:\rep\app.supletivo.net.br\.release-build\payment-v122-node\
+10:45:31 [build] adapter: @astrojs/node
+10:45:31 [build] Collecting build info...
+10:45:32 [build] ✓ Completed in 471ms.
+10:45:32 [build] Building server entrypoints...
+10:45:32 [vite] ✓ built in 201ms
+10:45:34 [vite] ✓ built in 2.23s
+10:45:36 [vite] ✓ built in 1.96s
+10:45:36 [build] Rearranging server assets...
+10:45:36 [build] ✓ Completed in 4.51s.
+10:45:36 [build] Server built in 4.98s
+10:45:36 [build] Complete!

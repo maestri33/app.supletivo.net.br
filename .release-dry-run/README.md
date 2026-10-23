@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "app-supletivo-net-br" generated at 2026-10-10T18:05:48.092Z.

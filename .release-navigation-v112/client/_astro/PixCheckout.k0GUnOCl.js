@@ -1,0 +1,1 @@
+globalThis.process??={},globalThis.process.env??={};import{t as e}from"./PixCheckout.B78IR4vB.js";export{e as default};

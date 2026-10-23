@@ -1,0 +1,45 @@
+
+> app.supletivo.net.br@0.0.0-sandbox.93 test:unit C:\rep\app.supletivo.net.br
+> node --experimental-strip-types --test test/typesafe-test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts
+
+✔ TypeSafe Enrollment: Document Triage never approves without the official analyzer (1.7352ms)
+✔ TypeSafe Enrollment: Document Triage - Rejects Blurry / Non-Document (0.1953ms)
+✔ TypeSafe Enrollment: Document Triage keeps proof pending without the official analyzer (0.1223ms)
+✔ TypeSafe Enrollment: Document Triage - Rejects Underage Candidate (<18 for EJA) (0.1248ms)
+✔ TypeSafe Enrollment: API Endpoint POST /api/v1/academic/documents/triage (58.8175ms)
+✔ Only pending received address proofs schedule another read (1.3565ms)
+✔ Address classification requires identified legible address proof (0.2742ms)
+✔ Protected PDFs keep their actionable decoder feedback (0.1924ms)
+✔ candidate identity review does not expose an older address or other identity reason (6.929ms)
+✔ settled identity review gives a human-review instruction without ongoing OCR text (0.275ms)
+✔ decoder errors take precedence over generic document recognition rejection (0.4268ms)
+✔ a confirmed front upload asks for the back before OCR finishes (0.3278ms)
+✔ a query started before upload cannot erase its confirmed receipt (0.2ms)
+✔ an incomplete snapshot cannot undo a confirmed back upload or approve older media (0.1388ms)
+✔ a rejected back asks only for a new back and keeps the approved front (0.1121ms)
+✔ classification accepts back first without inventing a front and refuses an unknown side (0.1183ms)
+✔ a confirmed back-first upload asks for the front without waiting for analysis (0.1421ms)
+✔ resuming a saved pending front asks for the back despite next_slot still pointing to front (0.1803ms)
+✔ resuming a saved pending back asks for the front (0.1146ms)
+✔ a full-file ACK replaces the capture pair and never asks for a second file (0.1021ms)
+✔ resuming a complete saved file ignores the backend default front slot during pending (0.1379ms)
+✔ a saved back awaiting its individual verdict does not become missing again (0.2189ms)
+✔ an approved newer snapshot cannot be overwritten by an older rejected query (0.1301ms)
+✔ a matching new-media snapshot can reject the face that was just uploaded (0.1233ms)
+✔ global rejection after both faces passed requests a complete replacement (0.1225ms)
+✔ rejected complete media stays a full retry even with a legacy front next_slot (0.1753ms)
+✔ reviewing one saved face does not postpone collecting the other (0.1009ms)
+✔ complete media in human review exposes only the backend public guidance (0.0855ms)
+✔ classification accepts complete RG, refuses CNH and does not guess unknown document types (0.1685ms)
+✔ a non-document or illegible capture never resolves to an upload slot (0.1338ms)
+✔ resuming an approved pair does not revive an older rejected complete file (0.09ms)
+✔ promoter CNH uses the same front/back receipt and rejection behavior (0.1209ms)
+✔ rejected full CNH exposes a new capture even when its visual check passed (0.0726ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 287.9514

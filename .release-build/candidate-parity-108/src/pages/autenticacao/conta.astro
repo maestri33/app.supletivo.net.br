@@ -1,0 +1,8 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import RoleEntry from '../../components/interactive/RoleEntry.svelte';
+export const prerender = false;
+---
+<RootLayout title="Sua conta — Supletivo Brasil" showDock={false} showFooter={false}>
+  <RoleEntry client:load />
+</RootLayout>

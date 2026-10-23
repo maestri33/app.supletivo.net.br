@@ -1,0 +1,1 @@
+globalThis.process??={},globalThis.process.env??={};var e=2500,t=6e4;function n(n){let r=n?.poll_after_ms&&n.poll_after_ms>0?n.poll_after_ms:e,i=n?.expires_at?Date.parse(n.expires_at):NaN;return{intervalMs:r,deadlineMs:Number.isFinite(i)?Math.min(i,Date.now()+t):Date.now()+t}}export{n as t};

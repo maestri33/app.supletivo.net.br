@@ -1,0 +1,39 @@
+✔ Only pending received address proofs schedule another read (0.5416ms)
+✔ Address classification requires identified legible address proof (0.1528ms)
+✔ Protected PDFs keep their actionable decoder feedback (0.1576ms)
+✔ permission without an answer times out and releases a stream granted later (25.0344ms)
+✔ cancelled permission cannot install a late stream (0.349ms)
+✔ permission denial propagates immediately and success is not discarded (0.2334ms)
+✔ candidate identity review does not expose an older address or other identity reason (1.5729ms)
+✔ settled identity review gives a human-review instruction without ongoing OCR text (0.1867ms)
+✔ decoder errors take precedence over generic document recognition rejection (0.3397ms)
+✔ a confirmed front upload asks for the back before OCR finishes (0.2964ms)
+✔ a query started before upload cannot erase its confirmed receipt (0.222ms)
+✔ an incomplete snapshot cannot undo a confirmed back upload or approve older media (0.1275ms)
+✔ a rejected back asks only for a new back and keeps the approved front (0.0958ms)
+✔ classification accepts back first without inventing a front and refuses an unknown side (0.0888ms)
+✔ a confirmed back-first upload asks for the front without waiting for analysis (0.1057ms)
+✔ resuming a saved pending front asks for the back despite next_slot still pointing to front (0.1875ms)
+✔ resuming a saved pending back asks for the front (0.1106ms)
+✔ a full-file ACK replaces the capture pair and never asks for a second file (0.1061ms)
+✔ resuming a complete saved file ignores the backend default front slot during pending (0.0803ms)
+✔ a saved back awaiting its individual verdict does not become missing again (0.0949ms)
+✔ an approved newer snapshot cannot be overwritten by an older rejected query (0.0814ms)
+✔ a matching new-media snapshot can reject the face that was just uploaded (0.0845ms)
+✔ global rejection after both faces passed requests a complete replacement (0.085ms)
+✔ rejected complete media stays a full retry even with a legacy front next_slot (0.0926ms)
+✔ reviewing one saved face does not postpone collecting the other (0.0559ms)
+✔ complete media in human review exposes only the backend public guidance (0.0427ms)
+✔ classification accepts complete RG, refuses CNH and does not guess unknown document types (0.089ms)
+✔ a non-document or illegible capture never resolves to an upload slot (0.062ms)
+✔ resuming an approved pair does not revive an older rejected complete file (0.0478ms)
+✔ promoter CNH uses the same front/back receipt and rejection behavior (0.0776ms)
+✔ rejected full CNH exposes a new capture even when its visual check passed (0.0361ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 128.294

@@ -1,0 +1,9 @@
+---
+export const prerender = false;
+
+// Preserva todos os query params e ativa a flag de auto-abertura da recuperação de contato
+const params = new URLSearchParams(Astro.url.search);
+params.set("open_recovery", "true");
+
+return Astro.redirect(`/autenticacao/otp?${params.toString()}`, 302);
+---

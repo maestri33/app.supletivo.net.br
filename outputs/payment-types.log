@@ -1,0 +1,4 @@
+
+> app.supletivo.net.br@0.0.0-sandbox.120 check-types C:\rep\app.supletivo.net.br
+> tsc --noEmit
+

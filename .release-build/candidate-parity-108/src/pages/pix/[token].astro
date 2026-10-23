@@ -1,0 +1,21 @@
+---
+import RootLayout from "@/layouts/RootLayout.astro";
+import PixCheckout from "@/components/interactive/PixCheckout.svelte";
+
+export const prerender = false;
+
+const { token } = Astro.params;
+
+if (!token) {
+  return Astro.redirect("/autenticacao/login");
+}
+---
+
+<RootLayout
+  title="Pague sua matrícula com PIX — Supletivo Brasil"
+  description="Escaneie o QR Code ou copie o código PIX para concluir sua matrícula."
+>
+  <div class="flex flex-1 flex-col items-center justify-center">
+    <PixCheckout client:load token={token} />
+  </div>
+</RootLayout>

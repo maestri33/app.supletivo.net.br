@@ -6,6 +6,7 @@
     setLeadCheckout, getLeadMe, confirmLeadCardPayment, confirmIdentity, setLeadEmail,
     ApiError, getErrorMessage, type CheckoutOut, type LeadMe, type CardPaymentReferences,
   } from "@/lib/api";
+  import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
   import type { Pricing } from "@/lib/payment";
   import { setLeadCheckoutReadyState } from "@/components/interactive/dock";
   import PixCheckout from "./PixCheckout.svelte";
@@ -482,7 +483,7 @@
 
       <div class="text-center mt-6">
         <a
-          href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20escolha%20de%20pagamento%20do%20Supletivo%20e%20tenho%20d%C3%BAvidas."
+          href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20escolha%20de%20pagamento%20do%20Supletivo%20e%20tenho%20d%C3%BAvidas.`}
           target="_blank"
           rel="noopener noreferrer"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-white/70 text-xs font-medium hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
@@ -672,7 +673,7 @@
           <a href="/" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Abrir minha conta</a>
         {/if}
         {#if paymentStage === "review"}
-          <a href="https://wa.me/5543996648750" target="_blank" rel="noopener noreferrer" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Falar com o atendimento</a>
+          <a href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Falar com o atendimento</a>
         {/if}
         {#if paymentStage === "pending" && recoveryAction === "retry" && checkoutUrl(checkoutData)}
           <a

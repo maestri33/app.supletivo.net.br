@@ -1,0 +1,1 @@
+globalThis.process??={},globalThis.process.env??={};import{t as e}from"./RoleAdaptiveNavDock.Ck6RvbRM.js";export{e as RoleAdaptiveNavDock,e as default};

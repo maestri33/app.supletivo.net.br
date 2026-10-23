@@ -1,0 +1,21 @@
+import { r as __exportAll } from "./rolldown-runtime_BMI-E3GI.mjs";
+import { d as renderTemplate, f as maybeRenderHead, i as renderComponent } from "./server_ZN1nPn8N.mjs";
+import { t as createComponent } from "./compiler_DJgU_Xlh.mjs";
+import { t as $$RootLayout } from "./RootLayout_as4U_EmP.mjs";
+//#region src/pages/promoter/suspended/notice.astro
+var notice_exports = /* @__PURE__ */ __exportAll({
+	default: () => $$Notice,
+	file: () => $$file,
+	prerender: () => false,
+	url: () => $$url
+});
+var $$Notice = createComponent(($$result, $$props, $$slots) => {
+	return renderTemplate`${renderComponent($$result, "RootLayout", $$RootLayout, { "title": "Conta Suspensa — Supletivo Brasil" }, { "default": ($$result) => renderTemplate`${maybeRenderHead($$result)}<div class="w-full max-w-lg mx-auto flex-1 flex flex-col items-center justify-center p-4 sm:p-6 pb-28 text-center space-y-4"><div class="size-16 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl mx-auto text-rose-400">⚠️</div><div class="space-y-1"><span class="px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black uppercase tracking-wider">Conta Temporariamente Suspensa</span><h1 class="text-2xl font-black text-white font-display pt-2">Acesso Suspenso</h1><p class="text-xs text-white/70 max-w-sm mx-auto leading-relaxed">Seu acesso ao painel de divulgação está suspenso. Entre em contato com a coordenação do polo regional para consultar a situação do seu cadastro.</p></div><div class="pt-2"><a href="/promoter/suspended/support" class="btn px-6 py-3 text-xs font-bold uppercase tracking-wider text-[var(--ink)]">Falar com o Coordenador do Polo &rarr;</a></div></div>` })}`;
+}, "C:/rep/app.supletivo.net.br/src/pages/promoter/suspended/notice.astro", void 0);
+var $$file = "C:/rep/app.supletivo.net.br/src/pages/promoter/suspended/notice.astro";
+var $$url = "/promoter/suspended/notice";
+//#endregion
+//#region \0virtual:astro:page:src/pages/promoter/suspended/notice@_@astro
+var page = () => notice_exports;
+//#endregion
+export { page };

@@ -1,0 +1,8 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentSelfieView from '../../../components/interactive/student/StudentSelfieView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Selfie e assinatura — Supletivo Brasil"><StudentSelfieView client:load /></RootLayout>

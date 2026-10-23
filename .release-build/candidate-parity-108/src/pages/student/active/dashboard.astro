@@ -1,0 +1,6 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentActiveView from '../../../components/interactive/student/StudentActiveView.svelte';
+export const prerender = false;
+---
+<RootLayout title="Painel do Aluno — Supletivo Brasil"><StudentActiveView client:load view="dashboard" /></RootLayout>

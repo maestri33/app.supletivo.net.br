@@ -1,0 +1,1 @@
+var e=6e4;function t(t){let n=t?.poll_after_ms&&t.poll_after_ms>0?t.poll_after_ms:2500,r=t?.expires_at?Date.parse(t.expires_at):NaN;return{intervalMs:n,deadlineMs:Number.isFinite(r)?Math.min(r,Date.now()+e):Date.now()+e}}export{t};

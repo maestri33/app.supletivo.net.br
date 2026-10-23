@@ -1,0 +1,24 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import OtpVerification from '../../components/interactive/OtpVerification.svelte';
+
+export const prerender = false;
+
+const id = Astro.url.searchParams.get("id");
+const tel = Astro.url.searchParams.get("tel");
+const cpf = Astro.url.searchParams.get("cpf");
+const novoTelefone = Astro.url.searchParams.get("novo_telefone") || Astro.url.searchParams.get("new_phone");
+const openRecovery = Astro.url.searchParams.get("open_recovery") === "true";
+const sessionCookie = Astro.cookies.get("supletivo.session")?.value;
+
+// Se não há identificador, telefone, contexto de recuperação ou cookie de sessão, redireciona para a raiz única (/)
+if (!id && !tel && !cpf && !novoTelefone && !openRecovery && !sessionCookie) {
+  return Astro.redirect("/", 302);
+}
+---
+
+<RootLayout title="Verificação de Segurança — Supletivo Brasil">
+  <div class="w-full flex-1 flex items-center justify-center p-4">
+    <OtpVerification client:load />
+  </div>
+</RootLayout>

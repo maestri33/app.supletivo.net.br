@@ -1,0 +1,258 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { whoami, requestAuth } from "@/lib/api";
+
+  interface ReviewItem {
+    id: string;
+    key: string;
+    type: string;
+    kind: string;
+    name: string;
+    doc: string;
+    status: "pending" | "approved" | "rejected";
+    studentId?: string;
+    documentId?: string;
+  }
+
+  interface RawReviewApiItem {
+    id?: string | number;
+    external_id?: string | number;
+    type?: string;
+    kind?: string;
+    name?: string;
+    reason?: string;
+    doc?: string;
+    status?: "pending" | "approved" | "rejected";
+    student_external_id?: string;
+    document_external_id?: string;
+    doc_type?: string;
+  }
+
+  interface RawReviewsPayload {
+    enrollment_rg?: RawReviewApiItem[];
+    enrollment_selfie?: RawReviewApiItem[];
+    enrollment_address_proof?: RawReviewApiItem[];
+    candidate_document?: RawReviewApiItem[];
+    candidate_selfie?: RawReviewApiItem[];
+    student_documents?: RawReviewApiItem[];
+    candidates_awaiting_approval?: RawReviewApiItem[];
+  }
+
+  let coordinatorName = $state<string>("Coordenador");
+  let items = $state<ReviewItem[]>([]);
+  let loading = $state<boolean>(true);
+  let loadError = $state<string | null>(null);
+  let decidingId = $state<string | null>(null);
+  let decisionError = $state<string | null>(null);
+
+  async function loadReviewQueue() {
+    loading = true;
+    loadError = null;
+
+    try {
+      const who = await whoami();
+      const roles = Array.isArray(who?.roles) ? who.roles : [];
+      const isHub = roles.some((r: string) => ["coordinator", "hub", "polo"].includes(r));
+      if (!isHub) {
+        window.location.replace("/student");
+        return;
+      }
+      if (who?.name) coordinatorName = who.name;
+    } catch (cause) {
+      loadError = cause instanceof Error ? cause.message : "Não foi possível consultar sua conta.";
+      loading = false;
+      return;
+    }
+
+    try {
+      const data = await requestAuth<RawReviewsPayload | RawReviewApiItem[]>("/api/v1/leadership/reviews");
+      const rawList: RawReviewApiItem[] = Array.isArray(data)
+        ? data
+        : [
+            ...((data as RawReviewsPayload)?.enrollment_rg || []),
+            ...((data as RawReviewsPayload)?.enrollment_selfie || []),
+            ...((data as RawReviewsPayload)?.enrollment_address_proof || []),
+            ...((data as RawReviewsPayload)?.candidate_document || []),
+            ...((data as RawReviewsPayload)?.candidate_selfie || []),
+            ...((data as RawReviewsPayload)?.student_documents || []),
+            ...((data as RawReviewsPayload)?.candidates_awaiting_approval || []),
+          ];
+
+      items = rawList.map((r) => ({
+        id: String(r.external_id || r.document_external_id || r.id || ""),
+        key: `${r.type}:${r.kind}:${r.external_id || r.document_external_id || r.id}:${r.student_external_id || ""}`,
+        type: r.type || "unknown",
+        kind: r.kind || "unknown",
+        name: r.name || "Nome não informado",
+        doc: r.reason || r.doc || r.doc_type || `${r.type || "Recurso"} / ${r.kind || "Etapa não informada"}`,
+        status: r.status || "pending",
+        studentId: r.student_external_id,
+        documentId: r.document_external_id,
+      }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao carregar lista de revisões pendentes.";
+      loadError = msg;
+      items = [];
+    } finally {
+      loading = false;
+    }
+  }
+
+  onMount(() => {
+    loadReviewQueue();
+  });
+
+  async function decideItem(key: string, approve: boolean) {
+    const item = items.find((i) => i.key === key);
+    if (!item || decidingId) return;
+
+    decidingId = key;
+    decisionError = null;
+
+    try {
+      if (!item.id) throw new Error("A fila não informou o identificador do recurso.");
+      const safeId = encodeURIComponent(item.id);
+      let decisionUrl: string;
+      if (item.type === "enrollment" && item.kind === "rg") {
+        decisionUrl = `/api/v1/leadership/enrollments/${safeId}/rg/decide`;
+      } else if (item.type === "enrollment" && item.kind === "selfie") {
+        decisionUrl = `/api/v1/leadership/enrollments/${safeId}/selfie/decide`;
+      } else if (item.type === "enrollment" && (item.kind === "address" || item.kind === "address_proof")) {
+        decisionUrl = `/api/v1/leadership/enrollments/${safeId}/address-proof/decide`;
+      } else if (item.type === "candidate" && item.kind === "selfie") {
+        decisionUrl = `/api/v1/leadership/candidates/${safeId}/selfie/decide`;
+      } else if (item.type === "candidate" && item.kind === "awaiting_approval") {
+        decisionUrl = approve
+          ? `/api/v1/leadership/candidates/${safeId}/approve`
+          : `/api/v1/leadership/candidates/${safeId}/reject`;
+      } else if (item.type === "candidate" && item.kind === "document") {
+        decisionUrl = `/api/v1/leadership/candidates/${safeId}/document/decide`;
+      } else if (item.type === "student" && item.kind === "document" && item.studentId && item.documentId) {
+        decisionUrl = `/api/v1/leadership/students/${encodeURIComponent(item.studentId)}/documents/${encodeURIComponent(item.documentId)}/decide`;
+      } else {
+        throw new Error("Este item não tem uma ação de decisão disponível.");
+      }
+
+      await requestAuth(decisionUrl, {
+        method: "POST",
+        json: {
+          approve,
+          reason: approve ? null : "Correção solicitada pelo coordenador do polo",
+        },
+      });
+
+      // Sucesso confirmado: atualiza o status na memória
+      items = items.map((i) => (i.key === key ? { ...i, status: approve ? "approved" : "rejected" } : i));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Falha ao registrar decisão. Tente novamente.";
+      decisionError = `Não foi possível atualizar o item ${item.name}: ${msg}`;
+      console.error("[HubReviewView] Erro ao decidir item:", err);
+    } finally {
+      decidingId = null;
+    }
+  }
+</script>
+
+<div class="w-full max-w-4xl mx-auto p-4 sm:p-6 text-white space-y-6">
+  <!-- Card de Atenção: Fila de Revisões -->
+  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-amber-500/40 bg-gradient-to-br from-amber-950/60 to-blue-deep/90 shadow-2xl">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-xs font-semibold text-amber-300 mb-2">
+          <span class="size-2 rounded-full bg-amber-400 animate-pulse"></span>
+          Status de Atenção: Revisão
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-display text-white">Central de Análises do Polo</h1>
+        <p class="text-xs sm:text-sm text-amber-100/80 mt-1">
+          Pendências documentais de matrículas e aprovações de novos consultores aguardando validação presencial ou documental do coordenador <strong>{coordinatorName}</strong>.
+        </p>
+      </div>
+
+      <div>
+        <a
+          href="/hub/active"
+          class="inline-flex items-center gap-2 text-xs py-2.5 px-5 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-white font-bold transition-colors cursor-pointer"
+        >
+          ← Visão Geral do Polo
+        </a>
+      </div>
+    </div>
+
+    {#if decisionError}
+      <div class="p-3 mb-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-200 flex items-center justify-between">
+        <span>{decisionError}</span>
+        <button type="button" onclick={() => (decisionError = null)} class="text-white/60 hover:text-white ml-2">✕</button>
+      </div>
+    {/if}
+
+    {#if loadError}
+      <div class="p-4 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-xs text-rose-200">
+        <span>{loadError}</span>
+        <button
+          type="button"
+          onclick={loadReviewQueue}
+          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-semibold cursor-pointer transition-colors"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    {/if}
+
+    <!-- Lista de Itens para Revisão -->
+    {#if loading}
+      <div class="p-8 text-center text-xs text-white/60">Carregando fila de revisões do polo...</div>
+    {:else if !loadError && items.length === 0}
+      <div class="p-8 rounded-2xl border border-dashed border-white/15 text-center text-xs text-white/70">
+        🎉 Nenhuma pendência documental na fila do polo no momento.
+      </div>
+    {:else}
+      <div class="space-y-3">
+        {#each items as item (item.key)}
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded font-bold uppercase text-[10px] {item.type === 'enrollment' ? 'bg-blue-500/20 text-blue-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                  {item.type === 'enrollment' ? 'Matrícula' : item.type === 'student' ? 'Aluno' : 'Promotor'}
+                </span>
+                <strong class="text-sm font-bold text-white">{item.name}</strong>
+              </div>
+              <p class="text-white/60">{item.doc}</p>
+              {#if ["enrollment", "student", "candidate"].includes(item.type)}
+                <a href={`/hub/active/operations?${item.type}=${encodeURIComponent(item.studentId || item.id)}`} class="inline-flex items-center min-h-12 text-[var(--yellow)] underline">Consultar dossiê e operar processo</a>
+              {/if}
+            </div>
+
+            <div class="flex items-center gap-2">
+              {#if item.status === "pending"}
+                <button
+                  type="button"
+                  disabled={Boolean(decidingId)}
+                  onclick={() => decideItem(item.key, true)}
+                  class="px-3.5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/30 font-bold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {decidingId === item.key ? "Salvando..." : "✓ Aprovar"}
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(decidingId)}
+                  onclick={() => decideItem(item.key, false)}
+                  class="px-3.5 py-2 rounded-xl bg-rose-500/20 border border-rose-400/30 text-rose-300 hover:bg-rose-500/30 font-bold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {decidingId === item.key ? "Salvando..." : "✕ Solicitar Correção"}
+                </button>
+              {:else if item.status === "approved"}
+                <span class="text-emerald-400 font-bold px-3 py-1 bg-emerald-500/10 rounded-lg">
+                  ✓ Aprovação registrada
+                </span>
+              {:else}
+                <span class="text-rose-400 font-bold px-3 py-1 bg-rose-500/10 rounded-lg">
+                  ✕ Correção registrada
+                </span>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</div>

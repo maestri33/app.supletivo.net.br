@@ -1,0 +1,20 @@
+10:52:38 [@astrojs/cloudflare] Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+10:52:38 [vite] Re-optimizing dependencies because vite config has changed
+10:52:38 [vite] Re-optimizing dependencies because vite config has changed
+10:52:38 [types] Generated 297ms
+10:52:38 [build] output: "server"
+10:52:38 [build] mode: "server"
+10:52:38 [build] directory: C:\rep\app.supletivo.net.br\.release-build\payment-v122-cloudflare\
+10:52:38 [build] adapter: @astrojs/cloudflare
+10:52:38 [build] Collecting build info...
+10:52:38 [build] ✓ Completed in 390ms.
+10:52:38 [build] Building server entrypoints...
+Using secrets defined in .env.local
+10:52:39 [vite] ✓ built in 216ms
+Using secrets defined in .env.local
+10:52:41 [vite] ✓ built in 2.51s
+10:52:43 [vite] ✓ built in 1.71s
+10:52:43 [build] Rearranging server assets...
+10:52:43 [build] ✓ Completed in 4.58s.
+10:52:43 [build] Server built in 4.98s
+10:52:43 [build] Complete!

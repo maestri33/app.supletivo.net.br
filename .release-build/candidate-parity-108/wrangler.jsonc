@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "app-supletivo-net-br",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "URL_BACKEND": "https://backend.supletivo.net.br"
+  },
+  "routes": [
+    {
+      "pattern": "app.supletivo.net.br/*",
+      "zone_name": "supletivo.net.br"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "1500d22e396f41c6b26d9f17e02f678d"
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "d13fec466a424ac59c25399ee8628d4a"
+    }
+  ]
+}

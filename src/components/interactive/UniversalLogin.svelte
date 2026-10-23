@@ -17,10 +17,12 @@
   let isPhoneComplete = $derived(isValidBrMobile(phoneDigits));
 
   let mounted = $state(false);
+  let checkingSession = $state(false);
 
   onMount(async () => {
     mounted = true;
     if (getAccessToken()) {
+      checkingSession = true;
       try {
         const who = await whoami();
         const target = getRoleDestination(who);
@@ -29,6 +31,7 @@
       } catch (failure) {
         if (failure instanceof ApiError && failure.status === 401) clearSession();
         else errorMessage = failure instanceof Error ? failure.message : 'Não foi possível consultar sua conta.';
+        checkingSession = false;
       }
     }
   });
@@ -147,6 +150,13 @@
     </div>
   {/if}
 
+  {#if checkingSession}
+    <div class="py-10 text-center" aria-live="polite">
+      <div class="inline-block size-8 border-2 border-white/20 border-t-[var(--yellow)] rounded-full animate-spin mb-4"></div>
+      <p class="text-sm font-semibold text-white/90">Acessando seu portal...</p>
+      <p class="text-xs text-white/60 mt-1">Sessão encontrada. Redirecionando...</p>
+    </div>
+  {:else}
   <div class="space-y-4">
     <div>
       <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-white/80 mb-2">
@@ -197,6 +207,7 @@
   <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
     Ainda não possui cadastro? Basta digitar seu WhatsApp acima para conhecer as opções de acesso.
   </div>
+  {/if}
 </div>
 
 <UnregisteredRoleModal

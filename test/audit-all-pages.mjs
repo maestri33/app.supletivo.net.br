@@ -5,11 +5,11 @@ const sessionData = {
   refresh_token: process.env.AUDIT_REFRESH_TOKEN || "mock-audit-refresh-token",
   external_id: "9823a0a4-223a-4e15-9522-192ceb89315c",
   roles: ["student", "promoter", "hub", "admin", "candidate", "enrollment", "staff"],
-  phone: "5543996648750",
+  phone: "5542984321915",
   user: {
     external_id: "9823a0a4-223a-4e15-9522-192ceb89315c",
     name: "Victor Vanderley Maestri",
-    phone: "5543996648750",
+    phone: "5542984321915",
     is_superuser: true,
     is_staff: true,
   }

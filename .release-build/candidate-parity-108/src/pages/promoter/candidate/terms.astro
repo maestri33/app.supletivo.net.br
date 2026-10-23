@@ -1,0 +1,10 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import PromoterCandidateView from '../../../components/interactive/PromoterCandidateView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Termos de Parceria & Divulgação — Supletivo Brasil">
+  <div class="w-full flex-1 p-4 sm:p-6 pb-28"><PromoterCandidateView client:load /></div>
+</RootLayout>

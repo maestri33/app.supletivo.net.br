@@ -1,0 +1,8 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentEducationView from '../../../components/interactive/student/StudentEducationView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Escolaridade — Supletivo Brasil"><StudentEducationView client:load /></RootLayout>

@@ -1,0 +1,9 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import PromoterDocumentArchive from '../../../components/interactive/PromoterDocumentArchive.svelte';
+export const prerender = false;
+---
+
+<RootLayout title="Meus documentos — Supletivo Brasil">
+  <div class="w-full flex-1 p-4 sm:p-6 pb-28"><PromoterDocumentArchive client:load /></div>
+</RootLayout>

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "1596bdcb-6d60-4a7d-a36b-a1a7089bab2d",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "fb2c392b-f1bd-4747-b94a-5c84f46f3a7a",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T13:07:45.778589Z"
+  },
+  {
+    "id": "c779f2f1-3247-4eb2-babd-fd1eaf7dd655",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "2d302558-06eb-43aa-8c78-529ec3fea4e1",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T14:21:15.513549Z"
+  },
+  {
+    "id": "48e94a32-56ad-45f0-8089-0ba462343399",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "2048c84e-6076-4b91-8459-11f37db170a4",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T14:57:05.364557Z"
+  },
+  {
+    "id": "e13b446c-1e3f-456d-9a11-972e6a52e2ff",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "43ab89d8-38d3-460e-89a9-44d0e7dbf511",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T15:28:31.546245Z"
+  },
+  {
+    "id": "2c78053c-42db-4d13-a224-3ab6ef8db881",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "e9eaa7a7-95d3-4a48-ba1f-4cb7a1aa7e3c",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T22:36:57.009258Z"
+  },
+  {
+    "id": "7ea7e23f-849e-472d-ab94-89b7567dd9a6",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "f92e7f96-29b6-4e3e-acc2-44f33a5177ba",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-12T22:39:46.448724Z"
+  },
+  {
+    "id": "273a5499-c91a-4127-b2f4-7dbb6e74537b",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "69814021-562c-4cda-b823-443737305308",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-13T04:31:52.560386Z"
+  },
+  {
+    "id": "d97c75f3-a63b-4203-b008-b2438319ce59",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "c41aeae6-a991-45b0-8a6d-bbb3405af124",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-13T04:42:57.954716Z"
+  },
+  {
+    "id": "1a15c5ce-ee40-43fd-8fe3-640bfe7c0329",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "10e4d6d5-8f51-4e0a-8a72-5f7d56f049b3",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-13T06:42:37.650342Z"
+  },
+  {
+    "id": "6fa9e3c3-499d-478a-a697-a63f7030a16d",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "v7maestri@gmail.com",
+    "annotations": {
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "668a12ce-cf1e-4055-a51f-e261b181ab66",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-13T07:31:29.368255Z"
+  }
+]

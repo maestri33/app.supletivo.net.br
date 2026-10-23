@@ -1,0 +1,8 @@
+---
+import RootLayout from '../../layouts/RootLayout.astro';
+import RoleEntry from '../../components/interactive/RoleEntry.svelte';
+export const prerender = false;
+---
+<RootLayout title="Secretaria de Polo — Supletivo Brasil" showDock={false} showFooter={false}>
+  <RoleEntry role="hub" client:load />
+</RootLayout>

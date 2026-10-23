@@ -1,0 +1,21 @@
+{
+  "version": "0.0.0-sandbox.98",
+  "commit": "4adf0212afc6113b0bfe72b1fd3c9b6333323241",
+  "worker_version": "2048c84e-6076-4b91-8459-11f37db170a4",
+  "before_production": {
+    "url": "https://app.supletivo.net.br/student/enrollment/selfie",
+    "viewport": "502x648",
+    "scroll_y_after_wheel": 0,
+    "body_overscroll": "none"
+  },
+  "after_production": {
+    "url": "https://app.supletivo.net.br/student/enrollment",
+    "viewport": "502x350",
+    "document_height": 609,
+    "scroll_y_before": 0,
+    "scroll_y_after_wheel": 259.5,
+    "body_overscroll": "auto",
+    "viewport_restored": true
+  },
+  "regression_checks_passed": 24
+}

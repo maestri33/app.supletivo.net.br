@@ -1,0 +1,29 @@
+---
+import RootLayout from '../layouts/RootLayout.astro';
+import UniversalLogin from '../components/interactive/UniversalLogin.svelte';
+
+export const prerender = false;
+
+const searchParams = Astro.url.searchParams;
+
+// Issue #8: Se contiver role=promotor/promoter ou rota explícita de promotor, não ejetar para a LP B2C de alunos
+const roleVal = (searchParams.get("role") ?? "").toLowerCase();
+const isPromoterContext = ["promotor", "promoter"].includes(roleVal) || searchParams.has("promotor") || searchParams.has("promoter");
+
+// Se o usuário acessou a raiz com parâmetro de afiliado ou campanha de aluno,
+// redireciona 308 permanentemente para a Landing Page oficial preservando a atribuição.
+const hasMarketingParam =
+  !isPromoterContext &&
+  (searchParams.has("ref") ||
+   Array.from(searchParams.keys()).some((k) => k.startsWith("utm_") || k.endsWith("clid")));
+
+if (hasMarketingParam) {
+  return Astro.redirect(`https://supletivo.net.br${Astro.url.search}`, 308);
+}
+---
+
+<RootLayout title="Entrar — Supletivo Brasil" showDock={false}>
+  <div class="w-full flex-1 flex flex-col items-center justify-start my-auto p-4 sm:p-6">
+    <UniversalLogin client:load />
+  </div>
+</RootLayout>

@@ -1,0 +1,23 @@
+
+> app.supletivo.net.br@0.0.0-sandbox.94 build C:\rep\app.supletivo.net.br
+> astro build
+
+00:06:01 [@astrojs/cloudflare] Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+00:06:02 [vite] Re-optimizing dependencies because vite config has changed
+00:06:02 [types] Generated 718ms
+00:06:02 [build] output: "server"
+00:06:02 [build] mode: "server"
+00:06:02 [build] directory: C:\rep\app.supletivo.net.br\dist\
+00:06:02 [build] adapter: @astrojs/cloudflare
+00:06:02 [build] Collecting build info...
+00:06:02 [build] ✓ Completed in 928ms.
+00:06:02 [build] Building server entrypoints...
+Using secrets defined in .env.local
+00:06:03 [vite] ✓ built in 859ms
+Using secrets defined in .env.local
+00:06:10 [vite] ✓ built in 6.26s
+00:06:13 [vite] ✓ built in 2.91s
+00:06:13 [build] Rearranging server assets...
+00:06:13 [build] ✓ Completed in 10.28s.
+00:06:13 [build] Server built in 11.29s
+00:06:13 [build] Complete!

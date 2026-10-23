@@ -20,6 +20,12 @@ const hasMarketingParam =
 if (hasMarketingParam) {
   return Astro.redirect(`https://supletivo.net.br${Astro.url.search}`, 308);
 }
+
+// Se já possui sessão ativa (cookie supletivo.auth), redireciona SSR direto para o portal sem flash de login
+const hasAuthCookie = Astro.cookies.has("supletivo.auth");
+if (hasAuthCookie) {
+  return Astro.redirect(isPromoterContext ? '/promoter' : '/student', 302);
+}
 ---
 
 <RootLayout title="Entrar — Supletivo Brasil" showDock={false}>

@@ -1,0 +1,134 @@
+---
+import AppHeader from '../components/layout/AppHeader.astro';
+import SiteFooter from '../components/layout/SiteFooter.astro';
+import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock';
+import RoleRouteGuard from '../components/interactive/RoleRouteGuard.svelte';
+import '../styles/globals.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  showDock?: boolean;
+  showFooter?: boolean;
+  requireAuth?: boolean;
+}
+
+const {
+  title = "Supletivo Brasil — conclua seus estudos",
+  description = "Conclua o Ensino Fundamental ou Médio pelo Supletivo Brasil. Matrícula rápida e 100% online.",
+  showDock,
+  showFooter = true,
+  requireAuth,
+} = Astro.props;
+
+const pathname = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix') || pathname.startsWith('/tabs-');
+const isTriageIndexRoute = pathname === '/student' || pathname === '/promoter' || pathname === '/hub';
+const shouldRenderDock = showDock ?? !isPublicAuthRoute;
+const shouldGuardAuth = requireAuth !== undefined ? requireAuth : (!isPublicAuthRoute && !isTriageIndexRoute);
+const shouldGuardRole = shouldGuardAuth && /^\/(student|promoter|hub)\//.test(pathname);
+
+let initialRole: "student" | "promoter" | "hub" = "student";
+if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
+  initialRole = "promoter";
+} else if (pathname.startsWith('/hub') || pathname.startsWith('/polo')) {
+  initialRole = "hub";
+}
+const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#002776" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+
+    <!-- Fontes críticas pré-carregadas (elimina FOIT/FOUT) -->
+    <link
+      rel="preload"
+      href="/fonts/archivo-black-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <meta name="application-name" content="Supletivo Brasil" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {shouldGuardRole && <script is:inline>document.documentElement.dataset.roleAccess = 'pending';</script>}
+    {shouldGuardAuth && (
+      <script is:inline define:vars={{ authRedirectTarget }}>
+        try {
+          const raw = localStorage.getItem("supletivo.login");
+          if (!raw) {
+            window.location.replace(authRedirectTarget);
+          } else {
+            const session = JSON.parse(raw);
+            if (!session || !session.access_token) {
+              window.location.replace(authRedirectTarget);
+            }
+          }
+        } catch (e) {
+          window.location.replace(authRedirectTarget);
+        }
+      </script>
+    )}
+  </head>
+  <body
+    class:list={["flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink", shouldRenderDock && "app-shell"]}
+    data-app-shell={shouldRenderDock ? "true" : undefined}
+  >
+    <a
+      href="#conteudo"
+      class="sr-only rounded-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:bg-brand-ink focus:px-4 focus:py-2 focus:font-bold focus:text-white"
+    >
+      Pular para o conteúdo
+    </a>
+
+    <!-- Aurora Background Zero-JS -->
+    <div class="aurora-wrap" aria-hidden="true">
+      <div class="aurora-layer"></div>
+    </div>
+
+    <!-- App Header -->
+    <AppHeader />
+    {shouldGuardRole && <RoleRouteGuard client:load pathname={pathname} />}
+
+    <!-- Conteúdo principal rolável da aplicação -->
+    <main
+      id="conteudo"
+      class:list={[
+        "app-scroll flex-1 w-full",
+        shouldRenderDock && "pb-[calc(env(safe-area-inset-bottom)+5.5rem)]",
+      ]}
+    >
+      <slot />
+    </main>
+
+    <!-- Navegação Adaptativa Global (Dock Flutuante) -->
+    {shouldRenderDock && (
+      <RoleAdaptiveNavDock client:only="react" initialRole={initialRole} currentPath={pathname} />
+    )}
+
+    <!-- Rodapé institucional Zero-JS (suprimido quando há dock ativo para evitar colisão) -->
+    {showFooter && !shouldRenderDock && <SiteFooter />}
+  </body>
+</html>
+
+<style is:global>
+  html[data-role-access="pending"] #conteudo,
+  html[data-role-access="pending"] nav[aria-label^="Navegação principal"] { display: none; }
+</style>

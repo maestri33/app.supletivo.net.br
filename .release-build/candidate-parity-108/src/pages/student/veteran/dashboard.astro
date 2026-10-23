@@ -1,0 +1,6 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentVeteranView from '../../../components/interactive/student/StudentVeteranView.svelte';
+export const prerender = false;
+---
+<RootLayout title="Conclusão do aluno — Supletivo Brasil"><StudentVeteranView client:load view="dashboard" /></RootLayout>

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import RelationshipPicker from "./RelationshipPicker.svelte";
   import { classifyDocument, whoami, getEnrollmentMe, uploadEnrollmentAddressProof, submitAddressProofKinship, getErrorMessage, type EnrollmentMe } from "@/lib/api";
+  import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
   import { enrollmentPath } from "./student/workflow";
   import { addressClassificationError, addressPollDelay } from "@/lib/address-proof";
   import UtilityBillIcon from "@/components/icons/UtilityBillIcon.svelte";
@@ -307,7 +308,7 @@
   <!-- Botão de Suporte de Contingência -->
   <div class="text-center">
     <a
-      href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20etapa%20de%20envio%20do%20Comprovante%20de%20Resid%C3%AAncia%20do%20Supletivo%20e%20preciso%20de%20ajuda."
+      href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20estou%20na%20etapa%20de%20envio%20do%20Comprovante%20de%20Resid%C3%AAncia%20do%20Supletivo%20e%20preciso%20de%20ajuda.`}
       target="_blank"
       rel="noopener noreferrer"
       class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-white/70 text-xs hover:text-white transition-all cursor-pointer"

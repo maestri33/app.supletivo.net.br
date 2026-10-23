@@ -1,0 +1,12 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import StudentRgEnrollmentView from '../../../components/interactive/StudentRgEnrollmentView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Envio do RG — Supletivo Brasil">
+  <div class="w-full max-w-2xl mx-auto flex-1 p-4 sm:p-6 pb-28">
+    <StudentRgEnrollmentView client:load />
+  </div>
+</RootLayout>

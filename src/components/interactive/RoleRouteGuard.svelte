@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { whoami, ApiError, getErrorMessage } from '@/lib/api';
-  import { getLogin, saveLogin } from '@/lib/session';
+  import { getLogin, saveLogin, clearSession } from '@/lib/session';
   import { canVisitRolePath, getRoleDestination, type CanonicalEnvironment } from '@/lib/roles';
   let { pathname }: { pathname: string } = $props();
   let error = $state<string | null>(null);
@@ -20,7 +20,11 @@
       document.documentElement.dataset.roleAccess = 'ready';
       window.dispatchEvent(new CustomEvent('supletivo:identity', { detail: identity }));
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) { window.location.replace('/'); return; }
+      if (failure instanceof ApiError && failure.status === 401) {
+        clearSession();
+        window.location.replace('/');
+        return;
+      }
       error = failure instanceof Error ? failure.message : getErrorMessage(failure);
     }
   }

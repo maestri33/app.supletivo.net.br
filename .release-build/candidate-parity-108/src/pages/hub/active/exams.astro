@@ -1,0 +1,10 @@
+---
+import RootLayout from '../../../layouts/RootLayout.astro';
+import HubExamsView from '../../../components/interactive/HubExamsView.svelte';
+
+export const prerender = false;
+---
+
+<RootLayout title="Bancas & Provas Presenciais — Supletivo Brasil">
+  <HubExamsView client:load />
+</RootLayout>

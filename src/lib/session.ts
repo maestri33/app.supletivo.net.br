@@ -48,11 +48,19 @@ export function getSession(): SessionCache | null {
   }
 }
 
+const AUTH_COOKIE = "supletivo.auth";
+const AUTH_COOKIE_MAX_AGE = 2592000; // 30 days in seconds
+
 export function clearLogin(): void {
   if (typeof window === "undefined") return;
   refreshTokenMemory = null;
   loginCache = { raw: null, value: null };
   window.localStorage.removeItem(LOGIN_KEY);
+  try {
+    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
+    document.cookie = `${AUTH_COOKIE}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax${secureFlag}`;
+    document.cookie = `${AUTH_COOKIE}=;path=/;max-age=0;SameSite=Lax${secureFlag}`;
+  } catch {}
 }
 
 export function clearSession(): void {
@@ -84,6 +92,11 @@ export function saveLogin(payload: Record<string, unknown>): void {
     refreshTokenMemory = refresh;
   }
   window.localStorage.setItem(LOGIN_KEY, JSON.stringify(payload));
+  try {
+    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
+    document.cookie = `${AUTH_COOKIE}=1;path=/;domain=.supletivo.net.br;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
+    document.cookie = `${AUTH_COOKIE}=1;path=/;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
+  } catch {}
 }
 
 export function getLogin(): Record<string, unknown> | null {

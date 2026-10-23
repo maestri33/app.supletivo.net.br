@@ -1,0 +1,1831 @@
+globalThis.process ??= {};
+globalThis.process.env ??= {};
+import { it as clsx$1 } from "./console_CytTTjjb.mjs";
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/context.js
+/** @import { SSRContext } from '#server' */
+/** @type {SSRContext | null} */
+var ssr_context = null;
+/** @param {SSRContext | null} v */
+function set_ssr_context(v) {
+	ssr_context = v;
+}
+/**
+* @param {Function} [fn]
+*/
+function push(fn) {
+	ssr_context = {
+		p: ssr_context,
+		c: null,
+		r: null
+	};
+}
+function pop() {
+	ssr_context = ssr_context.p;
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/shared/utils.js
+var is_array = Array.isArray;
+Array.prototype.indexOf;
+Array.prototype.includes;
+Array.from;
+Array.prototype;
+var has_own_property = Object.prototype.hasOwnProperty;
+var noop = () => {};
+/**
+* TODO replace with Promise.withResolvers once supported widely enough
+* @template [T=void]
+*/
+function deferred() {
+	/** @type {(value: T) => void} */
+	var resolve;
+	/** @type {(reason: any) => void} */
+	var reject;
+	return {
+		promise: new Promise((res, rej) => {
+			resolve = res;
+			reject = rej;
+		}),
+		resolve,
+		reject
+	};
+}
+/**
+* @template V
+* @param {V} value
+* @param {V | (() => V)} fallback
+* @param {boolean} [lazy]
+* @returns {V}
+*/
+function fallback(value, fallback, lazy = false) {
+	return value === void 0 ? lazy ? fallback() : fallback : value;
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/errors.js
+/**
+* The node API `AsyncLocalStorage` is not available, but is required to use async server rendering.
+* @returns {never}
+*/
+function async_local_storage_unavailable() {
+	const error = /* @__PURE__ */ new Error(`async_local_storage_unavailable\nThe node API \`AsyncLocalStorage\` is not available, but is required to use async server rendering.\nhttps://svelte.dev/e/async_local_storage_unavailable`);
+	error.name = "Svelte error";
+	throw error;
+}
+/**
+* Encountered asynchronous work while rendering synchronously.
+* @returns {never}
+*/
+function await_invalid() {
+	const error = /* @__PURE__ */ new Error(`await_invalid\nEncountered asynchronous work while rendering synchronously.\nhttps://svelte.dev/e/await_invalid`);
+	error.name = "Svelte error";
+	throw error;
+}
+/**
+* The `html` property of server render results has been deprecated. Use `body` instead.
+* @returns {never}
+*/
+function html_deprecated() {
+	const error = /* @__PURE__ */ new Error(`html_deprecated\nThe \`html\` property of server render results has been deprecated. Use \`body\` instead.\nhttps://svelte.dev/e/html_deprecated`);
+	error.name = "Svelte error";
+	throw error;
+}
+/**
+* `csp.nonce` was set while `csp.hash` was `true`. These options cannot be used simultaneously.
+* @returns {never}
+*/
+function invalid_csp() {
+	const error = /* @__PURE__ */ new Error(`invalid_csp\n\`csp.nonce\` was set while \`csp.hash\` was \`true\`. These options cannot be used simultaneously.\nhttps://svelte.dev/e/invalid_csp`);
+	error.name = "Svelte error";
+	throw error;
+}
+/**
+* The `idPrefix` option cannot include `--`.
+* @returns {never}
+*/
+function invalid_id_prefix() {
+	const error = /* @__PURE__ */ new Error(`invalid_id_prefix\nThe \`idPrefix\` option cannot include \`--\`.\nhttps://svelte.dev/e/invalid_id_prefix`);
+	error.name = "Svelte error";
+	throw error;
+}
+/**
+* Could not resolve `render` context.
+* @returns {never}
+*/
+function server_context_required() {
+	const error = /* @__PURE__ */ new Error(`server_context_required\nCould not resolve \`render\` context.\nhttps://svelte.dev/e/server_context_required`);
+	error.name = "Svelte error";
+	throw error;
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/flags/index.js
+/** True if experimental.async=true */
+var async_mode_flag = false;
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/render-context.js
+/** @import { AsyncLocalStorage } from 'node:async_hooks' */
+/** @import { RenderContext } from '#server' */
+/** @type {Promise<void> | null} */
+var current_render = null;
+/** @type {RenderContext | null} */
+var context = null;
+/** @returns {RenderContext} */
+function get_render_context() {
+	const store = context ?? als?.getStore();
+	if (!store) server_context_required();
+	return store;
+}
+/**
+* @template T
+* @param {() => Promise<T>} fn
+* @returns {Promise<T>}
+*/
+async function with_render_context(fn) {
+	context = { hydratable: {
+		lookup: /* @__PURE__ */ new Map(),
+		comparisons: [],
+		unresolved_promises: /* @__PURE__ */ new Map()
+	} };
+	if (in_webcontainer()) {
+		const { promise, resolve } = deferred();
+		const previous_render = current_render;
+		current_render = promise;
+		await previous_render;
+		return fn().finally(resolve);
+	}
+	try {
+		if (als === null) async_local_storage_unavailable();
+		return als.run(context, fn);
+	} finally {
+		context = null;
+	}
+}
+/** @type {AsyncLocalStorage<RenderContext | null> | null} */
+var als = null;
+/** @type {Promise<void> | null} */
+var als_import = null;
+/**
+*
+* @returns {Promise<void>}
+*/
+function init_render_context() {
+	als_import ??= import("node:async_hooks").then((hooks) => {
+		als = new hooks.AsyncLocalStorage();
+	}).then(noop, noop);
+	return als_import;
+}
+function in_webcontainer() {
+	return !!globalThis.process?.versions?.webcontainer;
+}
+//#endregion
+//#region node_modules/.pnpm/devalue@5.9.2/node_modules/devalue/src/constants.js
+var MAX_ARRAY_LEN = 2 ** 32 - 1;
+var MAX_ARRAY_INDEX = MAX_ARRAY_LEN - 1;
+//#endregion
+//#region node_modules/.pnpm/devalue@5.9.2/node_modules/devalue/src/utils.js
+/** @type {Record<string, string>} */
+var escaped = {
+	"<": "\\u003C",
+	"\\": "\\\\",
+	"\b": "\\b",
+	"\f": "\\f",
+	"\n": "\\n",
+	"\r": "\\r",
+	"	": "\\t",
+	"\u2028": "\\u2028",
+	"\u2029": "\\u2029"
+};
+var DevalueError = class extends Error {
+	/**
+	* @param {string} message
+	* @param {string[]} keys
+	* @param {any} [value] - The value that failed to be serialized
+	* @param {any} [root] - The root value being serialized
+	*/
+	constructor(message, keys, value, root) {
+		super(message);
+		this.name = "DevalueError";
+		this.path = keys.join("");
+		this.value = value;
+		this.root = root;
+	}
+};
+/** @param {any} thing */
+function is_primitive(thing) {
+	return thing === null || typeof thing !== "object" && typeof thing !== "function";
+}
+var object_proto_names = /* @__PURE__ */ Object.getOwnPropertyNames(Object.prototype).sort().join("\0");
+/** @param {any} thing */
+function is_plain_object(thing) {
+	const proto = Object.getPrototypeOf(thing);
+	return proto === Object.prototype || proto === null || Object.getPrototypeOf(proto) === null || Object.getOwnPropertyNames(proto).sort().join("\0") === object_proto_names;
+}
+/** @param {any} thing */
+function get_type(thing) {
+	return Object.prototype.toString.call(thing).slice(8, -1);
+}
+/** @param {string} char */
+function get_escaped_char(char) {
+	switch (char) {
+		case "\"": return "\\\"";
+		case "<": return "\\u003C";
+		case "\\": return "\\\\";
+		case "\n": return "\\n";
+		case "\r": return "\\r";
+		case "	": return "\\t";
+		case "\b": return "\\b";
+		case "\f": return "\\f";
+		case "\u2028": return "\\u2028";
+		case "\u2029": return "\\u2029";
+		default: return char < " " ? `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}` : "";
+	}
+}
+/** @param {string} str */
+function stringify_string(str) {
+	let result = "";
+	let last_pos = 0;
+	const len = str.length;
+	for (let i = 0; i < len; i += 1) {
+		const char = str[i];
+		const replacement = get_escaped_char(char);
+		if (replacement) {
+			result += str.slice(last_pos, i) + replacement;
+			last_pos = i + 1;
+		}
+	}
+	return `"${last_pos === 0 ? str : result + str.slice(last_pos)}"`;
+}
+/** @param {Record<string | symbol, any>} object */
+function enumerable_symbols(object) {
+	return Object.getOwnPropertySymbols(object).filter((symbol) => Object.getOwnPropertyDescriptor(object, symbol).enumerable);
+}
+var is_identifier = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
+/** @param {string} key */
+function stringify_key(key) {
+	return is_identifier.test(key) ? "." + key : "[" + JSON.stringify(key) + "]";
+}
+/** @param {number} n */
+function is_valid_array_index(n) {
+	if (!Number.isInteger(n)) return false;
+	if (n < 0) return false;
+	if (n > MAX_ARRAY_INDEX) return false;
+	return true;
+}
+/** @param {number} n */
+function is_valid_array_len(n) {
+	if (!Number.isInteger(n)) return false;
+	if (n < 0) return false;
+	if (n > MAX_ARRAY_LEN) return false;
+	return true;
+}
+/** @param {string} s */
+function is_valid_array_index_string(s) {
+	if (s.length === 0) return false;
+	if (s.length > 1 && s.charCodeAt(0) === 48) return false;
+	for (let i = 0; i < s.length; i++) {
+		const c = s.charCodeAt(i);
+		if (c < 48 || c > 57) return false;
+	}
+	return is_valid_array_index(+s);
+}
+/**
+* Returns the length of the leading run of valid array indices in `keys`.
+* @param {readonly string[]} keys
+*/
+function array_index_cut(keys) {
+	for (var i = keys.length - 1; i >= 0; i--) if (is_valid_array_index_string(keys[i])) break;
+	return i + 1;
+}
+/**
+* Finds the populated indices of an array.
+* @param {unknown[]} array
+*/
+function valid_array_indices(array) {
+	const keys = Object.keys(array);
+	keys.length = array_index_cut(keys);
+	return keys;
+}
+//#endregion
+//#region node_modules/.pnpm/devalue@5.9.2/node_modules/devalue/src/uneval.js
+var chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$";
+var unsafe_chars = /[<\b\f\n\r\t\0\u2028\u2029]/g;
+var reserved = /^(?:do|if|in|for|int|let|new|try|var|byte|case|char|else|enum|goto|long|this|void|with|await|break|catch|class|const|final|float|short|super|throw|while|yield|delete|double|export|import|native|return|switch|throws|typeof|boolean|default|extends|finally|package|private|abstract|continue|debugger|function|volatile|interface|protected|transient|implements|instanceof|synchronized)$/;
+/**
+* Turn a value into the JavaScript that creates an equivalent value
+* @param {any} value
+* @param {(value: any, uneval: (value: any) => string) => string | void} [replacer]
+*/
+function uneval(value, replacer) {
+	const counts = /* @__PURE__ */ new Map();
+	/** @type {string[]} */
+	const keys = [];
+	const custom = /* @__PURE__ */ new Map();
+	/** @param {any} thing */
+	function walk(thing) {
+		if (!is_primitive(thing)) {
+			if (counts.has(thing)) {
+				counts.set(thing, counts.get(thing) + 1);
+				return;
+			}
+			counts.set(thing, 1);
+			if (replacer) {
+				const str = replacer(thing, (value) => uneval(value, replacer));
+				if (typeof str === "string") {
+					custom.set(thing, str);
+					return;
+				}
+			}
+			if (typeof thing === "function") throw new DevalueError(`Cannot stringify a function`, keys, thing, value);
+			switch (get_type(thing)) {
+				case "Number":
+				case "BigInt":
+				case "String":
+				case "Boolean":
+				case "Date":
+				case "RegExp":
+				case "URL":
+				case "URLSearchParams": return;
+				case "Array":
+					/** @type {any[]} */ thing.forEach((value, i) => {
+						keys.push(`[${i}]`);
+						walk(value);
+						keys.pop();
+					});
+					break;
+				case "Set":
+					Array.from(thing).forEach(walk);
+					break;
+				case "Map":
+					for (const [key, value] of thing) {
+						keys.push(`.get(${is_primitive(key) ? stringify_primitive(key) : "..."})`);
+						walk(key);
+						walk(value);
+						keys.pop();
+					}
+					break;
+				case "Int8Array":
+				case "Uint8Array":
+				case "Uint8ClampedArray":
+				case "Int16Array":
+				case "Uint16Array":
+				case "Float16Array":
+				case "Int32Array":
+				case "Uint32Array":
+				case "Float32Array":
+				case "Float64Array":
+				case "BigInt64Array":
+				case "BigUint64Array":
+				case "DataView":
+					walk(thing.buffer);
+					return;
+				case "ArrayBuffer": return;
+				case "Temporal.Duration":
+				case "Temporal.Instant":
+				case "Temporal.PlainDate":
+				case "Temporal.PlainTime":
+				case "Temporal.PlainDateTime":
+				case "Temporal.PlainMonthDay":
+				case "Temporal.PlainYearMonth":
+				case "Temporal.ZonedDateTime": return;
+				default:
+					if (!is_plain_object(thing)) throw new DevalueError(`Cannot stringify arbitrary non-POJOs`, keys, thing, value);
+					if (enumerable_symbols(thing).length > 0) throw new DevalueError(`Cannot stringify POJOs with symbolic keys`, keys, thing, value);
+					for (const key of Object.keys(thing)) {
+						if (key === "__proto__") throw new DevalueError(`Cannot stringify objects with __proto__ keys`, keys, thing, value);
+						keys.push(stringify_key(key));
+						walk(thing[key]);
+						keys.pop();
+					}
+			}
+		} else if (typeof thing === "symbol") throw new DevalueError(`Cannot stringify a Symbol primitive`, keys, thing, value);
+	}
+	walk(value);
+	const names = /* @__PURE__ */ new Map();
+	Array.from(counts).filter((entry) => entry[1] > 1).sort((a, b) => b[1] - a[1]).forEach((entry, i) => {
+		names.set(entry[0], get_name(i));
+	});
+	/**
+	* @param {any} thing
+	* @returns {string}
+	*/
+	function stringify(thing) {
+		if (names.has(thing)) return names.get(thing);
+		if (is_primitive(thing)) return stringify_primitive(thing);
+		if (custom.has(thing)) return custom.get(thing);
+		const type = get_type(thing);
+		switch (type) {
+			case "Number":
+			case "String":
+			case "Boolean":
+			case "BigInt": return `Object(${stringify(thing.valueOf())})`;
+			case "RegExp":
+				const { source, flags } = thing;
+				return flags ? `new RegExp(${stringify_string(source)},"${flags}")` : `new RegExp(${stringify_string(source)})`;
+			case "Date": return `new Date(${thing.getTime()})`;
+			case "URL": return `new URL(${stringify_string(thing.toString())})`;
+			case "URLSearchParams": return `new URLSearchParams(${stringify_string(thing.toString())})`;
+			case "Array": {
+				let has_holes = false;
+				let result = "[";
+				for (let i = 0; i < thing.length; i += 1) {
+					if (i > 0) result += ",";
+					if (Object.hasOwn(thing, i)) result += stringify(thing[i]);
+					else if (!has_holes) {
+						const populated_keys = valid_array_indices(thing);
+						const population = populated_keys.length;
+						const d = String(thing.length).length;
+						if (thing.length + 2 > 25 + d + population * (d + 2)) {
+							const entries = populated_keys.map((k) => `${k}:${stringify(thing[k])}`).join(",");
+							return `Object.assign(Array(${thing.length}),{${entries}})`;
+						}
+						has_holes = true;
+					}
+				}
+				const tail = thing.length === 0 || thing.length - 1 in thing ? "" : ",";
+				return result + tail + "]";
+			}
+			case "Set":
+			case "Map": return `new ${type}([${Array.from(thing).map(stringify).join(",")}])`;
+			case "Int8Array":
+			case "Uint8Array":
+			case "Uint8ClampedArray":
+			case "Int16Array":
+			case "Uint16Array":
+			case "Float16Array":
+			case "Int32Array":
+			case "Uint32Array":
+			case "Float32Array":
+			case "Float64Array":
+			case "BigInt64Array":
+			case "BigUint64Array": {
+				let str = `new ${type}`;
+				if (!names.has(thing.buffer)) str += `([${stringify_typed_array_elements(type, thing.buffer)}])`;
+				else str += `(${stringify(thing.buffer)})`;
+				if (thing.byteLength !== thing.buffer.byteLength) {
+					const start = thing.byteOffset / thing.BYTES_PER_ELEMENT;
+					const end = start + thing.length;
+					str += `.subarray(${start},${end})`;
+				}
+				return str;
+			}
+			case "DataView": {
+				let str = `new DataView`;
+				if (!names.has(thing.buffer)) str += `(new Uint8Array([${new Uint8Array(thing.buffer)}]).buffer`;
+				else str += `(${stringify(thing.buffer)}`;
+				if (thing.byteLength !== thing.buffer.byteLength) str += `,${thing.byteOffset},${thing.byteLength}`;
+				return str + ")";
+			}
+			case "ArrayBuffer": return `new Uint8Array([${new Uint8Array(thing).toString()}]).buffer`;
+			case "Temporal.Duration":
+			case "Temporal.Instant":
+			case "Temporal.PlainDate":
+			case "Temporal.PlainTime":
+			case "Temporal.PlainDateTime":
+			case "Temporal.PlainMonthDay":
+			case "Temporal.PlainYearMonth":
+			case "Temporal.ZonedDateTime": return `${type}.from(${stringify_string(thing.toString())})`;
+			default:
+				const keys = Object.keys(thing);
+				const obj = keys.map((key) => `${safe_key(key)}:${stringify(thing[key])}`).join(",");
+				if (Object.getPrototypeOf(thing) === null) return keys.length > 0 ? `{${obj},__proto__:null}` : `{__proto__:null}`;
+				return `{${obj}}`;
+		}
+	}
+	const str = stringify(value);
+	if (names.size) {
+		/** @type {string[]} */
+		const params = [];
+		/** @type {string[]} */
+		const statements = [];
+		/** @type {string[]} */
+		const values = [];
+		/** @type {string[]} */
+		const reconstructions = [];
+		names.forEach((name, thing) => {
+			params.push(name);
+			if (custom.has(thing)) {
+				values.push(custom.get(thing));
+				return;
+			}
+			if (is_primitive(thing)) {
+				values.push(stringify_primitive(thing));
+				return;
+			}
+			const type = get_type(thing);
+			switch (type) {
+				case "Number":
+				case "String":
+				case "Boolean":
+				case "BigInt":
+					values.push(`Object(${stringify(thing.valueOf())})`);
+					break;
+				case "RegExp":
+					const { source, flags } = thing;
+					const regexp = flags ? `new RegExp(${stringify_string(source)},"${flags}")` : `new RegExp(${stringify_string(source)})`;
+					values.push(regexp);
+					break;
+				case "Date":
+					values.push(`new Date(${thing.getTime()})`);
+					break;
+				case "URL":
+					values.push(`new URL(${stringify_string(thing.toString())})`);
+					break;
+				case "URLSearchParams":
+					values.push(`new URLSearchParams(${stringify_string(thing.toString())})`);
+					break;
+				case "Array":
+					values.push(`Array(${thing.length})`);
+					/** @type {any[]} */ thing.forEach((v, i) => {
+						statements.push(`${name}[${i}]=${stringify(v)}`);
+					});
+					break;
+				case "Set": {
+					values.push(`new Set`);
+					const adds = Array.from(thing).map((v) => `.add(${stringify(v)})`);
+					if (adds.length > 0) statements.push(name + adds.join(""));
+					break;
+				}
+				case "Map": {
+					values.push(`new Map`);
+					const sets = Array.from(thing).map(([k, v]) => `.set(${stringify(k)}, ${stringify(v)})`);
+					if (sets.length > 0) statements.push(name + sets.join(""));
+					break;
+				}
+				case "Int8Array":
+				case "Uint8Array":
+				case "Uint8ClampedArray":
+				case "Int16Array":
+				case "Uint16Array":
+				case "Float16Array":
+				case "Int32Array":
+				case "Uint32Array":
+				case "Float32Array":
+				case "Float64Array":
+				case "BigInt64Array":
+				case "BigUint64Array": {
+					let str = `new ${type}`;
+					if (!names.has(thing.buffer)) str += `([${stringify_typed_array_elements(type, thing.buffer)}])`;
+					else str += `(${stringify(thing.buffer)})`;
+					if (thing.byteLength !== thing.buffer.byteLength) {
+						const start = thing.byteOffset / thing.BYTES_PER_ELEMENT;
+						const end = start + thing.length;
+						str += `.subarray(${start},${end})`;
+					}
+					values.push(`{}`);
+					reconstructions.push(`${name}=${str}`);
+					break;
+				}
+				case "DataView": {
+					let str = `new DataView`;
+					if (!names.has(thing.buffer)) str += `(new Uint8Array([${new Uint8Array(thing.buffer)}]).buffer`;
+					else str += `(${stringify(thing.buffer)}`;
+					if (thing.byteLength !== thing.buffer.byteLength) str += `,${thing.byteOffset},${thing.byteLength}`;
+					str += ")";
+					values.push(`{}`);
+					reconstructions.push(`${name}=${str}`);
+					break;
+				}
+				case "ArrayBuffer":
+					values.push(`new Uint8Array([${new Uint8Array(thing)}]).buffer`);
+					break;
+				case "Temporal.Duration":
+				case "Temporal.Instant":
+				case "Temporal.PlainDate":
+				case "Temporal.PlainTime":
+				case "Temporal.PlainDateTime":
+				case "Temporal.PlainMonthDay":
+				case "Temporal.PlainYearMonth":
+				case "Temporal.ZonedDateTime":
+					values.push(`${type}.from(${stringify_string(thing.toString())})`);
+					break;
+				default:
+					values.push(Object.getPrototypeOf(thing) === null ? "Object.create(null)" : "{}");
+					Object.keys(thing).forEach((key) => {
+						statements.push(`${name}${safe_prop(key)}=${stringify(thing[key])}`);
+					});
+			}
+		});
+		statements.push(`return ${str}`);
+		const body = [...reconstructions, ...statements].join(";");
+		if (params.length > 65534) return `(function(){var[${params.join(",")}]=arguments[0];${body}}([${values.join(",")}]))`;
+		return `(function(${params.join(",")}){${body}}(${values.join(",")}))`;
+	} else return str;
+}
+/**
+* Serialize the elements of `buffer`, read as `type`, as a comma-separated list.
+* The view is created from `type` rather than from the serialized value's own
+* constructor, which may be a subclass like Node's `Buffer` whose `toString`
+* decodes the bytes instead of listing them.
+* `BigInt64Array`/`BigUint64Array` elements are bigints and must be written
+* with an `n` suffix, otherwise the emitted `new BigInt64Array([...])` throws.
+* @param {string} type
+* @param {ArrayBufferLike} buffer
+*/
+function stringify_typed_array_elements(type, buffer) {
+	const array = new globalThis[type](buffer);
+	if (type === "BigInt64Array" || type === "BigUint64Array") return Array.from(array, (element) => `${element}n`).join(",");
+	if (array instanceof Float32Array || array instanceof Float64Array || typeof Float16Array !== "undefined" && array instanceof Float16Array) return Array.from(array, (element) => Object.is(element, -0) ? "-0" : `${element}`).join(",");
+	return array.toString();
+}
+/** @param {number} num */
+function get_name(num) {
+	let name = "";
+	do {
+		name = chars[num % 54] + name;
+		num = ~~(num / 54) - 1;
+	} while (num >= 0);
+	return reserved.test(name) ? `${name}0` : name;
+}
+/** @param {string} c */
+function escape_unsafe_char(c) {
+	return escaped[c] || c;
+}
+/** @param {string} str */
+function escape_unsafe_chars(str) {
+	return str.replace(unsafe_chars, escape_unsafe_char);
+}
+/** @param {string} key */
+function safe_key(key) {
+	return /^[_$a-zA-Z][_$a-zA-Z0-9]*$/.test(key) ? key : escape_unsafe_chars(JSON.stringify(key));
+}
+/** @param {string} key */
+function safe_prop(key) {
+	return /^[_$a-zA-Z][_$a-zA-Z0-9]*$/.test(key) ? `.${key}` : `[${escape_unsafe_chars(JSON.stringify(key))}]`;
+}
+/** @param {any} thing */
+function stringify_primitive(thing) {
+	const type = typeof thing;
+	if (type === "string") return stringify_string(thing);
+	if (thing === void 0) return "void 0";
+	if (thing === 0 && 1 / thing < 0) return "-0";
+	const str = String(thing);
+	if (type === "number") return str.replace(/^(-)?0\./, "$1.");
+	if (type === "bigint") return thing + "n";
+	return str;
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/constants.js
+var UNINITIALIZED = Symbol("uninitialized");
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/client/constants.js
+var CLEAN = 1024;
+var DIRTY = 2048;
+var MAYBE_DIRTY = 4096;
+/** allow users to ignore aborted signal errors if `reason.name === 'StaleReactionError` */
+var STALE_REACTION = new class StaleReactionError extends Error {
+	name = "StaleReactionError";
+	message = "The reaction that called `getAbortSignal()` was re-run or destroyed";
+}();
+globalThis.document?.contentType;
+/**
+* A `hydratable` value with key `%key%` was created, but at least part of it was not used during the render.
+* 
+* The `hydratable` was initialized in:
+* %stack%
+* @param {string} key
+* @param {string} stack
+*/
+function unresolved_hydratable(key, stack) {
+	console.warn(`https://svelte.dev/e/unresolved_hydratable`);
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/hydration.js
+var BLOCK_OPEN = `<!--[-->`;
+var BLOCK_CLOSE = `<!--]-->`;
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/escaping.js
+var ATTR_REGEX = /[&"<]/g;
+var CONTENT_REGEX = /[&<]/g;
+/**
+* @template V
+* @param {V} value
+* @param {boolean} [is_attr]
+*/
+function escape_html(value, is_attr) {
+	const str = String(value ?? "");
+	const pattern = is_attr ? ATTR_REGEX : CONTENT_REGEX;
+	pattern.lastIndex = 0;
+	let escaped = "";
+	let last = 0;
+	while (pattern.test(str)) {
+		const i = pattern.lastIndex - 1;
+		const ch = str[i];
+		escaped += str.substring(last, i) + (ch === "&" ? "&amp;" : ch === "\"" ? "&quot;" : "&lt;");
+		last = i + 1;
+	}
+	return escaped + str.substring(last);
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/shared/attributes.js
+/**
+* `<div translate={false}>` should be rendered as `<div translate="no">` and _not_
+* `<div translate="false">`, which is equivalent to `<div translate="yes">`. There
+* may be other odd cases that need to be added to this list in future
+* @type {Record<string, Map<any, string>>}
+*/
+var replacements = { translate: /* @__PURE__ */ new Map([[true, "yes"], [false, "no"]]) };
+/**
+* @template V
+* @param {string} name
+* @param {V} value
+* @param {boolean} [is_boolean]
+* @returns {string}
+*/
+function attr(name, value, is_boolean = false) {
+	if (name === "hidden" && value !== "until-found") is_boolean = true;
+	if (value == null || is_boolean && !value && value !== "") return "";
+	const normalized = has_own_property.call(replacements, name) && replacements[name].get(value) || value;
+	return ` ${name}${is_boolean ? `=""` : `="${escape_html(normalized, true)}"`}`;
+}
+/**
+* Small wrapper around clsx to preserve Svelte's (weird) handling of falsy values.
+* TODO Svelte 6 revisit this, and likely turn all falsy values into the empty string (what clsx also does)
+* @param  {any} value
+*/
+function clsx(value) {
+	if (typeof value === "object") return clsx$1(value);
+	else return value ?? "";
+}
+var whitespace = [..." 	\n\r\f\xA0\v﻿"];
+/**
+* @param {any} value
+* @param {string | null} [hash]
+* @param {Record<string, boolean>} [directives]
+* @returns {string | null}
+*/
+function to_class(value, hash, directives) {
+	var classname = value == null ? "" : "" + value;
+	if (hash) classname = classname ? classname + " " + hash : hash;
+	if (directives) {
+		for (var key of Object.keys(directives)) if (directives[key]) classname = classname ? classname + " " + key : key;
+		else if (classname.length) {
+			var len = key.length;
+			var a = 0;
+			while ((a = classname.indexOf(key, a)) >= 0) {
+				var b = a + len;
+				if ((a === 0 || whitespace.includes(classname[a - 1])) && (b === classname.length || whitespace.includes(classname[b]))) classname = (a === 0 ? "" : classname.substring(0, a)) + classname.substring(b + 1);
+				else a = b;
+			}
+		}
+	}
+	return classname === "" ? null : classname;
+}
+/**
+*
+* @param {Record<string,any>} styles
+* @param {boolean} important
+*/
+function append_styles(styles, important = false) {
+	var separator = important ? " !important;" : ";";
+	var css = "";
+	for (var key of Object.keys(styles)) {
+		var value = styles[key];
+		if (value != null && value !== "") css += " " + key + ": " + value + separator;
+	}
+	return css;
+}
+/**
+* @param {string} name
+* @returns {string}
+*/
+function to_css_name(name) {
+	if (name[0] !== "-" || name[1] !== "-") return name.toLowerCase();
+	return name;
+}
+/**
+* @param {any} value
+* @param {Record<string, any> | [Record<string, any>, Record<string, any>]} [styles]
+* @returns {string | null}
+*/
+function to_style(value, styles) {
+	if (styles) {
+		var new_style = "";
+		/** @type {Record<string,any> | undefined} */
+		var normal_styles;
+		/** @type {Record<string,any> | undefined} */
+		var important_styles;
+		if (Array.isArray(styles)) {
+			normal_styles = styles[0];
+			important_styles = styles[1];
+		} else normal_styles = styles;
+		if (value) {
+			value = String(value).replaceAll(/\/\*.*?\*\//g, "").trim();
+			/** @type {boolean | '"' | "'"} */
+			var in_str = false;
+			var in_apo = 0;
+			var in_comment = false;
+			var reserved_names = [];
+			if (normal_styles) reserved_names.push(...Object.keys(normal_styles).map(to_css_name));
+			if (important_styles) reserved_names.push(...Object.keys(important_styles).map(to_css_name));
+			var start_index = 0;
+			var name_index = -1;
+			const len = value.length;
+			for (var i = 0; i < len; i++) {
+				var c = value[i];
+				if (in_comment) {
+					if (c === "/" && value[i - 1] === "*") in_comment = false;
+				} else if (in_str) {
+					if (in_str === c) in_str = false;
+				} else if (c === "/" && value[i + 1] === "*") in_comment = true;
+				else if (c === "\"" || c === "'") in_str = c;
+				else if (c === "(") in_apo++;
+				else if (c === ")") in_apo--;
+				if (!in_comment && in_str === false && in_apo === 0) {
+					if (c === ":" && name_index === -1) name_index = i;
+					else if (c === ";" || i === len - 1) {
+						if (name_index !== -1) {
+							var name = to_css_name(value.substring(start_index, name_index).trim());
+							if (!reserved_names.includes(name)) {
+								if (c !== ";") i++;
+								var property = value.substring(start_index, i).trim();
+								new_style += " " + property + ";";
+							}
+						}
+						start_index = i + 1;
+						name_index = -1;
+					}
+				}
+			}
+		}
+		if (normal_styles) new_style += append_styles(normal_styles);
+		if (important_styles) new_style += append_styles(important_styles, true);
+		new_style = new_style.trim();
+		return new_style === "" ? null : new_style;
+	}
+	return value == null ? null : String(value);
+}
+~(DIRTY | MAYBE_DIRTY | CLEAN);
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/utils.js
+/**
+* Attributes that are boolean, i.e. they are present or not present.
+*/
+var DOM_BOOLEAN_ATTRIBUTES = [
+	"allowfullscreen",
+	"async",
+	"autofocus",
+	"autoplay",
+	"checked",
+	"controls",
+	"default",
+	"disabled",
+	"formnovalidate",
+	"indeterminate",
+	"inert",
+	"ismap",
+	"loop",
+	"multiple",
+	"muted",
+	"nomodule",
+	"novalidate",
+	"open",
+	"playsinline",
+	"readonly",
+	"required",
+	"reversed",
+	"seamless",
+	"selected",
+	"webkitdirectory",
+	"defer",
+	"disablepictureinpicture",
+	"disableremoteplayback"
+];
+/**
+* Returns `true` if `name` is a boolean attribute
+* @param {string} name
+*/
+function is_boolean_attribute(name) {
+	return DOM_BOOLEAN_ATTRIBUTES.includes(name);
+}
+[...DOM_BOOLEAN_ATTRIBUTES];
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/index.js
+var INVALID_ATTR_NAME_CHAR_REGEX = /[\s'">/=\u{FDD0}-\u{FDEF}\u{FFFE}\u{FFFF}\u{1FFFE}\u{1FFFF}\u{2FFFE}\u{2FFFF}\u{3FFFE}\u{3FFFF}\u{4FFFE}\u{4FFFF}\u{5FFFE}\u{5FFFF}\u{6FFFE}\u{6FFFF}\u{7FFFE}\u{7FFFF}\u{8FFFE}\u{8FFFF}\u{9FFFE}\u{9FFFF}\u{AFFFE}\u{AFFFF}\u{BFFFE}\u{BFFFF}\u{CFFFE}\u{CFFFF}\u{DFFFE}\u{DFFFF}\u{EFFFE}\u{EFFFF}\u{FFFFE}\u{FFFFF}\u{10FFFE}\u{10FFFF}]/u;
+/**
+* Only available on the server and when compiling with the `server` option.
+* Takes a component and returns an object with `body` and `head` properties on it, which you can use to populate the HTML when server-rendering your app.
+* @template {Record<string, any>} Props
+* @param {Component<Props> | ComponentType<SvelteComponent<Props>>} component
+* @param {{ props?: Omit<Props, '$$slots' | '$$events'>; context?: Map<any, any>; idPrefix?: string; csp?: Csp; transformError?: (error: unknown) => unknown }} [options]
+* @returns {RenderOutput}
+*/
+function render(component, options = {}) {
+	if (options.csp?.hash && options.csp.nonce) invalid_csp();
+	return Renderer.render(component, options);
+}
+/**
+* @param {Record<string, unknown>} attrs
+* @param {string} [css_hash]
+* @param {Record<string, boolean>} [classes]
+* @param {Record<string, string>} [styles]
+* @param {number} [flags]
+* @returns {string}
+*/
+function attributes(attrs, css_hash, classes, styles, flags = 0) {
+	if (styles) attrs.style = to_style(attrs.style, styles);
+	if (attrs.class) attrs.class = clsx(attrs.class);
+	if (css_hash || classes) attrs.class = to_class(attrs.class, css_hash, classes);
+	let attr_str = "";
+	let name;
+	const is_html = (flags & 1) === 0;
+	const lowercase = (flags & 2) === 0;
+	const is_input = (flags & 4) !== 0;
+	for (name of Object.keys(attrs)) {
+		if (typeof attrs[name] === "function") continue;
+		if (name[0] === "$" && name[1] === "$") continue;
+		if (name === "" || INVALID_ATTR_NAME_CHAR_REGEX.test(name)) continue;
+		var value = attrs[name];
+		var lower = name.toLowerCase();
+		if (lowercase) name = lower;
+		if (lower.length > 2 && lower.startsWith("on")) continue;
+		if (is_input) {
+			if (name === "defaultvalue" || name === "defaultchecked") {
+				name = name === "defaultvalue" ? "value" : "checked";
+				if (attrs[name]) continue;
+			}
+		}
+		attr_str += attr(name, value, is_html && is_boolean_attribute(name));
+	}
+	return attr_str;
+}
+/**
+* @param {unknown} value
+* @returns {string}
+*/
+function stringify(value) {
+	return typeof value === "string" ? value : value == null ? "" : value + "";
+}
+/**
+* @param {any} value
+* @param {string | undefined} [hash]
+* @param {Record<string, boolean>} [directives]
+*/
+function attr_class(value, hash, directives) {
+	var result = to_class(value, hash, directives);
+	return result ? ` class="${escape_html(result, true)}"` : "";
+}
+/**
+* @param {any} value
+* @param {Record<string,any>|[Record<string,any>,Record<string,any>]} [directives]
+*/
+function attr_style(value, directives) {
+	var result = to_style(value, directives);
+	return result ? ` style="${escape_html(result, true)}"` : "";
+}
+/**
+* Legacy mode: If the prop has a fallback and is bound in the
+* parent component, propagate the fallback value upwards.
+* @param {Record<string, unknown>} props_parent
+* @param {Record<string, unknown>} props_now
+*/
+function bind_props(props_parent, props_now) {
+	for (const key of Object.keys(props_now)) {
+		const initial_value = props_parent[key];
+		const value = props_now[key];
+		if (initial_value === void 0 && value !== void 0 && Object.getOwnPropertyDescriptor(props_parent, key)?.set) props_parent[key] = value;
+	}
+}
+/** @param {any} array_like_or_iterator */
+function ensure_array_like(array_like_or_iterator) {
+	if (array_like_or_iterator) return array_like_or_iterator.length !== void 0 ? array_like_or_iterator : Array.from(array_like_or_iterator);
+	return [];
+}
+/**
+* @template V
+* @param {() => V} get_value
+*/
+function once(get_value) {
+	let value = UNINITIALIZED;
+	return () => {
+		if (value === UNINITIALIZED) value = get_value();
+		return value;
+	};
+}
+/**
+* @template T
+* @param {()=>T} fn
+* @returns {(new_value?: T) => (T | void)}
+*/
+function derived(fn) {
+	const get_value = ssr_context === null ? fn : once(fn);
+	/** @type {T | undefined} */
+	let updated_value;
+	return function(new_value) {
+		if (arguments.length === 0) return updated_value ?? get_value();
+		updated_value = new_value;
+		return updated_value;
+	};
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/crypto.js
+var text_encoder;
+var crypto;
+/** @param {string} module_name */
+var obfuscated_import = (module_name) => import(
+	/* @vite-ignore */
+	module_name
+);
+/** @param {string} data */
+async function sha256(data) {
+	text_encoder ??= new TextEncoder();
+	crypto ??= globalThis.crypto?.subtle?.digest ? globalThis.crypto : (await obfuscated_import("node:crypto")).webcrypto;
+	return base64_encode(await crypto.subtle.digest("SHA-256", text_encoder.encode(data)));
+}
+/**
+* @param {Uint8Array} bytes
+* @returns {string}
+*/
+function base64_encode(bytes) {
+	let binary = "";
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+	return btoa(binary);
+}
+//#endregion
+//#region node_modules/.pnpm/svelte@5.57.0_@typescript-eslint+types@8.70.0/node_modules/svelte/src/internal/server/renderer.js
+/** @import { Component } from 'svelte' */
+/** @import { HydratableContext, SSRContext } from './types.js' */
+/** @import { Csp, RenderOutput, SyncRenderOutput, Sha256Source } from '../../server/public.js' */
+/** @import { MaybePromise } from '#shared' */
+/** @typedef {'head' | 'body'} RendererType */
+/** @typedef {{ [key in RendererType]: string }} AccumulatedContent */
+/**
+* @typedef {string | Renderer} RendererItem
+*/
+/**
+* Renderers are basically a tree of `string | Renderer`s, where each `Renderer` in the tree represents
+* work that may or may not have completed. A renderer can be {@link collect}ed to aggregate the
+* content from itself and all of its children, but this will throw if any of the children are
+* performing asynchronous work. To asynchronously collect a renderer, just `await` it.
+*
+* The `string` values within a renderer are always associated with the {@link type} of that renderer. To switch types,
+* call {@link child} with a different `type` argument.
+*/
+var Renderer = class Renderer {
+	/**
+	* The contents of the renderer.
+	* @type {RendererItem[]}
+	*/
+	#out = [];
+	/**
+	* Any `onDestroy` callbacks registered during execution of this renderer.
+	* @type {(() => void)[] | undefined}
+	*/
+	#on_destroy = void 0;
+	/**
+	* Whether this renderer is a component body.
+	* @type {boolean}
+	*/
+	#is_component_body = false;
+	/**
+	* If set, this renderer is an error boundary. When async collection
+	* of the children fails, the failed snippet is rendered instead.
+	* @type {{
+	* 	failed: (renderer: Renderer, error: unknown, reset: () => void) => void;
+	* 	transformError: (error: unknown) => unknown;
+	* 	context: SSRContext | null;
+	* } | null}
+	*/
+	#boundary = null;
+	/**
+	* The type of string content that this renderer is accumulating.
+	* @type {RendererType}
+	*/
+	type;
+	/** @type {Renderer | undefined} */
+	#parent;
+	/**
+	* Asynchronous work associated with this renderer
+	* @type {Promise<void> | undefined}
+	*/
+	promise = void 0;
+	/**
+	* State which is associated with the content tree as a whole.
+	* It will be re-exposed, uncopied, on all children.
+	* @type {SSRState}
+	* @readonly
+	*/
+	global;
+	/**
+	* State that is local to the branch it is declared in.
+	* It will be shallow-copied to all children.
+	*
+	* @type {{ select_value: any, multiple: boolean }}
+	*/
+	local;
+	/**
+	* @param {SSRState} global
+	* @param {Renderer | undefined} [parent]
+	*/
+	constructor(global, parent) {
+		this.#parent = parent;
+		this.global = global;
+		this.local = parent ? { ...parent.local } : {
+			select_value: void 0,
+			multiple: false
+		};
+		this.type = parent ? parent.type : "body";
+	}
+	/**
+	* @param {(renderer: Renderer) => void} fn
+	*/
+	head(fn) {
+		const head = new Renderer(this.global, this);
+		head.type = "head";
+		this.#out.push(head);
+		head.child(fn);
+	}
+	/**
+	* @param {Array<Promise<void>>} blockers
+	* @param {(renderer: Renderer) => void} fn
+	*/
+	async_block(blockers, fn) {
+		this.#out.push(BLOCK_OPEN);
+		this.async(blockers, fn);
+		this.#out.push(BLOCK_CLOSE);
+	}
+	/**
+	* @param {Array<Promise<void>>} blockers
+	* @param {(renderer: Renderer) => void} fn
+	*/
+	async(blockers, fn) {
+		let callback = fn;
+		if (blockers.length > 0) {
+			const context = ssr_context;
+			callback = (renderer) => {
+				return Promise.all(blockers).then(() => {
+					const previous_context = ssr_context;
+					try {
+						set_ssr_context(context);
+						return fn(renderer);
+					} finally {
+						set_ssr_context(previous_context);
+					}
+				});
+			};
+		}
+		this.child(callback);
+	}
+	/**
+	* @param {Array<() => void>} thunks
+	*/
+	run(thunks) {
+		const context = ssr_context;
+		let promise = Promise.resolve(thunks[0]());
+		const promises = [promise];
+		for (const fn of thunks.slice(1)) {
+			promise = promise.then(() => {
+				const previous_context = ssr_context;
+				set_ssr_context(context);
+				try {
+					return fn();
+				} finally {
+					set_ssr_context(previous_context);
+				}
+			});
+			promises.push(promise);
+		}
+		promise.catch(noop);
+		this.promise = this.global.track(promise);
+		return promises;
+	}
+	/**
+	* @param {(renderer: Renderer) => MaybePromise<void>} fn
+	*/
+	child_block(fn) {
+		this.#out.push(BLOCK_OPEN);
+		this.child(fn);
+		this.#out.push(BLOCK_CLOSE);
+	}
+	/**
+	* Create a child renderer. The child renderer inherits the state from the parent,
+	* but has its own content.
+	* @param {(renderer: Renderer) => MaybePromise<void>} fn
+	*/
+	child(fn) {
+		const child = new Renderer(this.global, this);
+		this.#out.push(child);
+		const parent = ssr_context;
+		set_ssr_context({
+			...ssr_context,
+			p: parent,
+			c: null,
+			r: child
+		});
+		const result = fn(child);
+		set_ssr_context(parent);
+		if (result instanceof Promise) {
+			result.catch(noop);
+			result.finally(() => set_ssr_context(null)).catch(noop);
+			if (child.global.mode === "sync") await_invalid();
+			child.promise = child.global.track(result);
+		}
+		return child;
+	}
+	/**
+	* Render children inside an error boundary. If the children throw and the API-level
+	* `transformError` transform handles the error (doesn't re-throw), the `failed` snippet is
+	* rendered instead. Otherwise the error propagates.
+	*
+	* @param {{ failed?: (renderer: Renderer, error: unknown, reset: () => void) => void }} props
+	* @param {(renderer: Renderer) => MaybePromise<void>} children_fn
+	*/
+	boundary(props, children_fn) {
+		const child = new Renderer(this.global, this);
+		this.#out.push(child);
+		const parent_context = ssr_context;
+		if (props.failed) child.#boundary = {
+			failed: props.failed,
+			transformError: this.global.transformError,
+			context: parent_context
+		};
+		set_ssr_context({
+			...ssr_context,
+			p: parent_context,
+			c: null,
+			r: child
+		});
+		try {
+			const result = children_fn(child);
+			set_ssr_context(parent_context);
+			if (result instanceof Promise) {
+				if (child.global.mode === "sync") await_invalid();
+				result.catch(noop);
+				child.promise = child.global.track(result);
+			}
+		} catch (error) {
+			set_ssr_context(parent_context);
+			const failed_snippet = props.failed;
+			if (!failed_snippet) throw error;
+			const result = this.global.transformError(error);
+			child.#out.length = 0;
+			child.#boundary = null;
+			if (result instanceof Promise) {
+				if (this.global.mode === "sync") await_invalid();
+				child.promise = child.global.track(
+					/** @type {Promise<unknown>} */
+					result.then((transformed) => {
+						set_ssr_context(parent_context);
+						child.#out.push(Renderer.#serialize_failed_boundary(transformed));
+						failed_snippet(child, transformed, noop);
+						child.#out.push(BLOCK_CLOSE);
+					})
+				);
+				child.promise.catch(noop);
+			} else {
+				child.#out.push(Renderer.#serialize_failed_boundary(result));
+				failed_snippet(child, result, noop);
+				child.#out.push(BLOCK_CLOSE);
+			}
+		}
+	}
+	/**
+	* Create a component renderer. The component renderer inherits the state from the parent,
+	* but has its own content. It is treated as an ordering boundary for ondestroy callbacks.
+	* @param {(renderer: Renderer) => MaybePromise<void>} fn
+	* @param {Function} [component_fn]
+	* @returns {void}
+	*/
+	component(fn, component_fn) {
+		push(component_fn);
+		this.child((renderer) => {
+			renderer.#is_component_body = true;
+			return fn(renderer);
+		});
+		pop();
+	}
+	/**
+	* @param {Record<string, any>} attrs
+	* @param {(renderer: Renderer) => void} fn
+	* @param {string | undefined} [css_hash]
+	* @param {Record<string, boolean> | undefined} [classes]
+	* @param {Record<string, string> | undefined} [styles]
+	* @param {number | undefined} [flags]
+	* @param {boolean | undefined} [is_rich]
+	* @returns {void}
+	*/
+	select(attrs, fn, css_hash, classes, styles, flags, is_rich) {
+		const { value, defaultValue, ...select_attrs } = attrs;
+		if (select_attrs.multiple === "") select_attrs.multiple = true;
+		this.push(`<select${attributes(select_attrs, css_hash, classes, styles, flags)}>`);
+		this.child((renderer) => {
+			renderer.local.select_value = value === void 0 ? defaultValue : value;
+			renderer.local.multiple = !!select_attrs.multiple;
+			fn(renderer);
+		});
+		this.push(`${is_rich ? "<!>" : ""}</select>`);
+	}
+	/**
+	* @param {Record<string, any>} attrs
+	* @param {string | number | boolean | ((renderer: Renderer) => void)} body
+	* @param {string | undefined} [css_hash]
+	* @param {Record<string, boolean> | undefined} [classes]
+	* @param {Record<string, string> | undefined} [styles]
+	* @param {number | undefined} [flags]
+	* @param {boolean | undefined} [is_rich]
+	*/
+	option(attrs, body, css_hash, classes, styles, flags, is_rich) {
+		this.#out.push(`<option${attributes(attrs, css_hash, classes, styles, flags)}`);
+		/**
+		* @param {Renderer} renderer
+		* @param {any} value
+		* @param {{ head?: string, body: any }} content
+		*/
+		const close = (renderer, value, { head, body }) => {
+			if (has_own_property.call(attrs, "value")) value = attrs.value;
+			var select_value = this.local.select_value;
+			if (this.local.multiple && is_array(select_value) ? select_value.includes(value) : value === select_value) renderer.#out.push(" selected=\"\"");
+			renderer.#out.push(`>${body}${is_rich ? "<!>" : ""}</option>`);
+			if (head) renderer.head((child) => child.push(head));
+		};
+		if (typeof body === "function") this.child((renderer) => {
+			const r = new Renderer(this.global, this);
+			body(r);
+			if (this.global.mode === "async") return r.#collect_content_async().then((content) => {
+				close(renderer, content.body.replaceAll("<!---->", ""), content);
+			});
+			else {
+				const content = r.#collect_content();
+				close(renderer, content.body.replaceAll("<!---->", ""), content);
+			}
+		});
+		else close(this, body, { body: escape_html(body) });
+	}
+	/**
+	* @param {(renderer: Renderer) => void} fn
+	*/
+	title(fn) {
+		const path = this.get_path();
+		/** @param {string} head */
+		const close = (head) => {
+			this.global.set_title(head, path);
+		};
+		this.child((renderer) => {
+			const r = new Renderer(renderer.global, renderer);
+			fn(r);
+			if (renderer.global.mode === "async") return r.#collect_content_async().then((content) => {
+				close(content.head);
+			});
+			else {
+				const content = r.#collect_content();
+				close(content.head);
+			}
+		});
+	}
+	/**
+	* @param {string | (() => Promise<string>)} content
+	*/
+	push(content) {
+		if (typeof content === "function") this.child(async (renderer) => renderer.push(await content()));
+		else this.#out.push(content);
+	}
+	/**
+	* @param {() => void} fn
+	*/
+	on_destroy(fn) {
+		(this.#on_destroy ??= []).push(fn);
+	}
+	/**
+	* @returns {number[]}
+	*/
+	get_path() {
+		return this.#parent ? [...this.#parent.get_path(), this.#parent.#out.indexOf(this)] : [];
+	}
+	/**
+	* @deprecated this is needed for legacy component bindings
+	*/
+	copy() {
+		const copy = new Renderer(this.global, this.#parent);
+		copy.type = this.type;
+		copy.#out = this.#out.map((item) => item instanceof Renderer ? item.copy() : item);
+		copy.promise = this.promise;
+		return copy;
+	}
+	/**
+	* @param {Renderer} other
+	* @deprecated this is needed for legacy component bindings
+	*/
+	subsume(other) {
+		if (this.global.mode !== other.global.mode) throw new Error("invariant: A renderer cannot switch modes. If you're seeing this, there's a compiler bug. File an issue!");
+		this.local = other.local;
+		this.#out = other.#out.map((item, i) => {
+			const current = this.#out[i];
+			if (current instanceof Renderer && item instanceof Renderer) {
+				current.subsume(item);
+				return current;
+			}
+			return item;
+		});
+		this.promise = other.promise;
+		this.type = other.type;
+	}
+	get length() {
+		return this.#out.length;
+	}
+	/**
+	* Creates the hydration comment that marks the start of a failed boundary.
+	* The error is JSON-serialized and embedded inside an HTML comment for the client
+	* to parse during hydration. The JSON is escaped to prevent `-->` or `<!--` sequences
+	* from breaking out of the comment (XSS). Uses unicode escapes which `JSON.parse()`
+	* handles transparently.
+	* @param {unknown} error
+	* @returns {string}
+	*/
+	static #serialize_failed_boundary(error) {
+		return `<!--[?${JSON.stringify(error).replace(/>/g, "\\u003e").replace(/</g, "\\u003c")}-->`;
+	}
+	/**
+	* Only available on the server and when compiling with the `server` option.
+	* Takes a component and returns an object with `body` and `head` properties on it, which you can use to populate the HTML when server-rendering your app.
+	* @template {Record<string, any>} Props
+	* @param {Component<Props>} component
+	* @param {{ props?: Omit<Props, '$$slots' | '$$events'>; context?: Map<any, any>; idPrefix?: string; csp?: Csp }} [options]
+	* @returns {RenderOutput}
+	*/
+	static render(component, options = {}) {
+		/** @type {AccumulatedContent | undefined} */
+		let sync;
+		/** @type {Promise<AccumulatedContent & { hashes: { script: Sha256Source[] } }> | undefined} */
+		let async;
+		const result = {};
+		Object.defineProperties(result, {
+			html: { get: () => {
+				return (sync ??= Renderer.#render(component, options)).body;
+			} },
+			head: { get: () => {
+				return (sync ??= Renderer.#render(component, options)).head;
+			} },
+			body: { get: () => {
+				return (sync ??= Renderer.#render(component, options)).body;
+			} },
+			hashes: { value: { script: "" } },
+			then: { value: 
+			/**
+			* this is not type-safe, but honestly it's the best I can do right now, and it's a straightforward function.
+			*
+			* @template TResult1
+			* @template [TResult2=never]
+			* @param { (value: SyncRenderOutput) => TResult1 } onfulfilled
+			* @param { (reason: unknown) => TResult2 } onrejected
+			*/
+			(onfulfilled, onrejected) => {
+				if (!async_mode_flag) {
+					const result = sync ??= Renderer.#render(component, options);
+					const user_result = onfulfilled({
+						head: result.head,
+						body: result.body,
+						html: result.body,
+						hashes: { script: [] }
+					});
+					return Promise.resolve(user_result);
+				}
+				async ??= init_render_context().then(() => with_render_context(() => Renderer.#render_async(component, options)));
+				return async.then((result) => {
+					Object.defineProperty(result, "html", { get: () => {
+						html_deprecated();
+					} });
+					return onfulfilled(result);
+				}, onrejected);
+			} }
+		});
+		return result;
+	}
+	/**
+	* Collect all of the `onDestroy` callbacks registered during rendering. In an async context, this is only safe to call
+	* after awaiting `collect_async`.
+	*
+	* Child renderers are "porous" and don't affect execution order, but component body renderers
+	* create ordering boundaries. Within a renderer, callbacks run in order until hitting a component boundary.
+	* @returns {Iterable<() => void>}
+	*/
+	*#collect_on_destroy() {
+		for (const component of this.#traverse_components()) yield* component.#collect_ondestroy();
+	}
+	/**
+	* Performs a depth-first search of renderers, yielding the deepest components first, then additional components as we backtrack up the tree.
+	* @returns {Iterable<Renderer>}
+	*/
+	*#traverse_components() {
+		for (const child of this.#out) if (typeof child !== "string") yield* child.#traverse_components();
+		if (this.#is_component_body) yield this;
+	}
+	/**
+	* @returns {Iterable<() => void>}
+	*/
+	*#collect_ondestroy() {
+		if (this.#on_destroy) for (const fn of this.#on_destroy) yield fn;
+		for (const child of this.#out) if (child instanceof Renderer && !child.#is_component_body) yield* child.#collect_ondestroy();
+	}
+	/**
+	* Runs every `onDestroy` callback in this renderer tree. On a failed render,
+	* cleanup errors are suppressed so they do not mask the render error.
+	* @param {boolean} suppress_errors
+	*/
+	#run_on_destroy(suppress_errors) {
+		let first_error;
+		let has_error = false;
+		for (const cleanup of this.#collect_on_destroy()) try {
+			cleanup();
+		} catch (error) {
+			if (!suppress_errors && !has_error) {
+				first_error = error;
+				has_error = true;
+			}
+		}
+		if (has_error) throw first_error;
+	}
+	/**
+	* @param {'sync' | 'async'} mode
+	* @param {{ idPrefix?: string; csp?: Csp; transformError?: (error: unknown) => unknown }} options
+	* @returns {Renderer}
+	*/
+	static #create(mode, options) {
+		if (options.idPrefix?.includes("--")) invalid_id_prefix();
+		return new Renderer(new SSRState(mode, options.idPrefix ? options.idPrefix + "-" : "", options.csp, options.transformError));
+	}
+	/**
+	* Render a component. Throws if any of the children are performing asynchronous work.
+	*
+	* @template {Record<string, any>} Props
+	* @param {Component<Props>} component
+	* @param {{ props?: Omit<Props, '$$slots' | '$$events'>; context?: Map<any, any>; idPrefix?: string }} options
+	* @returns {AccumulatedContent}
+	*/
+	static #render(component, options) {
+		var previous_context = ssr_context;
+		const renderer = Renderer.#create("sync", options);
+		/** @type {AccumulatedContent | undefined} */
+		let result;
+		let render_error;
+		let failed = false;
+		try {
+			try {
+				Renderer.#open_render(renderer, component, options);
+				result = Renderer.#close_render(renderer.#collect_content(), renderer);
+			} catch (error) {
+				render_error = error;
+				failed = true;
+			}
+			renderer.#run_on_destroy(failed);
+			if (failed) throw render_error;
+			return result;
+		} finally {
+			renderer.global.abort();
+			set_ssr_context(previous_context);
+		}
+	}
+	/**
+	* Render a component.
+	*
+	* @template {Record<string, any>} Props
+	* @param {Component<Props>} component
+	* @param {{ props?: Omit<Props, '$$slots' | '$$events'>; context?: Map<any, any>; idPrefix?: string; csp?: Csp }} options
+	* @returns {Promise<AccumulatedContent & { hashes: { script: Sha256Source[] } }>}
+	*/
+	static async #render_async(component, options) {
+		const previous_context = ssr_context;
+		const renderer = Renderer.#create("async", options);
+		/** @type {(AccumulatedContent & { hashes: { script: Sha256Source[] } }) | undefined} */
+		let result;
+		let render_error;
+		let failed = false;
+		try {
+			try {
+				Renderer.#open_render(renderer, component, options);
+				const content = await renderer.#collect_content_async();
+				const hydratables = await renderer.#collect_hydratables();
+				if (hydratables !== null) content.head = hydratables + content.head;
+				result = Renderer.#close_render(content, renderer);
+			} catch (error) {
+				render_error = error;
+				failed = true;
+				renderer.global.abort();
+				await renderer.global.settle();
+			}
+			renderer.#run_on_destroy(failed);
+			if (failed) throw render_error;
+			return result;
+		} finally {
+			set_ssr_context(previous_context);
+			renderer.global.abort();
+		}
+	}
+	/**
+	* Collect all of the code from the `out` array and return it as a string, or a promise resolving to a string.
+	* @param {AccumulatedContent} content
+	* @returns {AccumulatedContent}
+	*/
+	#collect_content(content = {
+		head: "",
+		body: ""
+	}) {
+		for (const item of this.#out) if (typeof item === "string") content[this.type] += item;
+		else if (item instanceof Renderer) item.#collect_content(content);
+		return content;
+	}
+	/**
+	* Collect all of the code from the `out` array and return it as a string.
+	* @param {AccumulatedContent} content
+	* @returns {Promise<AccumulatedContent>}
+	*/
+	async #collect_content_async(content = {
+		head: "",
+		body: ""
+	}) {
+		await this.promise;
+		for (const item of this.#out) if (typeof item === "string") content[this.type] += item;
+		else if (item instanceof Renderer) {
+			if (item.#boundary) {
+				/** @type {AccumulatedContent} */
+				const boundary_content = {
+					head: "",
+					body: ""
+				};
+				try {
+					await item.#collect_content_async(boundary_content);
+					content.head += boundary_content.head;
+					content.body += boundary_content.body;
+				} catch (error) {
+					const { context, failed, transformError } = item.#boundary;
+					set_ssr_context(context);
+					let promise = transformError(error);
+					set_ssr_context(null);
+					let transformed = await promise;
+					set_ssr_context(context);
+					const failed_renderer = new Renderer(item.global, item);
+					failed_renderer.type = item.type;
+					failed_renderer.#out.push(Renderer.#serialize_failed_boundary(transformed));
+					failed(failed_renderer, transformed, noop);
+					failed_renderer.#out.push(BLOCK_CLOSE);
+					await failed_renderer.#collect_content_async(content);
+				}
+			} else await item.#collect_content_async(content);
+		}
+		return content;
+	}
+	async #collect_hydratables() {
+		const ctx = get_render_context().hydratable;
+		for (const [_, key] of ctx.unresolved_promises) unresolved_hydratable(key, ctx.lookup.get(key)?.stack ?? "<missing stack trace>");
+		for (const comparison of ctx.comparisons) await comparison;
+		return await this.#hydratable_block(ctx);
+	}
+	/**
+	* @template {Record<string, any>} Props
+	* @param {Renderer} renderer
+	* @param {import('svelte').Component<Props>} component
+	* @param {{ props?: Omit<Props, '$$slots' | '$$events'>; context?: Map<any, any>; idPrefix?: string; csp?: Csp; transformError?: (error: unknown) => unknown }} options
+	* @returns {void}
+	*/
+	static #open_render(renderer, component, options) {
+		var previous_context = ssr_context;
+		try {
+			set_ssr_context({
+				p: null,
+				c: options.context ?? null,
+				r: renderer
+			});
+			renderer.push(BLOCK_OPEN);
+			component(renderer, options.props ?? {});
+			renderer.push(BLOCK_CLOSE);
+		} finally {
+			set_ssr_context(previous_context);
+		}
+	}
+	/**
+	* @param {AccumulatedContent} content
+	* @param {Renderer} renderer
+	* @returns {AccumulatedContent & { hashes: { script: Sha256Source[] } }}
+	*/
+	static #close_render(content, renderer) {
+		let head = content.head + renderer.global.get_title();
+		let body = content.body;
+		for (const { hash, code } of renderer.global.css) head += `<style id="${hash}">${code}</style>`;
+		return {
+			head,
+			body,
+			hashes: { script: renderer.global.csp.script_hashes }
+		};
+	}
+	/**
+	* @param {HydratableContext} ctx
+	*/
+	async #hydratable_block(ctx) {
+		if (ctx.lookup.size === 0) return null;
+		let entries = [];
+		let has_promises = false;
+		for (const [k, v] of ctx.lookup) {
+			if (v.promises) {
+				has_promises = true;
+				for (const p of v.promises) await p;
+			}
+			entries.push(`[${uneval(k)},${v.serialized}]`);
+		}
+		let prelude = `const h = (window.__svelte ??= {}).h ??= new Map();`;
+		if (has_promises) prelude = `const r = (v) => Promise.resolve(v);
+				${prelude}`;
+		const body = `
+			{
+				${prelude}
+
+				for (const [k, v] of [
+					${entries.join(",\n					")}
+				]) {
+					h.set(k, v);
+				}
+			}
+		`;
+		let csp_attr = "";
+		if (this.global.csp.nonce) csp_attr = ` nonce="${this.global.csp.nonce}"`;
+		else if (this.global.csp.hash) {
+			const hash = await sha256(body);
+			this.global.csp.script_hashes.push(`sha256-${hash}`);
+		}
+		return `\n\t\t<script${csp_attr}>${body}<\/script>`;
+	}
+};
+var SSRState = class {
+	/** @readonly @type {Csp & { script_hashes: Sha256Source[] }} */
+	csp;
+	/** @readonly @type {'sync' | 'async'} */
+	mode;
+	/** @readonly @type {() => string} */
+	uid;
+	/** @readonly @type {Set<{ hash: string; code: string }>} */
+	css = /* @__PURE__ */ new Set();
+	/** @type {Set<Promise<unknown>>} */
+	#pending = /* @__PURE__ */ new Set();
+	/** @type {AbortController | null} */
+	#controller = null;
+	#aborted = false;
+	/**
+	* `transformError` passed to `render`. Called when an error boundary catches an error.
+	* Throws by default if unset in `render`.
+	* @type {(error: unknown) => unknown}
+	*/
+	transformError;
+	/** @type {{ path: number[], value: string }} */
+	#title = {
+		path: [],
+		value: ""
+	};
+	/**
+	* @param {'sync' | 'async'} mode
+	* @param {string} id_prefix
+	* @param {Csp} csp
+	* @param {((error: unknown) => unknown) | undefined} [transformError]
+	*/
+	constructor(mode, id_prefix = "", csp = { hash: false }, transformError) {
+		this.mode = mode;
+		this.csp = {
+			...csp,
+			script_hashes: []
+		};
+		this.transformError = transformError ?? ((error) => {
+			throw error;
+		});
+		let uid = 1;
+		this.uid = () => `${id_prefix}s${uid++}`;
+	}
+	/**
+	* @template T
+	* @param {Promise<T>} promise
+	* @returns {Promise<T>}
+	*/
+	track(promise) {
+		this.#pending.add(promise);
+		promise.then(() => this.#pending.delete(promise), () => this.#pending.delete(promise));
+		return promise;
+	}
+	async settle() {
+		while (this.#pending.size > 0) await Promise.allSettled([...this.#pending]);
+	}
+	abort() {
+		if (this.#aborted) return;
+		this.#aborted = true;
+		this.#controller?.abort(STALE_REACTION);
+	}
+	get_abort_signal() {
+		const controller = this.#controller ??= new AbortController();
+		if (this.#aborted) controller.abort(STALE_REACTION);
+		return controller.signal;
+	}
+	get_title() {
+		return this.#title.value;
+	}
+	/**
+	* Performs a depth-first (lexicographic) comparison using the path. Rejects sets
+	* from earlier than or equal to the current value.
+	* @param {string} value
+	* @param {number[]} path
+	*/
+	set_title(value, path) {
+		const current = this.#title.path;
+		let i = 0;
+		let l = Math.min(path.length, current.length);
+		while (i < l && path[i] === current[i]) i += 1;
+		if (path[i] === void 0) return;
+		if (current[i] === void 0 || path[i] > current[i]) {
+			this.#title.path = path;
+			this.#title.value = value;
+		}
+	}
+};
+//#endregion
+export { noop as S, stringify_key as _, ensure_array_like as a, MAX_ARRAY_INDEX as b, attr as c, DevalueError as d, enumerable_symbols as f, is_valid_array_len as g, is_valid_array_index as h, derived as i, clsx as l, is_plain_object as m, attr_style as n, render as o, get_type as p, bind_props as r, stringify as s, attr_class as t, escape_html as u, stringify_string as v, fallback as x, valid_array_indices as y };

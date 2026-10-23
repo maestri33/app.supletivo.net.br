@@ -1,0 +1,9 @@
+Este handoff teve continuação técnica em produção (`0.0.0-sandbox.94`, Worker `baf785a0-af70-4c07-a31b-453426676a7a`). A rota ativa do aluno usa `StudentAddressEnrollmentView.svelte`; o candidato usa `PromoterCandidateView.svelte`. O componente legado `AddressProofVerifier.svelte` não é evidência da rota atual.
+
+O aluno agora retoma o polling após reload e distingue OCR em andamento de revisão pelo polo. Os dois papéis recusam classificação inconclusiva, RG no lugar de comprovante e arquivos inválidos, com feedback específico para PDFs com senha/páginas excessivas. Consultas iniciadas antes de um envio não desfazem seu resultado. Foram removidas as alegações sem fonte de criptografia de ponta a ponta e de portaria MEC/EJA.
+
+Canários reais: nove rejeições por papel, PDF/JPEG aprovados no aluno, PNG aprovado no candidato, e reload durante OCR com aprovação automática. OCR e persistência foram conferidos no banco; seis campos bateram com a fatura original. 23 observações de UI com resultado esperado; 33 testes frontend, Astro Check com 119 arquivos e zero erros/avisos, build concluído. O candidato temporário foi removido sem modificar pagamentos ou padrões comerciais.
+
+A proposta histórica de triagem em menos de 500 ms não foi comprovada. O tempo real inclui a chamada Cloudflare. Este relato também não comprova assinatura por selfie, ativação de promotor, vínculo com terceiros ou decisão humana ponta a ponta. Esses cenários continuam no acompanhamento geral e na issue backend #24: https://github.com/maestri33/backend.supletivo.net.br/issues/24.
+
+Relatório local no backend: `docs/production-audit/address-recovery-2026-10-12.md`, com rollback, hashes, tarefas e limites. Sem commit/push desta rodada. Dados pessoais e documentos não foram publicados no GitHub. Apenas o usuário homologa a entrega.

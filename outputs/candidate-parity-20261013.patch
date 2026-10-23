@@ -1,0 +1,620 @@
+diff --git a/docs/skills/role-status-dock.md b/docs/skills/role-status-dock.md
+index 56b42eb..55326a0 100644
+--- a/docs/skills/role-status-dock.md
++++ b/docs/skills/role-status-dock.md
+@@ -66,6 +66,10 @@ Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo eve
+ | **5. Formado / Concluído** | `veteran` | `Concluído` (Success) | Diploma digital liberado para download ICP-Brasil. |
+ 
+ ### 2.2. Promotor / Consultor (`promoter` / `promotor`)
++O candidato usa o mesmo construtor de itens documentais do aluno em matrícula: identidade, endereço, escolaridade e selfie. No aluno, a identidade admite apenas RG; no candidato, RG ou CNH. O acesso `Comece a indicar` fica no cabeçalho e abre uma seção própria, disponível desde o cadastro inicial. Os hashes do candidato selecionam o conteúdo exibido, com travas para etapas futuras e consulta das já aprovadas. A chave PIX continua no fluxo existente antes da escolaridade e não implica cobrança para o promotor.
++
++O aluno `lead` conserva o pagamento antes da coleta documental. Equivalência de shell e estilo não altera essa regra de negócio, nem a escolaridade máxima do aluno; o promotor admite formação superior.
++
+ | Status / Etapa | Identificador | Badge Dock | Ação Principal / Destaque |
+ |---|---|---|---|
+ | **1. Credenciamento** | `candidate` | `Onboarding` | Acesso restrito a termo de adesão, docs e chave PIX. |
+diff --git a/src/components/interactive/PromoterCandidateView.svelte b/src/components/interactive/PromoterCandidateView.svelte
+index a715905..565dccb 100644
+--- a/src/components/interactive/PromoterCandidateView.svelte
++++ b/src/components/interactive/PromoterCandidateView.svelte
+@@ -10,6 +10,9 @@
+   import PromoterReferralShare from "./PromoterReferralShare.svelte";
+   import LiveSelfieCamera from "./LiveSelfieCamera.svelte";
+   import ReferralLinkIcon from "@/components/icons/ReferralLinkIcon.svelte";
++  import IdCardIcon from "@/components/icons/IdCardIcon.svelte";
++  import CameraIcon from "@/components/icons/CameraIcon.svelte";
++  import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
+ 
+   interface DocumentSection {
+     doc_type?: string | null;
+@@ -70,6 +73,9 @@
+   let pollUntil = 0;
+   let pollReads = 0;
+   let disposed = false;
++  let selectedSection = $state("");
++  let sourceDialog: HTMLDialogElement;
++  let documentFileInput: HTMLInputElement, documentCameraInput: HTMLInputElement;
+   async function loadEducationCities(nextState: string, keepCity = false) {
+     educationState = nextState; if (!keepCity) educationCity = ""; educationCities = []; educationLocationError = "";
+     if (!nextState) return;
+@@ -95,6 +101,31 @@
+     if (candidate.status === "pix" && candidate.pix_validated) return "education";
+     return "review";
+   });
++  let educationReady = $derived(Boolean(candidate && ["education", "selfie", "completed", "approved"].includes(candidate.status)));
++  let displayStep = $derived.by(() => {
++    if (selectedSection === "referral") return "referral";
++    if (selectedSection === "documents") return "documents";
++    if (selectedSection === "address" && documentReady) return "address";
++    if (selectedSection === "education" && documentReady && proofReady) return candidate?.pix_validated ? "education" : "pix";
++    if (selectedSection === "selfie" && educationReady) return "selfie";
++    return step;
++  });
++  function health(value?: string | null) {
++    return value === "approved" ? "approved" : value === "rejected" ? "rejected" : ["pending", "review", "needs_kinship"].includes(value ?? "") ? "under_review" : "pending";
++  }
++  function notifyDock() {
++    window.dispatchEvent(new CustomEvent("supletivo:promoter-state", { detail: {
++      status: "candidate", registrationStep: step, selectedSection: displayStep,
++      documentStatus: health(documentStatus), addressStatus: health(candidate?.address_proof?.status),
++      educationStatus: educationReady ? "approved" : "pending", selfieStatus: health(selfieStatus),
++      documentReady, addressReady: proofReady, educationReady,
++    } }));
++  }
++  $effect(() => { if (candidate) notifyDock(); });
++  function chooseDocumentSource(source: "camera" | "file") {
++    sourceDialog.close();
++    (source === "camera" ? documentCameraInput : documentFileInput).click();
++  }
+   function documentPath(slot: RgCaptureSlot): string | null {
+     return captureView.paths[slot];
+   }
+@@ -196,17 +227,23 @@
+   }
+ 
+   onMount(() => {
++    const readSection = () => { selectedSection = window.location.hash.slice(1); };
++    readSection();
++    window.addEventListener("hashchange", readSection);
++    window.addEventListener("supletivo:request-promoter-state", notifyDock);
+     pollUntil = Date.now() + 300_000;
+     void refresh();
+     const onFocus = () => { if (!busy) void refresh(); };
+     window.addEventListener("focus", onFocus);
+-    return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); };
++    return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); window.removeEventListener("hashchange", readSection); window.removeEventListener("supletivo:request-promoter-state", notifyDock); };
+   });
+ 
+   async function mutate(path: string, json: unknown) {
+     busy = true; error = null; notice = null; mutationRevision += 1;
+     try {
+       candidate = await requestAuth<Candidate>(`${base}${path}`, { method: "POST", json });
++      selectedSection = "";
++      window.history.replaceState(null, "", window.location.pathname);
+       await refresh();
+     } catch (cause) { error = cause instanceof Error && !(cause instanceof ApiError) ? cause.message : getErrorMessage(cause); }
+     finally { busy = false; scheduleRefresh(); }
+@@ -305,15 +342,16 @@
+ </script>
+ 
+ <div class="candidate-view" data-testid="promoter-candidate">
+-  <header class="glass-panel candidate-header">
++  <header class="candidate-header">
+     <p class="eyebrow">Credenciamento</p>
+-    <h1>Credenciamento de Promotor</h1>
++    <div class="candidate-heading"><h1>Seu cadastro</h1><a class="referral-shortcut" href="#referral" aria-label="Comece a indicar"><ReferralLinkIcon /><span>Comece a indicar</span></a></div>
+     <p>Envie seus documentos. Os dados de identidade e endereço são extraídos automaticamente.</p>
+   </header>
+   {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
+   {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
+   {#if loading}<p role="status">Consultando seu credenciamento…</p>
+   {:else if candidate}
++    {#if displayStep === "referral"}
+     <section id="referral" class="candidate-card candidate-referral-summary" aria-label="Indicações">
+       <div>
+         <p class="eyebrow">Comissões</p>
+@@ -332,24 +370,35 @@
+         </div>
+       </div>
+     </section>
++    <a class="refresh-action" href="#documents">Voltar ao cadastro</a>
++    {:else}
+     <section class="candidate-card">
+-      {#if step === "documents"}
++      {#if displayStep === "documents"}
+         <h2>Documento de identidade</h2>
+         <p>{statusLabel(documentStatus)}</p>
+         {#if documentSection?.analysis_reason}<p>{documentSection.analysis_reason}</p>{/if}
+-        {#if documentCaptureSlot}
+-          {#if !documentSection?.doc_type}<p>Envie RG ou CNH. Identificamos o documento e os lados automaticamente.</p>{/if}
+-          <p>{documentCaptureSlot === "back" ? "Frente recebida. Agora envie o verso." : documentCaptureSlot === "front" && captureView.received.back ? "Verso recebido. Agora envie a frente." : "Pode começar por qualquer lado. Frente e verso na mesma imagem também valem."}</p>
+-          <label class="upload-action" for="candidate-document">{busy ? "Enviando…" : "Anexar documento"}</label>
+-          <input id="candidate-document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onchange={event => upload(event, "document")} />
+-          <label class="upload-action" for="candidate-document-camera">Tirar foto do documento</label>
+-          <input id="candidate-document-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "document")} />
++        {#if documentReady}
++          <p>{documentType.toUpperCase()} conferido · número {documentSection?.number}</p>
++          {#if candidate.profile?.name}<p>{candidate.profile.name}</p>{/if}
++          <a class="btn" href="#address">Continuar para endereço</a>
++        {:else if documentCaptureSlot}
++          <button class="capture-space" type="button" disabled={busy} onclick={() => sourceDialog.showModal()}>
++            <IdCardIcon />
++            <strong>{busy ? "Identificando e enviando…" : documentCaptureSlot === "back" ? "Agora, envie o verso" : documentCaptureSlot === "front" && captureView.received.back ? "Agora, envie a frente" : "Envie seu RG ou CNH"}</strong>
++            <span>Tirar foto ou escolher arquivo</span>
++          </button>
++          <p class="capture-hint">Pode começar por qualquer lado. Frente e verso na mesma imagem também valem.</p>
++          <p class="capture-hint">JPG, PNG, WebP ou PDF · até 15 MB</p>
+         {:else}<p>{identityCollectionMessage(documentStatus)}</p>{/if}
+-      {:else if step === "address"}
++      {:else if displayStep === "address"}
+         <h2>Comprovante de residência</h2>
+         <p>{statusLabel(candidate.address_proof?.status)}</p>
+         {#if candidate.address_proof?.reason}<p>{candidate.address_proof.reason}</p>{/if}
+-        {#if candidate.address_proof?.needs_kinship}
++        {#if proofReady}
++          <p>{candidate.address?.street}, {candidate.address?.number}</p>
++          <p>{candidate.address?.city}/{candidate.address?.state}</p>
++          <a class="btn" href="#education">Continuar para escolaridade</a>
++        {:else if candidate.address_proof?.needs_kinship}
+           <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/documents/address-proof/kinship", { relation: relationship }); }}>
+             <label for="candidate-relationship">Qual seu vínculo com o titular?</label>
+             <select id="candidate-relationship" bind:value={relationship} disabled={busy}>
+@@ -365,7 +414,7 @@
+           <label class="upload-action" for="candidate-address-camera">Tirar foto da conta</label>
+           <input id="candidate-address-camera" type="file" accept="image/*" capture="environment" disabled={busy} onchange={event => upload(event, "address")} />
+         {:else}<p>{candidate.address_proof?.status === "pending" ? "A leitura do comprovante está em andamento. Acompanhe o resultado nesta tela." : "O polo está revisando o comprovante enviado."}</p>{/if}
+-      {:else if step === "pix"}
++      {:else if displayStep === "pix"}
+         <h2>Dados de recebimento de comissões</h2>
+         <p>Informe uma chave PIX em seu nome. A titularidade será conferida.</p>
+         <form onsubmit={event => { event.preventDefault(); void mutate("/candidate/pix", { key: pixKey.trim(), key_type: pixKeyType }); }}>
+@@ -375,8 +424,12 @@
+           <input id="pixKey" type="text" bind:value={pixKey} required disabled={busy} autocomplete="off" />
+           <button class="btn" type="submit" disabled={busy || !pixKey.trim()}>{busy ? "Salvando…" : "Salvar e Continuar"}</button>
+         </form>
+-      {:else if step === "education"}
++      {:else if displayStep === "education"}
+         <h2>Sua escolaridade</h2>
++        {#if educationReady}
++          <p>Escolaridade registrada: {educationLevel === "superior" ? "Ensino Superior" : educationLevel === "medio" ? "Ensino Médio" : "Ensino Fundamental"}.</p>
++          <a class="btn" href="#selfie">Continuar para assinatura</a>
++        {:else}
+         <form onsubmit={event => { event.preventDefault(); void saveEducation(); }}>
+           <label for="candidate-education">Qual o seu nível de ensino?</label>
+           <select id="candidate-education" bind:value={educationLevel} onchange={updateEducationLevel} disabled={busy}><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option><option value="superior">Ensino Superior</option></select>
+@@ -405,7 +458,8 @@
+           {/if}
+           <button class="btn" type="submit" disabled={busy || (educationLevel !== "superior" && !gradeOptions.includes(educationGrade))}>Continuar para assinatura</button>
+         </form>
+-      {:else if step === "selfie"}
++        {/if}
++      {:else if displayStep === "selfie"}
+         <h2>Termo de adesão e selfie</h2>
+         <p>{statusLabel(selfieStatus)}</p>
+         {#if selfieStatus === "review"}<p>Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora.</p>
+@@ -418,23 +472,42 @@
+             <LiveSelfieCamera disabled={busy || !consentAccepted} onCapture={file => sendUpload(file, "selfie")} />
+           {:else}<p>Não foi possível carregar o termo vigente. Atualize o status para tentar novamente.</p>{/if}
+         {:else}<p>Acompanhe a conferência da sua assinatura. Seu cadastro será ativado quando os requisitos forem aprovados.</p>{/if}
+-      {:else if step === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>
++      {:else if displayStep === "rejected"}<h2>Credenciamento precisa de revisão</h2><p>Consulte as orientações do polo sobre sua candidatura.</p>
+       {:else}<h2>Credenciamento em análise</h2><p>A documentação e sua assinatura estão sendo conferidas. Esta tela acompanha a liberação pelo polo.</p>{/if}
+     </section>
+-    {#if documentReady && documentSection?.number}<section class="candidate-card" aria-label="Dados extraídos do documento"><h2>Identidade conferida</h2><p>{documentType.toUpperCase()} · número {documentSection.number}</p>{#if candidate.profile?.name}<p>{candidate.profile.name}</p>{/if}<p>{statusLabel(documentStatus)}</p></section>{/if}
+-    {#if candidate.address?.street}
+-      <section class="candidate-card" aria-label="Endereço extraído"><h2>Endereço extraído do comprovante</h2><p>{candidate.address.street}{candidate.address.number ? `, ${candidate.address.number}` : ""}</p><p>{candidate.address.neighborhood} — {candidate.address.city}/{candidate.address.state}</p>{#if candidate.address.missing_fields?.length}<p>A leitura ainda precisa completar dados do endereço. O polo acompanhará a conferência.</p>{/if}</section>
+     {/if}
+     {#each currentBlocks as block}{#if block.reason || block.description}<p class="feedback warning">{#if block.title}<strong>{block.title}</strong> {/if}{block.reason ?? block.description}</p>{/if}{/each}
+   {/if}
+   <button class="refresh-action" type="button" disabled={busy || loading} onclick={() => refresh()}>Atualizar status</button>
+ </div>
++{#if candidate && !loading}
++<input bind:this={documentFileInput} id="candidate-document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden disabled={busy} onchange={event => upload(event, "document")} aria-label="Selecionar arquivo do RG ou CNH" />
++<input bind:this={documentCameraInput} id="candidate-document-camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden disabled={busy} onchange={event => upload(event, "document")} aria-label="Fotografar RG ou CNH" />
++{/if}
++<dialog bind:this={sourceDialog} class="source-dialog" aria-labelledby="candidate-source-title">
++  <h2 id="candidate-source-title">Como quer enviar o documento?</h2><p>Uma foto, uma imagem com os dois lados ou um PDF.</p>
++  <button type="button" class="btn source-action" onclick={() => chooseDocumentSource("camera")}><CameraIcon /> Tirar foto</button>
++  <button type="button" class="refresh-action source-action" onclick={() => chooseDocumentSource("file")}><UploadFileIcon /> Escolher arquivo</button>
++  <button type="button" class="refresh-action" onclick={() => sourceDialog.close()}>Cancelar</button>
++</dialog>
+ <EducationDeclarationModal role="promoter" open={educationDeclarationOpen} onConfirm={confirmEducationDeclaration} />
+ 
+ <style>
+   .candidate-view { width: min(100%, var(--container-narrow)); margin-inline: auto; display: grid; gap: 1.25rem; color: var(--paper); font-family: var(--font-sans); }
+   .candidate-header, .candidate-card { border-radius: var(--radius-lg); padding: clamp(1.25rem, 4vw, 2rem); }
+-  .candidate-header { background: var(--blue); }
++  .candidate-header { padding: 0; }
++  .candidate-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
++  .candidate-heading h1 { margin: .5rem 0; }
++  .referral-shortcut { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: var(--input-height); padding: .5rem .75rem; border-radius: var(--input-radius); color: var(--yellow); background: var(--ink-soft); font-size: .8rem; text-decoration: none; font-weight: 700; }
++  .referral-shortcut :global(svg) { width: 1.4rem; height: 1.4rem; flex: none; }
++  .capture-space { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; width: 100%; min-height: 180px; padding: 1.25rem .75rem; border: 1px dashed var(--line-light); border-radius: var(--input-radius); background: var(--paper-soft); color: var(--ink); cursor: pointer; font: inherit; }
++  .capture-space :global(svg) { width: 2.5rem; height: 2.5rem; color: var(--blue); }
++  .capture-hint { margin: 0; text-align: center; font-size: .9rem; color: var(--muted-on-dark); }
++  .source-dialog { margin: auto; width: min(92vw, 26rem); padding: 1.5rem; border: 1px solid var(--line-light); border-radius: var(--radius-lg); background: var(--paper); color: var(--ink); max-height: 90dvh; overflow: auto; }
++  .source-dialog::backdrop { background: color-mix(in srgb, var(--ink) 75%, transparent); }
++  .source-dialog > button { width: 100%; margin-top: .75rem; }
++  .source-action { display: flex; align-items: center; justify-content: center; gap: .5rem; }
++  .source-action :global(svg) { width: 1.25rem; height: 1.25rem; }
+   .candidate-card { display: grid; gap: 1rem; background: var(--ink-soft); border: 1px solid var(--glass-border-dark); }
+   .candidate-referral-summary { gap: 1.25rem; }
+   #referral { scroll-margin-top: 1.25rem; }
+diff --git a/src/components/interactive/RoleAdaptiveNavDock.tsx b/src/components/interactive/RoleAdaptiveNavDock.tsx
+index abeea27..8cd946a 100644
+--- a/src/components/interactive/RoleAdaptiveNavDock.tsx
++++ b/src/components/interactive/RoleAdaptiveNavDock.tsx
+@@ -179,6 +179,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
+               <a
+                 key={`${item.title}-${index}`}
+                 href={item.href || "#"}
++                aria-disabled={item.disabled || undefined}
+                 aria-current={item.isActive ? "page" : undefined}
+                 onClick={(e) => {
+                   if (item.disabled) {
+diff --git a/src/components/interactive/dock/identityDockItems.tsx b/src/components/interactive/dock/identityDockItems.tsx
+new file mode 100644
+index 0000000..31503ff
+--- /dev/null
++++ b/src/components/interactive/dock/identityDockItems.tsx
+@@ -0,0 +1,32 @@
++import * as React from "react";
++import { IconId, IconHome, IconSchool, IconCamera, IconDoorExit } from "@tabler/icons-react";
++import type { FloatingDockItem } from "@/components/ui/floating-dock";
++import type { ItemHealthStatus } from "./types";
++
++type IdentityStep = "documents" | "address" | "education" | "selfie";
++export function identityDockItems(options: {
++  documentTitle: string;
++  active: string;
++  paths: Record<IdentityStep, string>;
++  health: Partial<Record<IdentityStep, ItemHealthStatus>>;
++  enabled?: Partial<Record<IdentityStep, boolean>>;
++  onLogout: () => void;
++}): FloatingDockItem[] {
++  const steps = [
++    { id: "documents", title: options.documentTitle, icon: IconId },
++    { id: "address", title: "2. Endereço", icon: IconHome },
++    { id: "education", title: "3. Escolaridade", icon: IconSchool },
++    { id: "selfie", title: "4. Selfie", icon: IconCamera },
++  ] as const;
++  return [...steps.map(({ id, title, icon: Icon }) => {
++    const health = options.health[id];
++    const disabled = options.enabled?.[id] === false;
++    return {
++      id, title, icon: <Icon className="h-full w-full" />,
++      href: options.paths[id], disabled, isActive: options.active === id,
++      badge: health === "approved" ? "OK" : health === "rejected" ? "!" : health === "under_review" ? "Análise" : undefined,
++      badgeVariant: health === "approved" ? "success" : health === "rejected" ? "danger" : "warning",
++      statusIndicator: disabled ? "disabled" : health === "approved" ? "success" : health === "rejected" ? "danger" : health === "under_review" ? "warning" : "normal",
++    } satisfies FloatingDockItem;
++  }), { id: "logout", title: "Sair", icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />, onClick: options.onLogout }];
++}
+diff --git a/src/components/interactive/dock/promoterDockAdapter.tsx b/src/components/interactive/dock/promoterDockAdapter.tsx
+index 35fbe85..0aaa5bb 100644
+--- a/src/components/interactive/dock/promoterDockAdapter.tsx
++++ b/src/components/interactive/dock/promoterDockAdapter.tsx
+@@ -1,6 +1,7 @@
+ import * as React from "react";
+-import type { FloatingDockItem, DockStatusIndicator } from "@/components/ui/floating-dock";
+-import type { AdapterContext, PromoterDockState, ItemHealthStatus } from "./types";
++import { identityDockItems } from "./identityDockItems";
++import type { FloatingDockItem } from "@/components/ui/floating-dock";
++import type { AdapterContext, PromoterDockState } from "./types";
+ import {
+   IconHome,
+   IconUsers,
+@@ -10,25 +11,9 @@ import {
+   IconLock,
+   IconFileText,
+   IconAlertTriangle,
+-  IconUserCheck,
+   IconHeadset,
+-  IconLink,
+ } from "@tabler/icons-react";
+ 
+-function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
+-  switch (health) {
+-    case "rejected":
+-      return "danger";
+-    case "under_review":
+-      return "warning";
+-    case "approved":
+-      return "success";
+-    case "pending":
+-    default:
+-      return "normal";
+-  }
+-}
+-
+ /**
+  * Adapter do Ambiente do Promotor / Consultor Educacional.
+  * Adapta dinamicamente os itens do dock reagindo ao status (candidate, training, active, suspended).
+@@ -67,41 +52,15 @@ export function getPromoterDockItems(
+ 
+   // ── 1. STATUS CANDIDATE: Credenciamento & Onboarding Inicial ──
+   if (isCandidate) {
+-    // O candidato usa a mesma casca do lead do aluno. O credenciamento é um
+-    // único wizard (documento, endereço, escolaridade, termo e selfie), então
+-    // o dock não oferece atalhos para telas que não existem.
+-    const [candidatePath, candidateHash] = currentPath.split("#");
+-    const isOnboardingActive =
+-      !candidateHash &&
+-      (candidatePath === "/promoter/candidate/onboarding" ||
+-        candidatePath === "/promoter/candidate" ||
+-        candidatePath === "/promoter");
+-    const isReferralActive = candidateHash === "referral";
+-
+-    return [
+-      {
+-        id: "onboarding",
+-        title: "Cadastro",
+-        icon: <IconUserCheck className="h-full w-full" />,
+-        href: "/promoter/candidate/onboarding",
+-        isActive: isOnboardingActive,
+-        statusIndicator: mapHealthToIndicator(state.onboardingStatus),
+-      },
+-      {
+-        id: "referral",
+-        title: "Começar a indicar",
+-        icon: <IconLink className="h-full w-full" />,
+-        href: "/promoter/candidate/onboarding#referral",
+-        isActive: isReferralActive,
+-        statusIndicator: "success",
+-      },
+-      {
+-        id: "logout",
+-        title: "Sair",
+-        icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
+-        onClick: onLogout,
+-      },
+-    ];
++    const next = state.registrationStep ?? "documents";
++    return identityDockItems({
++      documentTitle: "1. RG ou CNH",
++      active: state.selectedSection === "pix" ? "education" : state.selectedSection ?? (next === "pix" ? "education" : next),
++      paths: { documents: "#documents", address: "#address", education: "#education", selfie: "#selfie" },
++      health: { documents: state.documentStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
++      enabled: { documents: true, address: state.documentReady === true, education: state.documentReady === true && state.addressReady === true, selfie: state.educationReady === true },
++      onLogout,
++    });
+   }
+ 
+   // ── 2. STATUS TRAINING: Capacitação Obrigatória (LMS) com Painel Travado ──
+diff --git a/src/components/interactive/dock/studentDockAdapter.tsx b/src/components/interactive/dock/studentDockAdapter.tsx
+index 139d633..5d9f792 100644
+--- a/src/components/interactive/dock/studentDockAdapter.tsx
++++ b/src/components/interactive/dock/studentDockAdapter.tsx
+@@ -1,16 +1,14 @@
+ import * as React from "react";
++import { identityDockItems } from "./identityDockItems";
+ import type { FloatingDockItem, DockStatusIndicator } from "@/components/ui/floating-dock";
+ import type { AdapterContext, StudentDockState, ItemHealthStatus } from "./types";
+ import { getLeadCheckoutReadyState } from "./useDockSync";
+ import {
+   IconHome,
+   IconFileText,
+-  IconSchool,
+   IconDoorExit,
+   IconCreditCard,
+   IconQrcode,
+-  IconId,
+-  IconCamera,
+   IconBook,
+   IconAward,
+   IconCertificate,
+@@ -32,19 +30,6 @@ function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
+   }
+ }
+ 
+-function getBadgeFromHealth(health?: ItemHealthStatus): { badge?: string; badgeVariant?: "danger" | "warning" | "success" } {
+-  switch (health) {
+-    case "rejected":
+-      return { badge: "!", badgeVariant: "danger" };
+-    case "under_review":
+-      return { badge: "Análise", badgeVariant: "warning" };
+-    case "approved":
+-      return { badge: "OK", badgeVariant: "success" };
+-    default:
+-      return {};
+-  }
+-}
+-
+ /**
+  * Adapter do Ambiente do Estudante.
+  * Mapeia dinamicamente os itens do dock reagindo ao status (lead, enrollment, active, veteran).
+@@ -279,62 +264,12 @@ export function getStudentDockItems(
+ 
+   // ── 4. STATUS ENROLLMENT: Matrícula & Documentação Obrigatória ──
+   // Padrão para alunos que pagaram matrícula e estão na fase documental
+-  const rgHealth = getBadgeFromHealth(state.rgStatus);
+-  const addressHealth = getBadgeFromHealth(state.addressStatus);
+-  const educationHealth = getBadgeFromHealth(state.educationStatus);
+-  const selfieHealth = getBadgeFromHealth(state.selfieStatus);
+-
+-  const isRgActive = currentPath === "/student/enrollment/rg" || currentPath === "/student/enrollment" || currentPath === "/documentos" || currentPath === "/matricula";
+-  const isAddressActive = currentPath === "/student/enrollment/address";
+-  const isEducationActive = currentPath === "/student/enrollment/education";
+-  const isSelfieActive = currentPath === "/student/enrollment/selfie";
+-
+-  return [
+-    {
+-      id: "rg",
+-      title: "1. RG",
+-      icon: <IconId className="h-full w-full" />,
+-      href: "/student/enrollment/rg",
+-      isActive: isRgActive,
+-      badge: rgHealth.badge,
+-      badgeVariant: rgHealth.badgeVariant,
+-      statusIndicator: mapHealthToIndicator(state.rgStatus),
+-    },
+-    {
+-      id: "address",
+-      title: "2. Endereço",
+-      icon: <IconHome className="h-full w-full" />,
+-      href: "/student/enrollment/address",
+-      isActive: isAddressActive,
+-      badge: addressHealth.badge,
+-      badgeVariant: addressHealth.badgeVariant,
+-      statusIndicator: mapHealthToIndicator(state.addressStatus),
+-    },
+-    {
+-      id: "education",
+-      title: "3. Histórico",
+-      icon: <IconSchool className="h-full w-full" />,
+-      href: "/student/enrollment/education",
+-      isActive: isEducationActive,
+-      badge: educationHealth.badge,
+-      badgeVariant: educationHealth.badgeVariant,
+-      statusIndicator: mapHealthToIndicator(state.educationStatus),
+-    },
+-    {
+-      id: "selfie",
+-      title: "4. Selfie",
+-      icon: <IconCamera className="h-full w-full" />,
+-      href: "/student/enrollment/selfie",
+-      isActive: isSelfieActive,
+-      badge: selfieHealth.badge,
+-      badgeVariant: selfieHealth.badgeVariant,
+-      statusIndicator: mapHealthToIndicator(state.selfieStatus),
+-    },
+-    {
+-      id: "logout",
+-      title: "Sair",
+-      icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
+-      onClick: onLogout,
+-    },
+-  ];
++  const documentPath = currentPath.split("#")[0];
++  const active = documentPath.endsWith("/address") ? "address" : documentPath.endsWith("/education") ? "education" : documentPath.endsWith("/selfie") ? "selfie" : "documents";
++  return identityDockItems({
++    documentTitle: "1. RG", active,
++    paths: { documents: "/student/enrollment/rg", address: "/student/enrollment/address", education: "/student/enrollment/education", selfie: "/student/enrollment/selfie" },
++    health: { documents: state.rgStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
++    onLogout,
++  });
+ }
+diff --git a/src/components/interactive/dock/types.ts b/src/components/interactive/dock/types.ts
+index bbbf199..2f04a7d 100644
+--- a/src/components/interactive/dock/types.ts
++++ b/src/components/interactive/dock/types.ts
+@@ -36,6 +36,15 @@ export interface PromoterDockState {
+   onboardingStatus?: ItemHealthStatus;
+   pixStatus?: ItemHealthStatus;
+   termsStatus?: ItemHealthStatus;
++  registrationStep?: "documents" | "address" | "pix" | "education" | "selfie" | "review";
++  selectedSection?: string;
++  documentStatus?: ItemHealthStatus;
++  addressStatus?: ItemHealthStatus;
++  educationStatus?: ItemHealthStatus;
++  selfieStatus?: ItemHealthStatus;
++  documentReady?: boolean;
++  addressReady?: boolean;
++  educationReady?: boolean;
+ }
+ 
+ export interface PoloDockState {
+diff --git a/src/components/interactive/dock/useDockSync.ts b/src/components/interactive/dock/useDockSync.ts
+index 82ea340..f1ee0e2 100644
+--- a/src/components/interactive/dock/useDockSync.ts
++++ b/src/components/interactive/dock/useDockSync.ts
+@@ -217,6 +217,7 @@ export function useDockSync({
+     window.addEventListener("supletivo:promoter-state", handlePromoterStateChange);
+     window.addEventListener("supletivo:polo-state", handlePoloStateChange);
+     window.addEventListener("supletivo:identity", handleIdentity);
++    window.dispatchEvent(new Event("supletivo:request-promoter-state"));
+ 
+     // Hidratação proativa assíncrona com flag de montagem
+     const currentToken = getAccessToken();
+diff --git a/tests/e2e/promoter-workflow.spec.ts b/tests/e2e/promoter-workflow.spec.ts
+index 04bcc7e..5c8ca1a 100644
+--- a/tests/e2e/promoter-workflow.spec.ts
++++ b/tests/e2e/promoter-workflow.spec.ts
+@@ -65,15 +65,18 @@ test("canonical candidate gets a referral link immediately and stays in registra
+   await page.route("**/api/v1/collaborators/candidate/me", route => route.fulfill({ json: readyCandidate }));
+   await page.route("**/api/v1/collaborators/candidate/document", route => route.fulfill({ json: readyDocument }));
+   await page.goto("/promoter/candidate");
++  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
++  await expect(dock.getByRole("link", { name: /1\. RG ou CNH/ })).toHaveAttribute("href", "#documents");
++  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("href", "#address");
++  await expect(dock.getByRole("link", { name: /3\. Escolaridade/ })).toHaveAttribute("href", "#education");
++  await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
++  await page.getByRole("link", { name: "Comece a indicar", exact: true }).click();
++  await expect(page).toHaveURL(/#referral$/);
+   await expect(page.getByRole("heading", { name: "Você já pode indicar" })).toBeVisible();
+   await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveValue(readyCandidate.ref_url);
+-  await expect(page).toHaveURL(/\/promoter\/candidate$/);
+-  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
+-  await expect(dock.getByRole("link", { name: "Cadastro", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding");
+-  await expect(dock.getByRole("link", { name: "Começar a indicar", exact: true })).toHaveAttribute("href", "/promoter/candidate/onboarding#referral");
+-  await expect(dock.getByRole("link", { name: "Chave PIX", exact: true })).toHaveCount(0);
+-  await dock.getByRole("link", { name: "Começar a indicar", exact: true }).click();
+-  await expect(page).toHaveURL(/\/promoter\/candidate\/onboarding#referral$/);
++  await dock.getByRole("link", { name: /2\. Endereço/ }).click();
++  await expect(page.getByRole("heading", { name: "Comprovante de residência" })).toBeVisible();
++  await expect(page.getByRole("textbox", { name: "Seu link de indicação" })).toHaveCount(0);
+   await expect(page.getByRole("alert")).toHaveCount(0);
+ });
+ 
+@@ -97,6 +100,12 @@ test("candidate blocks a wrong document in the browser before the authoritative
+     return route.fulfill({ json: { stored: true, analysis_status: "pending", poll_after_ms: 500 } });
+   });
+   await page.goto("/promoter/candidate");
++  const dock = page.getByRole("navigation", { name: "Navegação principal do promoter" });
++  await expect(dock.getByRole("link", { name: /2\. Endereço/ })).toHaveAttribute("aria-disabled", "true");
++  await expect(dock.getByRole("link", { name: /4\. Selfie/ })).toHaveAttribute("aria-disabled", "true");
++  await page.getByRole("button", { name: /Envie seu RG ou CNH/ }).click();
++  await expect(page.getByRole("dialog", { name: "Como quer enviar o documento?" })).toBeVisible();
++  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+   await page.locator("#candidate-document").setInputFiles({ name: "conta.png", mimeType: "image/png", buffer: Buffer.from("valid-image-fixture") });
+   await expect(page.getByRole("alert")).toContainText("parece ser um comprovante de residência");
+   expect(uploadCalled).toBe(false);
+diff --git a/tests/e2e/scroll-workflow.spec.ts b/tests/e2e/scroll-workflow.spec.ts
+index 2d410df..bbc2de3 100644
+--- a/tests/e2e/scroll-workflow.spec.ts
++++ b/tests/e2e/scroll-workflow.spec.ts
+@@ -31,7 +31,10 @@ for (const role of ['student', 'promoter'] as const) {
+     await page.getByRole('checkbox').scrollIntoViewIfNeeded();
+     const box = await page.getByRole('checkbox').boundingBox();
+     const dock = await page.locator('nav[aria-label^="Navegação principal"]').boundingBox();
++    const main = await page.locator('#conteudo').boundingBox();
+     expect(box).not.toBeNull(); expect(dock).not.toBeNull();
++    expect(main!.y + main!.height).toBeLessThanOrEqual(dock!.y + 1);
++    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+     expect(box!.y + box!.height).toBeLessThanOrEqual(dock!.y);
+   });
+ 
+@@ -50,6 +53,33 @@ for (const role of ['student', 'promoter'] as const) {
+   });
+ }
+ 
++for (const width of [320, 390, 1280]) {
++  test(`candidate dock navigates completed steps and locks future steps at ${width}px`, async ({ page }) => {
++    await page.setViewportSize({ width, height: 700 });
++    await openSelfie(page, 'promoter');
++    const dock = page.getByRole('navigation', { name: 'Navegação principal do promoter' });
++    await dock.getByRole('link', { name: /1\. RG ou CNH/ }).click();
++    await expect(page.getByText('RG conferido')).toBeVisible();
++    await expect(dock.getByRole('link', { name: /1\. RG ou CNH/ })).toHaveAttribute('aria-current', 'page');
++    await page.screenshot({ path: `test-results/candidate-dock-${width}.png` });
++    await dock.getByRole('link', { name: /2\. Endereço/ }).click();
++    await expect(page.getByRole('heading', { name: 'Comprovante de residência' })).toBeVisible();
++    await dock.getByRole('link', { name: /3\. Escolaridade/ }).click();
++    await expect(page.getByText('Escolaridade registrada:')).toBeVisible();
++    await dock.getByRole('link', { name: /4\. Selfie/ }).click();
++    await expect(page.getByRole('checkbox')).toBeVisible();
++    await page.getByRole('link', { name: 'Comece a indicar' }).click();
++    await expect(page.getByRole('textbox', { name: 'Seu link de indicação' })).toBeVisible();
++    const geometry = await page.evaluate(() => {
++      const main = document.querySelector('#conteudo')!.getBoundingClientRect();
++      const dock = document.querySelector('[data-app-dock]')!.getBoundingClientRect();
++      return { mainBottom: main.bottom, dockTop: dock.top, pageWidth: document.documentElement.scrollWidth, width: innerWidth };
++    });
++    expect(geometry.mainBottom).toBeLessThanOrEqual(geometry.dockTop + 1);
++    expect(geometry.pageWidth).toBeLessThanOrEqual(geometry.width);
++  });
++}
++
+ test('student: scrolling past the contract end continues on the page', async ({ page }) => {
+   await page.setViewportSize({ width: 502, height: 648 });
+   await openSelfie(page, 'student');

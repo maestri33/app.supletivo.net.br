@@ -1,5 +1,6 @@
 ---
 import RootLayout from '../../../layouts/RootLayout.astro';
+import { SUPPORT_WHATSAPP_NUMBER } from '../../../lib/config';
 
 export const prerender = false;
 ---
@@ -20,7 +21,7 @@ export const prerender = false;
     </div>
     <div class="pt-2 w-full max-w-xs">
       <a
-        href="https://wa.me/554284321915?text=Ol%C3%A1%2C%20preciso%20de%20suporte%20sobre%20meu%20cadastro%20de%20promotor"
+        href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20preciso%20de%20suporte%20sobre%20meu%20cadastro%20de%20promotor`}
         target="_blank"
         rel="noopener noreferrer"
         class="btn w-full py-3 text-xs font-bold uppercase tracking-wider text-[var(--ink)] block"

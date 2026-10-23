@@ -1,0 +1,268 @@
+
+ ⛅️ wrangler 4.132.0 (update available 4.149.0)
+───────────────────────────────────────────────
+Attaching additional modules:
+┌───────────────────────────────────────────────────────────┬──────┬─────────────┐
+│ Name                                                      │ Type │ Size        │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/active_B6P8dAZ_.mjs                                │ esm  │ 1.54 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/active_D6FKufcS.mjs                                │ esm  │ 1.49 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/address_H5xjxV4V.mjs                               │ esm  │ 14.68 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/assessments_ChDzNryN.mjs                           │ esm  │ 1.52 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/assets_kYqGEAAP.mjs                                │ esm  │ 15.03 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/BankTlsSeal_BlCpxmMi.mjs                           │ esm  │ 1.00 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/candidate_Cb1CBt7x.mjs                             │ esm  │ 1.59 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/checkout_B3jisGIU.mjs                              │ esm  │ 0.97 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/checkout_BMItCkxO.mjs                              │ esm  │ 1.62 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/comissoes_DS4WZIy2.mjs                             │ esm  │ 1.60 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/commissions_DB9JK1gn.mjs                           │ esm  │ 1.65 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/compiler_CbNI0N93.mjs                              │ esm  │ 1.26 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/console_CytTTjjb.mjs                               │ esm  │ 290.77 KiB  │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/contact_BFZ0pr7T.mjs                               │ esm  │ 3.79 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/contact_BQxkA7SH.mjs                               │ esm  │ 0.25 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/conta_CiUPymRm.mjs                                 │ esm  │ 1.43 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/courses_CkY9a0gR.mjs                               │ esm  │ 1.61 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/cpf_Bf7FawAo.mjs                                   │ esm  │ 0.92 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/dashboard_7h2PCqKQ.mjs                             │ esm  │ 1.51 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/dashboard_Bf9TeK_z.mjs                             │ esm  │ 1.52 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/dashboard_Cier6kkQ.mjs                             │ esm  │ 1.60 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/dashboard_D2SMqIx-.mjs                             │ esm  │ 1.56 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/diploma_DxgF1IaB.mjs                               │ esm  │ 1.49 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/dock_CAR-qnBU.mjs                                  │ esm  │ 39.46 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/documents_D2Sa176k.mjs                             │ esm  │ 1.51 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/education_DS3KpLSj.mjs                             │ esm  │ 2.11 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/email_DgPBPJyR.mjs                                 │ esm  │ 0.94 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/enrollment_DC0auZWm.mjs                            │ esm  │ 2.16 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/entrypoints_DNCl-MhU.mjs                           │ esm  │ 856.06 KiB  │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/exams_DTVEAkvd.mjs                                 │ esm  │ 2.49 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/healthz_6DE_m3m-.mjs                               │ esm  │ 1.02 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/HubActiveView_BCTHkRMf.mjs                         │ esm  │ 2.83 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/HubReviewView_unljEOrH.mjs                         │ esm  │ 1.80 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/image-passthrough-endpoint_D77y-PDE.mjs            │ esm  │ 2.40 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/index-server_CnxoOwt9.mjs                          │ esm  │ 58.79 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/index_CkVwqKvy.mjs                                 │ esm  │ 1.43 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/index_CmRXjNXM.mjs                                 │ esm  │ 1.44 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/index_DokLiSKe.mjs                                 │ esm  │ 14.97 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/index_DSahmBRO.mjs                                 │ esm  │ 1.41 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/leads_CMN0unKl.mjs                                 │ esm  │ 1.52 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/leads_D7-PwLae.mjs                                 │ esm  │ 1.56 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/lead_D5J3gpT-.mjs                                  │ esm  │ 1.53 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/locked_MLPDHR0V.mjs                                │ esm  │ 2.14 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/materials_BYzCInyQ.mjs                             │ esm  │ 3.28 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/MecGuillocheSeal_CMVCWFEc.mjs                      │ esm  │ 0.09 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/Modal_B5OJu6I0.mjs                                 │ esm  │ 4.00 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/noop-entrypoint_BYLrzUxc.mjs                       │ esm  │ 0.15 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/noop__cX-V041.mjs                                  │ esm  │ 0.73 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/notice_OUdu8SrW.mjs                                │ esm  │ 2.08 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/onboarding_CJTtzGUw.mjs                            │ esm  │ 1.65 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/operations_Djr2JuK4.mjs                            │ esm  │ 4.57 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/otp_w2Q89jY-.mjs                                   │ esm  │ 14.88 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/payment_ark1S-1q.mjs                               │ esm  │ 1.61 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PixCheckout_C4hPrF-2.mjs                           │ esm  │ 13.60 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/pix_CZXKKchf.mjs                                   │ esm  │ 1.58 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/planos_DnOF4347.mjs                                │ esm  │ 0.96 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PromoterActiveView_D8pnlemu.mjs                    │ esm  │ 0.57 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PromoterCandidateView_f-yB3_0I.mjs                 │ esm  │ 1.42 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PromoterCommissionsView_BAXDqmf7.mjs               │ esm  │ 3.62 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PromoterLeadsView_B2l9sy6B.mjs                     │ esm  │ 5.21 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/promoters_BAZk9Nhj.mjs                             │ esm  │ 2.26 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/PromoterTrainingView_CY4aygTX.mjs                  │ esm  │ 1.90 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/promoter_BcQZUwX6.mjs                              │ esm  │ 1.05 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/react_Cl8Wt3-t.mjs                                 │ esm  │ 15.43 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/records_CjePaZmi.mjs                               │ esm  │ 1.50 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/recuperar-numero_aElJZu_4.mjs                      │ esm  │ 1.05 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/recuperar-numero_ClUUwCrL.mjs                      │ esm  │ 1.19 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/register_xSt5yHSv.mjs                              │ esm  │ 0.97 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/review_CS1a1E3N.mjs                                │ esm  │ 1.50 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/rg_apAm19hN.mjs                                    │ esm  │ 9.88 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/RoleEntry_DBJSeBjf.mjs                             │ esm  │ 0.52 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/rolldown-runtime_BDykq6kg.mjs                      │ esm  │ 1.47 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/RootLayout_DKEwq1JF.mjs                            │ esm  │ 24.70 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/selfie_BsKdTKPz.mjs                                │ esm  │ 2.41 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/sequence_DTAA5G3J.mjs                              │ esm  │ 44.45 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/service_Axy-yxcV.mjs                               │ esm  │ 44.16 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/static-image-collection_CRlUpJYi.mjs               │ esm  │ 2.64 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/StudentActiveView_BksqvMC8.mjs                     │ esm  │ 0.87 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/StudentLockedPaywall_DUg9M33l.mjs                  │ esm  │ 18.72 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/students_CQ9UjwD_.mjs                              │ esm  │ 1.56 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/StudentVeteranView_nl7F_K4d.mjs                    │ esm  │ 0.88 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/subjects_-VCScMQt.mjs                              │ esm  │ 1.50 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/support_DnyWlfqn.mjs                               │ esm  │ 2.23 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/suspended_9NcK5VgY.mjs                             │ esm  │ 1.00 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/tabs-status_CH2MIcmk.mjs                           │ esm  │ 515.39 KiB  │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/terms_BmqGUccd.mjs                                 │ esm  │ 2.57 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/training_Cj_4Lhxo.mjs                              │ esm  │ 1.57 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/triage_CWbi3_Ys.mjs                                │ esm  │ 5.60 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/UploadFileIcon_CxLD_fQ0.mjs                        │ esm  │ 1.51 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/vnode-children_BOVA_cP4.mjs                        │ esm  │ 6.54 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/workflow_Dqy37My9.mjs                              │ esm  │ 2.62 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_.._lMJrlJew.mjs                                   │ esm  │ 2.19 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_.._Pec4uAy6.mjs                                   │ esm  │ 1.26 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_astro_assets_9mnWnVm7.mjs                         │ esm  │ 22.27 KiB   │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_token__C11klZ4l.mjs                               │ esm  │ 1.80 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_virtual_astro_server-island-manifest_q0HM18kM.mjs │ esm  │ 0.27 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ chunks/_virtual_astro_session-driver_Bvb4Kaq4.mjs         │ esm  │ 2.98 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ virtual_astro_middleware.mjs                              │ esm  │ 1.31 KiB    │
+├───────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ Total (98 modules)                                        │      │ 2159.70 KiB │
+└───────────────────────────────────────────────────────────┴──────┴─────────────┘
+🌀 Building list of assets...
+✨ Read 63 files from the assets directory C:\rep\app.supletivo.net.br\dist\client
+🌀 Starting asset upload...
+🌀 Found 40 new or modified static assets to upload. Proceeding with upload...
++ /_astro/PixCheckout.DzgK_IT_.js
++ /_astro/promoter.DV4jq3eM.js
++ /_astro/RoleRouteGuard.BS1eME2Y.js
++ /_astro/RoleEntry.Df30riL9.js
++ /_astro/DocumentVerificationCenter.D9_peDP0.js
++ /_astro/RoleTabsHeader.DZ3oxD5e.js
++ /_astro/StudentEducationView.C_BU3KaO.js
++ /_astro/PromoterCommissionsView.BT5pO_6h.js
++ /_astro/PromoterTrainingView.CubXkBFE.js
++ /_astro/UniversalLogin.DK6EY9Fr.js
++ /_astro/StudentAddressEnrollmentView.DEj4YG0r.js
++ /_astro/dock.DLc0xzhZ.js
++ /_astro/RoleStatusTabs.BzkI8swK.js
++ /_astro/RoleAdaptiveNavDock.CMJUFe7K.js
++ /_astro/MecGuillocheSeal.a8wAB0vu.js
++ /_astro/BankTlsSeal.DhPPY9UY.js
++ /_astro/AppHeaderUser.CxFDLR6m.js
++ /_astro/workflow.o_T9iYaA.js
++ /_astro/HubExamsView.BzoiG0F1.js
++ /_astro/StudentSelfieView.CrvprX42.js
++ /_astro/PromoterActiveView.BJB8pl4Y.js
++ /_astro/api.Bc_yO3l_.js
++ /_astro/HubReviewView.DUu6jh0X.js
++ /_astro/PixCheckout.DjrwVGrF.js
++ /_astro/PromoterCandidateView.DVRKEOZ0.js
++ /_astro/HubOperationsView.C6HWwvVC.js
++ /_astro/client.DzvXj0aw.js
++ /_astro/RoleAdaptiveNavDock.CgsHzs0x.js
++ /_astro/client.svelte.CslTmprA.js
++ /_astro/roles.CF0Uedaz.js
++ /_astro/UploadFileIcon.27AGGJ5h.js
++ /_astro/StudentVeteranView.B9Jj4rPY.js
++ /_astro/Modal.DW7KZ4Th.js
++ /_astro/HubActiveView.CI-JUbOZ.js
++ /_astro/StudentActiveView.kfSYvA7r.js
++ /_astro/PromoterLeadsView.CWNH76II.js
++ /_astro/StudentRgEnrollmentView.SY_0q4XZ.js
++ /_astro/OtpVerification.B80DTNsB.js
++ /_astro/StudentLockedPaywall.CWqQJUZ4.js
++ /_astro/RootLayout.HzoF5IfD.css
+Uploaded 13 of 40 assets
+Uploaded 27 of 40 assets
+Uploaded 40 of 40 assets
+✨ Success! Uploaded 40 files (17 already uploaded) (2.09 sec)
+
+Total Upload: 2164.96 KiB / gzip: 465.76 KiB
+Worker Startup Time: 17 ms
+Your Worker has access to the following bindings:
+Binding                                                   Resource                  
+env.SESSION (1500d22e396f41c6b26d9f17e02f678d)            KV Namespace              
+env.HYPERDRIVE (d13fec466a424ac59c25399ee8628d4a)         Hyperdrive Config         
+env.ASSETS                                                Assets                    
+env.URL_BACKEND ("https://backend.supletivo.net.br")      Environment Variable      
+
+Uploaded app-supletivo-net-br (13.74 sec)
+Deployed app-supletivo-net-br triggers (4.94 sec)
+  https://app-supletivo-net-br.v7maestri.workers.dev
+  app.supletivo.net.br/* (zone name: supletivo.net.br)
+Current Version ID: eb64f58f-b5ed-4065-bf03-04ae49ede112

@@ -1,0 +1,1 @@
+function e(e){let t=e?.poll_after_ms&&e.poll_after_ms>0?e.poll_after_ms:2500,n=e?.expires_at?Date.parse(e.expires_at):NaN;return{intervalMs:t,deadlineMs:Number.isFinite(n)?n:Date.now()+6e4}}export{e as t};

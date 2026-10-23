@@ -1,0 +1,22 @@
+
+Running 13 tests using 1 worker
+
+(node:37872) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [warmup] › tests\e2e\warmup.setup.ts:27:1 › aquece todas as rotas do funil (2.0s)
+(node:52016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  2 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:46:3 › Pagamento do lead: servidor, recuperação e dock › dock mantém somente uma fase ativa e checkout bloqueado sem cobrança (725ms)
+  ok  3 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:57:3 › Pagamento do lead: servidor, recuperação e dock › PIX pronto permite revisar e retomar sem emitir outra cobrança (515ms)
+  ok  4 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:77:3 › Pagamento do lead: servidor, recuperação e dock › cartão usa o link vigente devolvido pelo backend (254ms)
+  ok  5 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:85:3 › Pagamento do lead: servidor, recuperação e dock › retorno envia referências ao backend e segue somente o destino autorizado (338ms)
+  ok  6 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:99:3 › Pagamento do lead: servidor, recuperação e dock › flag antiga de cartão não troca um checkout PIX vigente (4.3s)
+  ok  7 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:111:3 › Pagamento do lead: servidor, recuperação e dock › pagamento recebido bloqueia nova cobrança enquanto finaliza matrícula (575ms)
+  ok  8 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:123:3 › Pagamento do lead: servidor, recuperação e dock › permissão negada oferece ambiente autorizado e desabilita pagamento (333ms)
+  ok  9 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:131:3 › Pagamento do lead: servidor, recuperação e dock › falha do clipboard seleciona código sem anunciar cópia (435ms)
+  ok 10 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:145:3 › Pagamento do lead: servidor, recuperação e dock › cópia concluída corresponde ao código na área de transferência (437ms)
+  ok 11 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:154:3 › Pagamento do lead: servidor, recuperação e dock › checkout móvel mantém código, ação e dock sem transbordar (315ms)
+  ok 12 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:170:3 › Pagamento do lead: servidor, recuperação e dock › consulta Pix falhando conserva QR e exibe estado indisponível (3.7s)
+  ok 13 [chromium] › tests\e2e\issue-15-student-lead-wizard-dock.spec.ts:181:3 › Pagamento do lead: servidor, recuperação e dock › token público pago oferece recibo e conta sem abrir matrícula (2.6s)
+
+  13 passed (17.5s)

@@ -1,0 +1,59 @@
+name: Deploy app.supletivo.net.br
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-app-supletivo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers SSR
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SSR Application
+        run: pnpm run build
+
+      - name: Deploy to Cloudflare Workers SSR
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Acionar Oráculo Central de Versão
+        if: ${{ success() && env.CLOUDFLARE_API_TOKEN != '' }}
+        run: |
+          curl -s -X POST https://version.v7m.live/api/version/bump \
+            -H "Content-Type: application/json" \
+            -d '{"service": "app-supletivo", "repo": "app.supletivo.net.br"}' || true
+
+      - name: Aviso de Token Cloudflare
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::warning title=Secret Pendente::CLOUDFLARE_API_TOKEN não está definida em Settings > Secrets. Build SSR concluído com sucesso; configure a secret para deploy automático no edge."

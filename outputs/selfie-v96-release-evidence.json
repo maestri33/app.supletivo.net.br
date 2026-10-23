@@ -1,0 +1,11 @@
+{
+  "version": "0.0.0-sandbox.96",
+  "commit": "31ace61419ff8c2180f26bf2b98493ac349017c9",
+  "worker_version": "2d302558-06eb-43aa-8c78-529ec3fea4e1",
+  "rollback_worker_version": "fb2c392b-f1bd-4747-b94a-5c84f46f3a7a",
+  "production_ui": "review message confirmed; no duplicate selfie capture; console errors empty",
+  "biometric_blocker": "Azure backend configured localhost:8001; no biometric container on VM",
+  "backend_modified": false,
+  "unit_tests": 36,
+  "browser_scenarios": 27
+}

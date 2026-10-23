@@ -1,0 +1,669 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/**
+ * Supletivo Brasil — Paleta Pátria Amada Refinada & Design System Canônico.
+ * Sincronizado com supletivo.net.br/DESIGN.md.
+ */
+
+/* ==========================================================================
+   FONTES LOCAIS AUTO-HOSPEDADAS (WOFF2)
+   ========================================================================== */
+@font-face {
+  font-family: 'Archivo Black';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/archivo-black-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   TAILWIND CSS V4 THEME CONFIGURATION
+   ========================================================================== */
+@theme {
+  /* Tipografia Canônica */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Archivo Black', system-ui, sans-serif;
+
+  /* Cores Canônicas (DESIGN.md) */
+  --color-green: var(--green);
+  --color-green-deep: var(--green-deep);
+  --color-yellow: var(--yellow);
+  --color-yellow-soft: var(--yellow-soft);
+  --color-blue: var(--blue);
+  --color-blue-deep: var(--blue-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-paper-soft: var(--paper-soft);
+  --color-line-light: var(--line-light);
+
+  /* Texto Secundário Auditado */
+  --color-muted-on-dark: var(--muted-on-dark);
+  --color-muted-on-light: var(--muted-on-light);
+
+  /* Feedback Semântico */
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  /* Aliases Transicionais brand-* para compatibilidade com componentes existentes */
+  --color-brand-green: var(--green);
+  --color-brand-green-dark: var(--green-deep);
+  --color-brand-green-light: var(--green);
+  --color-brand-yellow: var(--yellow);
+  --color-brand-yellow-soft: var(--yellow-soft);
+  --color-brand-blue: var(--blue);
+  --color-brand-blue-bright: var(--blue);
+  --color-brand-ink: var(--ink);
+  --color-brand-ink-soft: var(--ink-soft);
+  --color-brand-muted: var(--muted-on-light);
+  --color-brand-bg: var(--paper-soft);
+  --color-brand-surface: var(--paper);
+  --color-brand-border: var(--line-light);
+  --color-brand-danger: var(--danger);
+  --color-brand-danger-bg: var(--danger-bg);
+  --color-brand-green-bg: var(--success-bg);
+  --color-brand-blue-bg: var(--info-bg);
+}
+
+/* ==========================================================================
+   SHELL APP-LIKE & FLUID SCROLL (CANONICAL DESIGN SYSTEM)
+   ========================================================================== */
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Keep edge effects on the actual page scroller; body must forward gestures. */
+  overscroll-behavior-y: none;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Shell de produto: o cabeçalho e o dock ocupam suas próprias camadas; a
+ * área central é o único scroller. Isso evita que um card fique escondido
+ * atrás da navegação fixa em telas pequenas e com teclado aberto.
+ */
+body.app-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+body.app-shell > #conteudo {
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+body.app-shell > #conteudo.app-scroll {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+
+body.app-shell [data-app-dock="true"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* No modo barra, o dock participa do layout e reserva sua própria altura. */
+body.app-shell > astro-island:has(> [data-app-dock-mode="bottom-bar"]) {
+  display: block;
+  flex: 0 0 auto;
+}
+
+body.app-shell [data-app-dock-mode="bottom-bar"] {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+/* Seleção com contraste canônico */
+::selection {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+/* Área principal de conteúdo da aplicação */
+.app-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-top: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
+  scrollbar-gutter: stable;
+}
+
+/* Ergonomia de Toque e Acessibilidade Mobile-First (DESIGN.MD) */
+input, select, textarea, button {
+  touch-action: manipulation;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  font-size: 1rem !important; /* 16px mínimo para impedir auto-zoom irritante no iOS Safari */
+  min-height: 48px; /* Touch target ergonômico */
+}
+
+/* ==========================================================================
+   COMPONENTES GLOBAIS DE DESIGN SYSTEM (DESIGN.MD)
+   ========================================================================== */
+
+/* Botão Principal de Conversão (CTA .btn) */
+.btn {
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(1.02rem, 0.95rem + 0.4vw, 1.18rem);
+  line-height: 1.15;
+  padding: 1.05em 1.9em;
+  border-radius: var(--radius-pill);
+  background-color: var(--yellow);
+  color: var(--ink) !important; /* REGRA DE OURO: 11.8:1 WCAG AAA */
+  text-decoration: none;
+  text-align: center;
+  position: relative;
+  overflow: clip;
+  box-shadow:
+    0 12px 32px -12px rgb(255 196 0 / 0.55),
+    inset 0 -3px 0 rgb(11 18 32 / 0.16);
+  transition:
+    transform 0.18s var(--ease-out),
+    box-shadow 0.25s var(--ease-out);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 40px -14px rgb(255 196 0 / 0.7),
+    inset 0 -3px 0 rgb(11 18 32 / 0.16);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px rgb(0 39 118 / 0.85);
+}
+
+/* Varredura luminosa periódica no CTA (DESIGN.md) */
+@media (prefers-reduced-motion: no-preference) {
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      rgb(255 255 255 / 0.55) 50%,
+      transparent 62%
+    );
+    transform: translateX(-130%) skewX(-8deg);
+    animation: btn-shine 6.5s var(--ease-out) 2.2s infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes btn-shine {
+  0% {
+    transform: translateX(-130%) skewX(-8deg);
+  }
+  18%,
+  100% {
+    transform: translateX(130%) skewX(-8deg);
+  }
+}
+
+/* ==========================================================================
+   GLASSMORPHISM & ANTIGRAVITY DEPTH
+   ========================================================================== */
+.glass-panel {
+  background: var(--glass-bg-dark);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-dark);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-panel-light {
+  background: var(--glass-bg-light);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-light);
+  box-shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.spatial-stage {
+  perspective: var(--perspective);
+  perspective-origin: 50% 50%;
+}
+
+.spatial-card-3d {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: box-shadow 0.3s var(--ease-out), opacity 0.65s var(--ease-out) !important;
+}
+
+.layer-z-sm { transform: translateZ(12px); }
+.layer-z-md { transform: translateZ(24px); }
+.layer-z-lg { transform: translateZ(40px); }
+
+/* ==========================================================================
+   BANDEIRA DIPLOMA (DIPLOMAFLAG)
+   ========================================================================== */
+.diploma-flag {
+  filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.35));
+}
+
+.diploma-flag svg {
+  width: 100%;
+  height: auto;
+  transform: rotate(-3.5deg);
+}
+
+.df-sheet,
+.df-roll,
+.df-shadow {
+  transform-box: fill-box;
+}
+
+.df-stamp {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-8deg);
+}
+
+.df-shadow {
+  opacity: 0.3;
+  filter: blur(7px);
+  transform-origin: left center;
+}
+
+.df-name-label {
+  fill: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  opacity: 0.82;
+}
+
+.df-name {
+  fill: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .df-sheet {
+    clip-path: inset(0 94% 0 0 round 12px);
+    animation: df-clip 12s infinite;
+  }
+
+  .df-roll {
+    animation: df-travel 12s infinite;
+  }
+
+  .df-shadow {
+    transform: scaleX(0.14);
+    animation: df-shadow 12s infinite;
+  }
+
+  .df-ribbon {
+    animation: df-ribbon 12s infinite;
+  }
+
+  .df-check {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: df-check 12s infinite;
+  }
+
+  .df-stamp {
+    opacity: 0;
+    animation: df-stamp 12s infinite;
+  }
+
+  .diploma-flag {
+    animation: df-float 7s ease-in-out infinite;
+  }
+}
+
+@keyframes df-clip {
+  0%, 6% {
+    clip-path: inset(0 94% 0 0 round 12px);
+    animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
+  }
+  30%, 88% {
+    clip-path: inset(0 0% 0 0 round 12px);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
+  }
+  98%, 100% {
+    clip-path: inset(0 94% 0 0 round 12px);
+  }
+}
+
+@keyframes df-travel {
+  0%, 6% {
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
+  }
+  30%, 88% {
+    transform: translateX(488px);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
+  }
+  98%, 100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes df-shadow {
+  0%, 6% {
+    transform: scaleX(0.14);
+    animation-timing-function: cubic-bezier(0.5, 0.05, 0.2, 1);
+  }
+  30%, 88% {
+    transform: scaleX(1);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.4, 1);
+  }
+  98%, 100% {
+    transform: scaleX(0.14);
+  }
+}
+
+@keyframes df-ribbon {
+  0%, 7% { opacity: 1; }
+  14%, 92% { opacity: 0; }
+  98%, 100% { opacity: 1; }
+}
+
+@keyframes df-check {
+  0%, 30% { stroke-dashoffset: 1; }
+  42%, 84% { stroke-dashoffset: 0; }
+  92%, 100% { stroke-dashoffset: 1; }
+}
+
+@keyframes df-stamp {
+  0%, 31% {
+    opacity: 0;
+    transform: scale(1.7) rotate(-14deg);
+  }
+  32% {
+    opacity: 1;
+    transform: scale(1.55) rotate(-13deg);
+  }
+  36% {
+    transform: scale(0.92) rotate(-7deg);
+  }
+  39% {
+    transform: scale(1.05) rotate(-8.5deg);
+  }
+  42%, 100% {
+    opacity: 1;
+    transform: scale(1) rotate(-8deg);
+  }
+}
+
+@keyframes df-float {
+  50% { transform: translateY(-9px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .df-roll { transform: translateX(488px); }
+  .df-ribbon { opacity: 0; }
+  .df-shadow { transform: none; }
+}
+
+/* ==========================================================================
+   AURORA BACKGROUND (CALIBRADA COM TOKENS CANÔNICOS)
+   ========================================================================== */
+.aurora-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  background: radial-gradient(125% 125% at 50% 0%, #06163a 0%, #03102a 46%, #04150e 100%);
+}
+
+.aurora-layer {
+  --aurora: repeating-linear-gradient(
+    100deg,
+    var(--green) 10%,
+    var(--blue) 15%,
+    var(--green-deep) 20%,
+    var(--yellow) 25%,
+    var(--blue-deep) 30%
+  );
+  --streaks: repeating-linear-gradient(
+    100deg,
+    #000 0%,
+    #000 7%,
+    transparent 10%,
+    transparent 12%,
+    #000 16%
+  );
+  position: absolute;
+  inset: -20%;
+  background-image: var(--streaks), var(--aurora);
+  background-size: 300%, 200%;
+  background-position: 50% 50%, 50% 50%;
+  filter: blur(14px) opacity(0.45) saturate(1.05);
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(125% 95% at 50% 0%, #000 32%, transparent 78%);
+  mask-image: radial-gradient(125% 95% at 50% 0%, #000 32%, transparent 78%);
+}
+
+.aurora-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--streaks), var(--aurora);
+  background-size: 200%, 100%;
+  opacity: 0.6;
+  animation: aurora 60s linear infinite;
+}
+
+@keyframes aurora {
+  from { background-position: 50% 50%, 50% 50%; }
+  to { background-position: 350% 50%, 350% 50%; }
+}
+
+/* Transições de etapas */
+@media (prefers-reduced-motion: no-preference) {
+  .step-in-right { animation: step-in-right 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .step-in-left { animation: step-in-left 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .card-in { animation: card-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .sheet-up { animation: sheet-up 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+}
+
+@keyframes step-in-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes step-in-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ==========================================================================
+   KILL-SWITCH UNIVERSAL DE MOVIMENTO (ACCESSIBILITY WCAG)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spatial-card-3d,
+  .layer-z-sm,
+  .layer-z-md,
+  .layer-z-lg {
+    transform: none !important;
+  }
+  .aurora-layer::after {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   UTILITY: NO-VISIBLE-SCROLLBAR
+   ========================================================================== */
+.no-visible-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-visible-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==========================================================================
+   CHECKOUT & PAYWALL ANTIGRAVITY ENGINE (FASE LEAD)
+   ========================================================================== */
+.payment-card-zero-g {
+  position: relative;
+  border-radius: var(--radius-lg, 24px);
+  background: rgba(11, 18, 32, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+/* Card PIX (Destaque Dourado/Esmeralda) */
+.payment-card-pix {
+  border: 2px solid rgba(255, 196, 0, 0.45);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.4), 0 0 20px -8px rgba(255, 196, 0, 0.2);
+}
+
+.payment-card-pix:hover {
+  transform: translateY(-4px);
+  border-color: var(--yellow);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(255, 196, 0, 0.35);
+}
+
+.payment-card-pix:active {
+  transform: translateY(-1px) scale(0.985);
+}
+
+/* Card Cartão de Crédito */
+.payment-card-card {
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.35);
+}
+
+.payment-card-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.45),
+    0 0 24px rgba(255, 255, 255, 0.12);
+}
+
+.payment-card-card:active {
+  transform: translateY(-1px) scale(0.985);
+}
+
+/* Micro-feedback elástico de cópia PIX */
+@keyframes pop-bounce {
+  0% { transform: scale(0.6) translateY(8px); opacity: 0; }
+  60% { transform: scale(1.08) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.copy-badge-floating {
+  animation: pop-bounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.copy-btn-elastic:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* Celebração de Pagamento Confirmado (Checkmark SVG autodesenhado) */
+.checkmark-check {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: strokeCheck 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.2s forwards;
+}
+
+@keyframes strokeCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+

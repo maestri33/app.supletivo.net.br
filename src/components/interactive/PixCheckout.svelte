@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { ApiError, getPixPage, getLeadMe, getErrorMessage, type PixPage, type CheckoutOut } from "@/lib/api";
+  import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
   import PixIcon from "@/components/icons/PixIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
   import CopyFeedbackIcon from "@/components/icons/CopyFeedbackIcon.svelte";
@@ -338,7 +339,7 @@
         <!-- Botão de Ajuda de Contingência no WhatsApp -->
         <div class="w-full text-center pt-1">
           <a
-            href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20pagamento%20da%20minha%20matr%C3%ADcula%20do%20Supletivo%20e%20preciso%20de%20ajuda."
+            href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20pagamento%20da%20minha%20matr%C3%ADcula%20do%20Supletivo%20e%20preciso%20de%20ajuda.`}
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-colors duration-200 cursor-pointer touch-manipulation"

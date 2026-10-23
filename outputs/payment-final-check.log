@@ -1,0 +1,10 @@
+10:33:38 [@astrojs/cloudflare] Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+10:33:38 [vite] Re-optimizing dependencies because vite config has changed
+10:33:38 [vite] Re-optimizing dependencies because vite config has changed
+10:33:38 [types] Generated 333ms
+10:33:38 [check] Getting diagnostics for Astro files in C:\rep\app.supletivo.net.br...
+Result (123 files): 
+- 0 errors
+- 0 warnings
+- 0 hints
+
