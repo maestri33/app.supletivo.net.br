@@ -59,7 +59,7 @@
     </div>
 
     <p class="text-[11px] text-white/50 text-center leading-relaxed">
-      Declaração simplificada aceita para fins de matrícula conforme portaria MEC/EJA.
+      Informe o vínculo real com o titular do comprovante.
     </p>
   </div>
 </Modal>

@@ -23,26 +23,6 @@ if (hasMarketingParam) {
 ---
 
 <RootLayout title="Entrar — Supletivo Brasil" showDock={false}>
-  <script is:inline>
-    // Se o usuário já tiver sessão ativa, redireciona instantaneamente antes do render
-    try {
-      const raw = localStorage.getItem("supletivo.login");
-      if (raw) {
-        const session = JSON.parse(raw);
-        if (session && session.access_token) {
-          const roles = Array.isArray(session.roles) ? session.roles : [];
-          const normalized = roles.map(function(r) { return String(r).toLowerCase().trim(); });
-          if (normalized.some(function(r) { return ["coordinator", "hub", "polo", "staff", "superuser"].indexOf(r) !== -1; })) {
-            window.location.replace("/hub");
-          } else if (normalized.some(function(r) { return ["promoter", "candidate", "training", "promotor"].indexOf(r) !== -1; })) {
-            window.location.replace("/promoter");
-          } else {
-            window.location.replace("/student");
-          }
-        }
-      }
-    } catch (e) {}
-  </script>
   <div class="w-full flex-1 flex flex-col items-center justify-start my-auto p-4 sm:p-6">
     <UniversalLogin client:load />
   </div>

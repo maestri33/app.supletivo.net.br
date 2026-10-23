@@ -1,6 +1,7 @@
 import * as React from "react";
-import type { FloatingDockItem, DockStatusIndicator } from "@/components/ui/floating-dock";
-import type { AdapterContext, PromoterDockState, ItemHealthStatus } from "./types";
+import { identityDockItems } from "./identityDockItems";
+import type { FloatingDockItem } from "@/components/ui/floating-dock";
+import type { AdapterContext, PromoterDockState } from "./types";
 import {
   IconHome,
   IconUsers,
@@ -9,38 +10,10 @@ import {
   IconSchool,
   IconLock,
   IconFileText,
-  IconFileCheck,
   IconAlertTriangle,
-  IconUserCheck,
   IconHeadset,
+  IconLink,
 } from "@tabler/icons-react";
-
-function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
-  switch (health) {
-    case "rejected":
-      return "danger";
-    case "under_review":
-      return "warning";
-    case "approved":
-      return "success";
-    case "pending":
-    default:
-      return "normal";
-  }
-}
-
-function getBadgeFromHealth(health?: ItemHealthStatus): { badge?: string; badgeVariant?: "danger" | "warning" | "success" } {
-  switch (health) {
-    case "rejected":
-      return { badge: "!", badgeVariant: "danger" };
-    case "under_review":
-      return { badge: "Análise", badgeVariant: "warning" };
-    case "approved":
-      return { badge: "OK", badgeVariant: "success" };
-    default:
-      return {};
-  }
-}
 
 /**
  * Adapter do Ambiente do Promotor / Consultor Educacional.
@@ -80,55 +53,18 @@ export function getPromoterDockItems(
 
   // ── 1. STATUS CANDIDATE: Credenciamento & Onboarding Inicial ──
   if (isCandidate) {
-    const onboardingHealth = getBadgeFromHealth(state.onboardingStatus);
-    const pixHealth = getBadgeFromHealth(state.pixStatus);
-    const termsHealth = getBadgeFromHealth(state.termsStatus);
-
-    const isOnboardingActive =
-      currentPath === "/promoter/candidate/onboarding" ||
-      currentPath === "/promoter/candidate" ||
-      currentPath === "/promoter";
-    const isPixActive = currentPath === "/promoter/candidate/pix";
-    const isTermsActive = currentPath === "/promoter/candidate/terms";
-
-    return [
-      {
-        id: "onboarding",
-        title: "1. Cadastro",
-        icon: <IconUserCheck className="h-full w-full" />,
-        href: "/promoter/candidate/onboarding",
-        isActive: isOnboardingActive,
-        badge: onboardingHealth.badge,
-        badgeVariant: onboardingHealth.badgeVariant,
-        statusIndicator: mapHealthToIndicator(state.onboardingStatus),
-      },
-      {
-        id: "pix",
-        title: "2. Chave PIX",
-        icon: <IconCash className="h-full w-full" />,
-        href: "/promoter/candidate/pix",
-        isActive: isPixActive,
-        badge: pixHealth.badge,
-        badgeVariant: pixHealth.badgeVariant,
-        statusIndicator: mapHealthToIndicator(state.pixStatus),
-      },
-      {
-        id: "terms",
-        title: "3. Termos",
-        icon: <IconFileCheck className="h-full w-full" />,
-        href: "/promoter/candidate/terms",
-        isActive: isTermsActive,
-        badge: termsHealth.badge,
-        badgeVariant: termsHealth.badgeVariant,
-        statusIndicator: mapHealthToIndicator(state.termsStatus),
-      },
-      {
-        id: "logout",
-        title: "Sair",
-        icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
-        onClick: onLogout,
-      },
-    ];
+    const next = state.registrationStep ?? "documents";
+    return [...identityDockItems({
+      documentTitle: "RG ou CNH",
+      active: state.selectedSection === "pix" ? "education" : state.selectedSection ?? (next === "pix" ? "education" : next),
+      paths: { documents: "#documents", address: "#address", education: "#education", selfie: "#selfie" },
+      health: { documents: state.documentStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
+      enabled: { documents: true, address: true, education: true, selfie: true },
+    }), {
+      id: "referral", title: "Indicar", icon: <IconLink className="h-full w-full" />,
+      href: "#referral", isActive: state.selectedSection === "referral" || currentPath.endsWith("#referral"),
+      statusIndicator: "normal",
+    }];
   }
 
   // ── 2. STATUS TRAINING: Capacitação Obrigatória (LMS) com Painel Travado ──
@@ -217,7 +153,7 @@ export function getPromoterDockItems(
   const isCommissionsActive =
     currentPath === "/promoter/active/commissions" ||
     currentPath.startsWith("/promoter/comissoes");
-  const isMaterialsActive = currentPath === "/promoter/active/materials";
+  const isDocumentsActive = currentPath === "/promoter/active/documents";
 
   return [
     {
@@ -227,6 +163,11 @@ export function getPromoterDockItems(
       href: "/promoter/active/dashboard",
       isActive: isDashboardActive,
       statusIndicator: "normal",
+    },
+    {
+      id: "referral", title: "Indicar", icon: <IconLink className="h-full w-full" />,
+      href: "/promoter/active/dashboard#referral",
+      isActive: currentPath.endsWith("#referral"), statusIndicator: "normal",
     },
     {
       id: "leads",
@@ -247,11 +188,11 @@ export function getPromoterDockItems(
       statusIndicator: "success",
     },
     {
-      id: "materials",
-      title: "Materiais",
+      id: "documents",
+      title: "Documentos",
       icon: <IconFileText className="h-full w-full" />,
-      href: "/promoter/active/materials",
-      isActive: isMaterialsActive,
+      href: "/promoter/active/documents",
+      isActive: isDocumentsActive,
       statusIndicator: "normal",
     },
     {

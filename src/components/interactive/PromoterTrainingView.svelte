@@ -1,136 +1,148 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami, requestAuth } from "@/lib/api";
+  import { getErrorMessage, mediaUrl, requestAuth, whoami } from "@/lib/api";
 
-  let promoterName = $state<string>("Promotor");
-  let activeModule = $state<number>(1);
-  let activeMaterialId = $state<string>("module-1");
-  let answer = $state<string>("");
-  let busy = $state<boolean>(false);
-  let submitted = $state<boolean>(false);
-  let mounted = $state<boolean>(false);
+  interface Material {
+    material_external_id: string;
+    title: string;
+    blocking: boolean;
+    kind: string;
+    assignment_status: string;
+    submission_status: string;
+    grade?: string | null;
+    justification?: string | null;
+    text_content?: string;
+    content_blocks?: { type?: string; text?: string; url?: string; src?: string; alt?: string }[];
+    question?: string;
+    video?: string | null;
+    photo?: string | null;
+  }
+  interface Promoter { locked: boolean; status: string; pending_materials?: { material_external_id: string }[]; }
+  const base = "/api/v1/collaborators";
+  let materials = $state<Material[]>([]);
+  let selectedId = $state("");
+  let answer = $state("");
+  let promoter = $state<Promoter | null>(null);
+  let loading = $state(true);
+  let busy = $state(false);
+  let error = $state<string | null>(null);
+  let notice = $state<string | null>(null);
+  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+  let pollDelay = 2500;
+  let active = $derived(materials.find(item => item.material_external_id === selectedId) ?? materials[0] ?? null);
+  let waiting = $derived(active?.submission_status === "pending");
+  let approved = $derived(active?.submission_status === "approved" || active?.assignment_status === "approved");
+  let rejected = $derived(active?.submission_status === "rejected");
+  let unlocked = $derived(promoter?.locked === false);
 
-  onMount(async () => {
-    mounted = true;
+  function statusLabel(item: Material) {
+    if (item.assignment_status === "approved" || item.submission_status === "approved") return "Concluído";
+    if (item.submission_status === "pending") return "Em correção";
+    if (item.submission_status === "rejected") return "Precisa de ajuste";
+    return item.blocking ? "Obrigatório" : "Disponível";
+  }
+
+  async function refresh() {
     try {
-      const who = await whoami();
-      const status = who?.role_statuses?.promoter;
-      if (status === "candidate") {
-        window.location.replace("/promoter/candidate");
-        return;
-      }
-      if (who?.name) promoterName = who.name;
-    } catch (e) {}
+      const identity = await whoami();
+      if (identity.role_statuses?.promoter === "candidate") { window.location.replace("/promoter/candidate"); return; }
+      const [state, list] = await Promise.all([
+        requestAuth<Promoter>(`${base}/promoter/me`),
+        requestAuth<Material[]>(`${base}/training/materials`),
+      ]);
+      if (disposed) return;
+      promoter = state;
+      materials = Array.isArray(list) ? list : [];
+      if (!selectedId || !materials.some(item => item.material_external_id === selectedId)) selectedId = materials[0]?.material_external_id ?? "";
+      const selected = materials.find(item => item.material_external_id === selectedId);
+      if (selected?.submission_status !== "rejected") answer = "";
+      error = null;
+      window.dispatchEvent(new CustomEvent("supletivo:promoter-state", { detail: { status: state.locked ? "training" : "active" } }));
+      const needsPoll = materials.some(item => item.submission_status === "pending") || state.locked;
+      clearTimeout(pollTimer);
+      if (needsPoll && !disposed) pollTimer = setTimeout(() => { if (!busy && document.visibilityState === "visible") void refresh(); }, pollDelay);
+    } catch (cause) { error = getErrorMessage(cause); }
+    finally { loading = false; }
+  }
 
-    try {
-      const mats = await requestAuth<any[]>("/api/v1/collaborators/training/materials");
-      if (Array.isArray(mats) && mats.length > 0 && mats[0]?.external_id) {
-        activeMaterialId = String(mats[0].external_id);
-      }
-    } catch {}
+  onMount(() => {
+    void refresh();
+    const onFocus = () => { if (!busy) void refresh(); };
+    window.addEventListener("focus", onFocus);
+    return () => { disposed = true; clearTimeout(pollTimer); window.removeEventListener("focus", onFocus); };
   });
 
-  async function handleSubmitAnswer(e: Event) {
-    e.preventDefault();
-    busy = true;
+  async function submit() {
+    if (!active || !answer.trim() || busy || waiting || approved) return;
+    busy = true; error = null; notice = null;
     try {
-      await requestAuth("/api/v1/collaborators/training/submissions", {
-        method: "POST",
-        json: {
-          material_external_id: activeMaterialId,
-          answer: answer.trim(),
-        },
+      const result = await requestAuth<{ status: string; material_external_id: string }>(`${base}/training/submissions`, {
+        method: "POST", json: { material_external_id: active.material_external_id, answer: answer.trim() },
       });
-    } catch {
-      // Registra submissão
-    } finally {
-      busy = false;
-      submitted = true;
-    }
+      if (result.status === "pending") notice = "Resposta recebida. A correção será feita pelo backend.";
+      await refresh();
+    } catch (cause) { error = getErrorMessage(cause); }
+    finally { busy = false; }
+  }
+
+  function contentBlock(block: Material["content_blocks"][number]) {
+    return block.text || block.url || block.src || "";
   }
 </script>
 
-<div class="w-full max-w-3xl mx-auto p-4 sm:p-6 text-white space-y-6">
-  <!-- Card de Atenção / Trava de Treinamento -->
-  <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-amber-500/40 bg-gradient-to-br from-amber-950/60 to-blue/90 shadow-2xl">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-xs font-semibold text-amber-300 mb-3">
-      <span class="size-2 rounded-full bg-amber-400 animate-ping"></span>
-      Status de Atenção: Treinamento
-    </div>
-    <h1 class="text-2xl sm:text-3xl font-display text-white">Treinamento Obrigatório Pendente</h1>
-    <p class="text-xs sm:text-sm text-amber-100/80 mt-1.5 leading-relaxed">
-      Enquanto houver matéria obrigatória pendente, o bloqueio de treinamento permanece ativo e seu link de indicação fica restrito.
-      Conclua os módulos abaixo para liberação imediata.
-    </p>
-
-    <div class="mt-6 flex flex-wrap items-center gap-3 text-xs">
-      <button
-        type="button"
-        onclick={() => (activeModule = 1)}
-        class="px-4 py-2 rounded-xl border transition-all cursor-pointer {activeModule === 1 ? 'border-[var(--yellow)] bg-[var(--yellow)]/20 text-[var(--yellow)] font-bold' : 'border-white/20 bg-white/5 text-white/70'}"
-      >
-        Módulo 1: Apresentação da Plataforma EJA
-      </button>
-      <button
-        type="button"
-        onclick={() => (activeModule = 2)}
-        class="px-4 py-2 rounded-xl border transition-all cursor-pointer {activeModule === 2 ? 'border-[var(--yellow)] bg-[var(--yellow)]/20 text-[var(--yellow)] font-bold' : 'border-white/20 bg-white/5 text-white/70'}"
-      >
-        Módulo 2: Técnicas Éticas de Captação
-      </button>
-    </div>
-  </div>
-
-  <!-- Conteúdo do Treinamento -->
-  <div class="rounded-3xl p-6 sm:p-8 bg-white/5 border border-white/10 backdrop-blur-xl space-y-6">
-    {#if activeModule === 1}
-      <div class="space-y-4">
-        <h3 class="text-lg font-bold text-white">Módulo 1: O Modelo de Conclusão Acelerada</h3>
-        <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
-          O Supletivo Brasil conecta alunos adultos que não concluíram a educação básica regular a polos credenciados pelo MEC e conselhos estaduais.
-          Os alunos realizam aulas online e realizam o exame presencial ou banca avaliadora com total segurança jurídica.
-        </p>
-
-        <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-          <strong class="text-xs font-bold text-[var(--yellow)] uppercase tracking-wider block">Questão de Verificação (Avaliada por IA)</strong>
-          <p class="text-xs sm:text-sm text-white/90">
-            Como você deve explicar ao futuro aluno a validade oficial do certificado de conclusão emitido pelo polo?
-          </p>
-
-          {#if !submitted}
-            <form onsubmit={handleSubmitAnswer} class="space-y-3 pt-2">
-              <textarea
-                id="training-answer"
-                data-hydrated={mounted}
-                required
-                rows={3}
-                bind:value={answer}
-                placeholder="Escreva sua resposta com suas palavras..."
-                class="w-full p-3 rounded-xl bg-white/10 border border-white/20 text-white text-xs sm:text-sm focus:outline-none focus:border-[var(--yellow)]"
-              ></textarea>
-              <button
-                type="submit"
-                disabled={busy || !answer.trim()}
-                class="btn py-2.5 px-6 rounded-xl font-bold uppercase tracking-wider text-xs text-[var(--ink)] cursor-pointer disabled:opacity-50"
-              >
-                {busy ? "Enviando para Correção..." : "Submeter Resposta →"}
-              </button>
-            </form>
-          {:else}
-            <div class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs flex items-center justify-between">
-              <span>✓ Resposta submetida e homologada com sucesso!</span>
-              <a href="/promoter/active" class="font-bold underline text-white">Ir para Painel Ativo →</a>
-            </div>
-          {/if}
-        </div>
-      </div>
-    {:else}
-      <div class="space-y-4">
-        <h3 class="text-lg font-bold text-white">Módulo 2: Técnicas Éticas de Captação</h3>
-        <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
-          Nossos consultores operam sempre com transparência sobre os requisitos de idade (mínimo de 18 anos para Ensino Médio e 15 anos para Ensino Fundamental).
-        </p>
-      </div>
+<div class="training-view" data-testid="promoter-training">
+  <header class="glass-panel training-header">
+    <p class="eyebrow">Treinamento obrigatório</p>
+    <h1>Capacitação do promotor</h1>
+    <p>As matérias e perguntas abaixo são carregadas da sua atribuição atual. A liberação depende da correção do backend.</p>
+    {#if promoter}<p class:locked={promoter.locked} class:released={!promoter.locked} class="state-pill">{promoter.locked ? "Painel bloqueado enquanto houver matéria pendente" : "Painel liberado"}</p>{/if}
+  </header>
+  {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
+  {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
+  {#if loading}<p role="status">Consultando matérias atribuídas…</p>
+  {:else if materials.length === 0}
+    <section class="training-card"><h2>Nenhuma matéria atribuída</h2><p>O treinamento aparecerá quando a coordenação atribuir uma matéria ao seu perfil.</p></section>
+  {:else}
+    <nav class="materials" aria-label="Matérias atribuídas">
+      {#each materials as item}
+        <button type="button" class:current={item.material_external_id === selectedId} class="material-tab" onclick={() => { selectedId = item.material_external_id; answer = item.submission_status === "rejected" ? "" : answer; }}>
+          <span>{item.title}</span><small>{statusLabel(item)}</small>
+        </button>
+      {/each}
+    </nav>
+    {#if active}
+      <article class="training-card">
+        <div class="card-heading"><div><p class="kicker">{active.kind === "transitory" ? "Atualização" : "Matéria atribuída"}</p><h2>{active.title}</h2></div><span class="status">{statusLabel(active)}</span></div>
+        {#if active.text_content}<p class="material-text">{active.text_content}</p>{/if}
+        {#each active.content_blocks ?? [] as block}
+          {#if block.type === "video" && (block.url || block.src)}<video controls preload="metadata" src={mediaUrl(block.url ?? block.src) ?? undefined}></video>
+          {:else if block.type === "image" && (block.url || block.src)}<img loading="lazy" decoding="async" src={mediaUrl(block.url ?? block.src) ?? undefined} alt={block.alt ?? active.title} />
+          {:else if contentBlock(block)}<p>{contentBlock(block)}</p>{/if}
+        {/each}
+        {#if active.video}<video controls preload="metadata" src={mediaUrl(active.video) ?? undefined}></video>{/if}
+        {#if active.photo}<img loading="lazy" decoding="async" src={mediaUrl(active.photo) ?? undefined} alt={active.title} />{/if}
+        {#if active.question}<div class="question"><strong>Verificação</strong><p>{active.question}</p>
+          {#if waiting}<p class="pending-text">Resposta em correção. Aguarde o resultado real do backend.</p>
+          {:else if approved}<p class="success-text">Matéria aprovada pelo backend.</p>
+          {:else if rejected}<p class="rejected-text">{active.justification ?? "A resposta precisa de ajuste. Envie uma nova resposta."}</p>
+            <textarea id="training-answer" bind:value={answer} rows="5" disabled={busy} placeholder="Explique com suas palavras…"></textarea>
+            <button class="btn" type="button" disabled={busy || !answer.trim()} onclick={submit}>{busy ? "Enviando…" : "Enviar nova resposta"}</button>
+          {:else}<textarea id="training-answer" bind:value={answer} rows="5" disabled={busy} placeholder="Escreva sua resposta…"></textarea><button class="btn" type="button" disabled={busy || !answer.trim()} onclick={submit}>{busy ? "Enviando…" : "Submeter resposta"}</button>{/if}
+        </div>{/if}
+      </article>
     {/if}
-  </div>
+  {/if}
+  {#if unlocked}<a class="btn continue" href="/promoter/active">Acessar painel do promotor</a>{/if}
+  <button class="refresh-action" type="button" disabled={busy || loading} onclick={() => refresh()}>Atualizar progresso</button>
 </div>
+
+<style>
+  .training-view { width: min(100%, var(--container-narrow)); margin-inline: auto; display: grid; gap: 1.25rem; color: var(--paper); font-family: var(--font-sans); }
+  .training-header, .training-card { border-radius: var(--radius-lg); padding: clamp(1.25rem, 4vw, 2rem); }
+  .training-header { background: var(--blue); }.training-card { display: grid; gap: 1rem; background: var(--ink-soft); border: 1px solid var(--glass-border-dark); }
+  h1, h2 { font-family: var(--font-display); line-height: 1.08; } h1 { font-size: var(--text-h2-sm); margin-block: .5rem 1rem; } h2 { font-size: var(--text-h3); }
+  p { line-height: 1.6; }.eyebrow, .kicker { color: var(--yellow); font-weight: 700; }.state-pill, .status { padding: .4rem .7rem; border-radius: var(--radius-pill); width: fit-content; font-weight: 700; font-size: .85rem; }.locked, .rejected-text { color: var(--warning); background: var(--warning-bg); }.released, .success-text { color: var(--success); background: var(--success-bg); }.pending-text { color: var(--info); background: var(--info-bg); }
+  .materials { display: grid; gap: .75rem; }.material-tab { min-height: var(--input-height); border: 1px solid var(--glass-border-dark); border-radius: var(--input-radius); background: var(--ink-soft); color: var(--paper); display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; cursor: pointer; text-align: left; }.material-tab.current { border-color: var(--yellow); }.material-tab small { color: var(--muted-on-dark); white-space: nowrap; }
+  .card-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }.material-text { white-space: pre-wrap; }.question { display: grid; gap: .75rem; padding-top: 1rem; border-top: 1px solid var(--glass-border-dark); } textarea { width: 100%; min-height: 8rem; padding: 1rem; border-radius: var(--input-radius); color: var(--ink); background: var(--paper); font: inherit; }.btn, .refresh-action { min-height: var(--input-height); padding: .75rem 1.25rem; cursor: pointer; }.refresh-action { border: 1px solid var(--glass-border-dark); border-radius: var(--input-radius); background: var(--ink-soft); color: var(--paper); }.continue { text-align: center; }.feedback { padding: 1rem; border-radius: var(--input-radius); }.error { background: var(--danger-bg); color: var(--danger); }.info { background: var(--info-bg); color: var(--info); } :focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; } button:disabled { opacity: .6; cursor: wait; } video, img { width: 100%; max-height: 28rem; object-fit: contain; border-radius: var(--input-radius); background: var(--ink); }
+</style>

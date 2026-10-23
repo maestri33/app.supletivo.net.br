@@ -36,6 +36,15 @@ export interface PromoterDockState {
   onboardingStatus?: ItemHealthStatus;
   pixStatus?: ItemHealthStatus;
   termsStatus?: ItemHealthStatus;
+  registrationStep?: "documents" | "address" | "pix" | "education" | "selfie" | "review";
+  selectedSection?: string;
+  documentStatus?: ItemHealthStatus;
+  addressStatus?: ItemHealthStatus;
+  educationStatus?: ItemHealthStatus;
+  selfieStatus?: ItemHealthStatus;
+  documentReady?: boolean;
+  addressReady?: boolean;
+  educationReady?: boolean;
 }
 
 export interface PoloDockState {

@@ -144,70 +144,16 @@
   }
 
   /**
-   * IA rápida de Front-End (< 500ms):
-   * 1. É conta de consumo?
-   * 2. Está legível / anti-blur?
+   * Select an upload candidate. The server owns document classification,
+   * legibility and approval; the browser only rejects an empty file.
    */
   async function validateAddressDocFront(file: File): Promise<{
     valid: boolean;
     errorMessage?: string;
   }> {
-    const lower = file.name.toLowerCase();
-
-    // Rejeição imediata de documento de identidade enviado por engano
-    if (/(?:^|[_\-\s])(?:rg|cnh|identidade)(?:[_\-\s.]|$)/i.test(lower)) {
-      return {
-        valid: false,
-        errorMessage: "Ops, isso parece um documento de identidade. Envie uma conta de consumo (luz, água, internet).",
-      };
-    }
-
-    try {
-      const res = await fetch("/api/v1/academic/documents/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.docType === "rg" || data.docType === "cnh") {
-          return {
-            valid: false,
-            errorMessage: "Ops, isso parece um documento de identidade. Envie uma conta de consumo (luz, água, internet).",
-          };
-        }
-        if (!data.isLegible) {
-          return {
-            valid: false,
-            errorMessage: data.feedback || "A imagem ficou embaçada ou com baixa iluminação.",
-          };
-        }
-        return { valid: true };
-      }
-    } catch (err) {
-      console.warn("[triage:address] API call failed, using client fallback", err);
-    }
-
-    if (lower.includes("blur") || lower.includes("embaçado")) {
-      return {
-        valid: false,
-        errorMessage: "A imagem ficou embaçada. Aproxime a câmera e garanta boa iluminação.",
-      };
-    }
-
-    if (lower.includes("invalid") || lower.includes("not_doc") || file.size < 10) {
-      return {
-        valid: false,
-        errorMessage: "Ops, isso não parece uma conta de consumo (luz, água, internet). Tente novamente.",
-      };
-    }
-
-    return { valid: true };
+    return file.size > 0
+      ? { valid: true }
+      : { valid: false, errorMessage: "Selecione um arquivo para enviar." };
   }
 
   async function processSelectedFile(file: File) {
@@ -229,8 +175,8 @@
       try {
         me = await uploadEnrollmentAddressProof(file);
         if (me?.address) enrollmentAddressCache = me.address;
-      } catch {
-        // Fallback se backend de matrícula não estiver acessível no ambiente de teste
+      } catch (failure) {
+        throw failure instanceof Error ? failure : new Error("Não foi possível enviar o comprovante.");
       } finally {
         isExtracting = false;
       }
@@ -246,6 +192,9 @@
         onStatusChange?.("needs_kinship");
         isRelationshipModalOpen = true;
       } else {
+        if (!me?.address_proof || me.address_proof.status !== "approved" || !me.address) {
+          throw new Error("O comprovante foi enviado e aguarda a análise do polo.");
+        }
         const holder = resolvedStudentName || studentName;
         extractedHolder = holder;
         confirmExtractedAddress(holder, undefined, me?.address ?? enrollmentAddressCache);
@@ -263,15 +212,16 @@
     backendAddr?: EnrollmentMe["address"] | null,
   ) {
     const address = {
-      street: backendAddr?.street || "Endereço Comprovado via OCR",
-      number: backendAddr?.number || "S/N",
-      neighborhood: backendAddr?.neighborhood || "Centro",
-      city: backendAddr?.city || "Ponta Grossa",
-      uf: backendAddr?.state || "PR",
-      cep: backendAddr?.cep || backendAddr?.zipcode || "84010-000",
+      street: backendAddr?.street,
+      number: backendAddr?.number,
+      neighborhood: backendAddr?.neighborhood,
+      city: backendAddr?.city,
+      uf: backendAddr?.state,
+      cep: backendAddr?.cep || backendAddr?.zipcode,
       holderName: holder,
       relationship,
     };
+    if (!address.street || !address.city || !address.cep) throw new Error("O endereço extraído ainda não foi confirmado pelo servidor.");
     confirmedAddress = address;
     status = "approved";
     onAddressConfirmed?.(address);
@@ -286,8 +236,9 @@
     let me: EnrollmentMe | null = null;
     try {
       me = await submitAddressProofKinship(relationship);
-    } catch {
-      // Prossegue com vínculo declarado
+    } catch (failure) {
+      triageError = failure instanceof Error ? failure.message : "Não foi possível confirmar o vínculo do titular.";
+      return;
     }
     confirmExtractedAddress(extractedHolder, relationship, me?.address ?? enrollmentAddressCache);
   }

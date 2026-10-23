@@ -12,6 +12,10 @@ export interface CardPricing {
 export interface Pricing {
   pix: string;
   card: CardPricing;
+  promo_pix?: string | null;
+  promo_card?: CardPricing | null;
+  has_discount?: boolean;
+  promoter_name?: string | null;
 }
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {

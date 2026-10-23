@@ -20,6 +20,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,
+    serviceWorkers: "block",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -29,7 +30,7 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["warmup"],
-      testMatch: /(smoke|redirects|auth-student|dock-navigation|issue-.*)\.spec\.ts/,
+      testMatch: /(smoke|redirects|auth-student|dock-navigation|issue-.*|.*-workflow)\.spec\.ts/,
     },
   ],
   webServer: (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL)

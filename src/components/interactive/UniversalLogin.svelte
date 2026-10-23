@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { checkPhone, whoami } from "@/lib/api";
+  import { checkPhone, whoami, ApiError, getErrorMessage } from "@/lib/api";
   import { getAccessToken, saveSession, clearSession } from "@/lib/session";
   import { isValidBrMobile } from "@/lib/phone";
-  import { getPrimaryEnvironment } from "@/lib/roles";
+  import { getRoleDestination, normalizeUserRoles } from "@/lib/roles";
   import UnregisteredRoleModal from "@/components/interactive/UnregisteredRoleModal.svelte";
 
   let phone = $state("");
@@ -23,10 +23,12 @@
     if (getAccessToken()) {
       try {
         const who = await whoami();
-        const target = getPrimaryEnvironment(who?.roles || []);
-        window.location.replace(`/${target}`);
-      } catch {
-        clearSession();
+        const target = getRoleDestination(who);
+        if (!target) throw new Error('Não foi possível identificar a etapa da sua conta. Tente novamente.');
+        window.location.replace(target);
+      } catch (failure) {
+        if (failure instanceof ApiError && failure.status === 401) clearSession();
+        else errorMessage = failure instanceof Error ? failure.message : 'Não foi possível consultar sua conta.';
       }
     }
   });
@@ -61,6 +63,10 @@
 
     try {
       const res = await checkPhone(digits);
+      if (res.roles && normalizeUserRoles(res.roles).length === 0 && res.roles.some((r) => ['admin', 'staff', 'superuser'].includes(r))) {
+        window.location.href = 'https://admin.supletivo.net.br/login';
+        return;
+      }
 
       if (res.whatsapp === false) {
         errorMessage = "Este número não possui WhatsApp ativo. O código é enviado exclusivamente por WhatsApp.";
@@ -84,7 +90,7 @@
         window.location.href = `/autenticacao/otp?tel=${encodeURIComponent(digits)}`;
       }
     } catch (err: any) {
-      errorMessage = err?.message || "Não foi possível conectar. Tente novamente em instantes.";
+      errorMessage = getErrorMessage(err);
       busy = false;
     }
   }
@@ -160,7 +166,7 @@
           value={phone}
           oninput={onInput}
           disabled={busy}
-          class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus:ring-1 focus:ring-[var(--yellow)] transition-all disabled:opacity-50"
+          class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/40 transition-colors duration-200 disabled:opacity-50"
         />
         {#if busy}
           <div class="absolute right-4 top-1/2 -translate-y-1/2">
@@ -178,7 +184,7 @@
         </div>
       {:else if isPhoneComplete}
         <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
-          ✓ WhatsApp verificado
+          Número completo
         </div>
       {:else}
         <div class="text-[11px] text-white/50">

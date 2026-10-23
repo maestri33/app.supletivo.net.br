@@ -8,6 +8,7 @@
     joinCollaboratorOtp,
     whoami,
     getLeadMe,
+    getErrorMessage,
   } from "@/lib/api";
   import {
     getSession,
@@ -17,13 +18,13 @@
     clearSession,
     clearLogin,
   } from "@/lib/session";
-  import { getPrimaryEnvironment } from "@/lib/roles";
+  import { getRoleDestination } from "@/lib/roles";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
 
   let digits = $state(["", "", "", "", "", ""]);
   let busy = $state(false);
   let errorMessage = $state<string | null>(null);
-  let resendCooldown = $state(45);
+  let resendCooldown = $state(60);
   let phone = $state("");
   let externalId = $state("");
   let role = $state("");
@@ -60,8 +61,9 @@
       } else {
         try {
           const who = await whoami();
-          const target = getPrimaryEnvironment(who?.roles || []);
-          window.location.replace(`/${target}`);
+          const target = getRoleDestination(who);
+          if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
+          window.location.replace(target);
           return;
         } catch {
           clearLogin();
@@ -140,8 +142,6 @@
     const timer = setInterval(() => {
       if (resendCooldown > 0) {
         resendCooldown -= 1;
-      } else {
-        clearInterval(timer);
       }
     }, 1000);
 
@@ -267,14 +267,15 @@
           role_statuses: who?.role_statuses || {},
           name: who?.name || null,
         });
-        const target = getPrimaryEnvironment(who?.roles || []);
-        window.location.href = `/${target}`;
+        const target = getRoleDestination(who);
+        if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
+        window.location.href = target;
         return;
       } catch {
-        window.location.href = isPromoter ? "/promoter" : "/student";
+        window.location.href = '/autenticacao/conta';
       }
     } catch (err: any) {
-      errorMessage = err?.message || "Código incorreto ou expirado. Tente novamente.";
+      errorMessage = getErrorMessage(err);
       digits = ["", "", "", "", "", ""];
       focusInput(0);
     } finally {
@@ -302,11 +303,17 @@
         externalId = res.external_id;
         saveSession({ ...saved, phone, externalId: res.external_id });
       }
-      resendCooldown = res.otp_wait || 45;
+      resendCooldown = res.otp_wait || 60;
       digits = ["", "", "", "", "", ""];
       focusInput(0);
     } catch (err: any) {
-      errorMessage = "Não foi possível reenviar o código. Tente novamente em instantes.";
+      if (err?.status === 429) {
+        const retrySec = Number(err?.extra?.retry_after_s) || 60;
+        resendCooldown = retrySec;
+        errorMessage = `Aguarde ${retrySec}s antes de pedir outro código.`;
+      } else {
+        errorMessage = "Não foi possível reenviar o código. Tente novamente em instantes.";
+      }
     } finally {
       busy = false;
     }

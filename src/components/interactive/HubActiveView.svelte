@@ -10,6 +10,7 @@
   interface LeadershipReviewsPayload {
     enrollment_rg?: unknown[];
     enrollment_selfie?: unknown[];
+    enrollment_address_proof?: unknown[];
     candidate_document?: unknown[];
     candidate_selfie?: unknown[];
     student_documents?: unknown[];
@@ -77,13 +78,14 @@
           pendingReviewsCount =
             (payload.enrollment_rg?.length || 0) +
             (payload.enrollment_selfie?.length || 0) +
+            (payload.enrollment_address_proof?.length || 0) +
             (payload.candidate_document?.length || 0) +
             (payload.candidate_selfie?.length || 0) +
             (payload.student_documents?.length || 0) +
             (payload.candidates_awaiting_approval?.length || 0);
         }
       } else if (revRes.status === "rejected") {
-        console.warn("[HubActiveView] Falha ao carregar fila de revisões:", revRes.reason);
+        throw revRes.reason;
       }
 
       if (stuRes.status === "fulfilled" && stuRes.value) {
@@ -94,8 +96,11 @@
         scheduledExamsCount = items.filter((s) => s.status === "exam_scheduled" || s.status === "exam_released").length;
         readyDiplomasCount = items.filter((s) => s.status === "awaiting_pickup" || s.status === "diploma_ready").length;
       } else if (stuRes.status === "rejected") {
-        console.warn("[HubActiveView] Falha ao carregar alunos do polo:", stuRes.reason);
+        throw stuRes.reason;
       }
+      window.dispatchEvent(new CustomEvent("supletivo:polo-state", { detail: {
+        pendingValidationCount: pendingReviewsCount, pendingExamsCount: scheduledExamsCount, readyDiplomasCount,
+      } }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao carregar indicadores operacionais do polo.";
       loadError = msg;
@@ -125,6 +130,7 @@
       </div>
 
       <div>
+        <a href="/hub/active/operations" class="btn inline-flex items-center gap-2 text-xs py-3 px-6 font-bold text-[var(--ink)] cursor-pointer">Gerenciar alunos →</a>
         <a
           href="/hub/review"
           class="btn inline-flex items-center gap-2 text-xs py-3 px-6 font-bold uppercase tracking-wider text-[var(--ink)] cursor-pointer"
@@ -154,6 +160,7 @@
         <p class="text-3xl font-bold text-amber-300 mt-1">
           {#if isLoading}
             <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
             {pendingReviewsCount} pendências
           {/if}
@@ -161,10 +168,11 @@
         <p class="text-xs text-white/60 mt-1.5">RG, histórico e selfies</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-xs text-white/60 uppercase font-semibold">Bancas Presenciais</span>
+        <span class="text-xs text-white/60 uppercase font-semibold">Provas presenciais</span>
         <p class="text-3xl font-bold text-blue-300 mt-1">
           {#if isLoading}
             <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
             {scheduledExamsCount} agendadas
           {/if}
@@ -176,6 +184,7 @@
         <p class="text-3xl font-bold text-emerald-400 mt-1">
           {#if isLoading}
             <span class="text-sm font-normal text-white/50">Carregando...</span>
+          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
             {readyDiplomasCount} para retirada
           {/if}

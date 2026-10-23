@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { whoami, requestAuth } from "@/lib/api";
+  import { whoami, requestAuth, getErrorMessage } from "@/lib/api";
+  import { commissionTotal, moneyLabel, type PromoterCommission } from "@/lib/promoter";
 
   interface PromoterLead {
     external_id: string;
@@ -17,6 +18,8 @@
   let promoterName = $state<string>("Promotor");
   let externalId = $state<string>("");
   let copied = $state<boolean>(false);
+  let error = $state("");
+  let commissions = $state<PromoterCommission[]>([]);
 
   let referralUrl = $derived(
     externalId
@@ -24,7 +27,9 @@
       : "https://supletivo.net.br"
   );
 
-  onMount(async () => {
+  async function load() {
+    loading = true;
+    error = "";
     try {
       const who = await whoami();
       const status = who?.role_statuses?.promoter;
@@ -38,19 +43,20 @@
       }
       if (who?.name) promoterName = who.name;
       if (who?.external_id) externalId = who.external_id;
-    } catch {}
-
-    try {
-      const data = await requestAuth<PromoterLead[]>("/api/v1/collaborators/promoter/leads");
-      if (Array.isArray(data)) {
-        leads = data;
-      }
-    } catch {
-      leads = [];
+      const [data, ledger] = await Promise.all([
+        requestAuth<PromoterLead[]>("/api/v1/collaborators/promoter/leads"),
+        requestAuth<PromoterCommission[]>("/api/v1/collaborators/promoter/commissions"),
+      ]);
+      if (!Array.isArray(data) || !Array.isArray(ledger)) throw new Error("O servidor retornou dados de captação inválidos.");
+      leads = data;
+      commissions = ledger;
+    } catch (cause) {
+      error = getErrorMessage(cause);
     } finally {
       loading = false;
     }
-  });
+  }
+  onMount(() => { void load(); });
 
   function copyReferralLink() {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -85,7 +91,7 @@
   let pendingCount = $derived(
     leads.filter((l) => l.status === "checkout" || l.status === "started").length
   );
-  let totalCommissions = $derived(paidCount * 100 + Math.floor(paidCount / 5) * 500);
+  let totalCommissions = $derived(moneyLabel(commissionTotal(commissions, ["pending", "processed", "paid"])));
 
   function formatStatusBadge(status: string) {
     switch (status) {
@@ -119,6 +125,7 @@
 </script>
 
 <div class="w-full max-w-5xl mx-auto p-4 sm:p-6 text-white space-y-6">
+  {#if error}<div role="alert" class="text-[var(--danger)]"><p>{error}</p><button type="button" class="btn min-h-12 px-5 mt-3" onclick={load}>Tentar novamente</button></div>{:else}
   <!-- Cabeçalho -->
   <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
@@ -152,9 +159,9 @@
     <!-- Métricas Consolidadas -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-[11px] text-white/60 uppercase font-semibold">Total de Indicados</span>
+        <span class="text-[11px] text-white/60 uppercase font-semibold">Indicados no extrato</span>
         <p class="text-2xl sm:text-3xl font-bold text-white mt-1">{totalCount}</p>
-        <p class="text-[11px] text-white/50 mt-1">Cadastrados no funil</p>
+        <p class="text-[11px] text-white/50 mt-1">Até 200 indicações mais recentes</p>
       </div>
 
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
@@ -170,11 +177,11 @@
       </div>
 
       <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
-        <span class="text-[11px] text-white/60 uppercase font-semibold">Comissões Estimadas</span>
+        <span class="text-[11px] text-white/60 uppercase font-semibold">Comissões Registradas</span>
         <p class="text-2xl sm:text-3xl font-bold text-[var(--yellow)] mt-1">
-          R$ {totalCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          {totalCommissions}
         </p>
-        <p class="text-[11px] text-[var(--yellow)]/70 mt-1">R$ 100 + bônus R$ 500/5</p>
+        <a href="/promoter/active/commissions" class="text-[11px] text-[var(--yellow)]/70 mt-1">Consultar extrato de repasses</a>
       </div>
     </div>
   </div>
@@ -185,7 +192,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "all")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'all'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'all'
           ? 'bg-[var(--yellow)] text-[var(--ink)] font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -194,7 +201,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "paid")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'paid'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'paid'
           ? 'bg-emerald-500 text-white font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -203,7 +210,7 @@
       <button
         type="button"
         onclick={() => (statusFilter = "pending")}
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all {statusFilter === 'pending'
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 touch-manipulation {statusFilter === 'pending'
           ? 'bg-amber-500 text-white font-bold'
           : 'bg-white/5 text-white/70 hover:bg-white/10'}"
       >
@@ -216,9 +223,9 @@
         id="leads-search"
         data-hydrated="true"
         type="text"
-        placeholder="Buscar por nome ou WhatsApp..."
+        placeholder="Buscar por nome ou WhatsApp…"
         bind:value={searchQuery}
-        class="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs placeholder-white/40 focus:outline-none focus:border-[var(--yellow)]"
+        class="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs placeholder-white/40 focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
       />
     </div>
   </div>
@@ -244,7 +251,6 @@
               <th class="p-4">WhatsApp</th>
               <th class="p-4">Data do Cadastro</th>
               <th class="p-4">Status da Matrícula</th>
-              <th class="p-4">Comissão</th>
               <th class="p-4 pr-6 text-right">Ação</th>
             </tr>
           </thead>
@@ -265,9 +271,6 @@
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border {badge.bg}">
                     {badge.label}
                   </span>
-                </td>
-                <td class="p-4 font-bold {lead.status === 'paid' || lead.status === 'enrolled' ? 'text-emerald-400' : 'text-white/40'}">
-                  {lead.status === 'paid' || lead.status === 'enrolled' ? 'R$ 100,00' : 'R$ 0,00'}
                 </td>
                 <td class="p-4 pr-6 text-right">
                   {#if lead.phone}
@@ -290,4 +293,5 @@
       </div>
     {/if}
   </div>
+  {/if}
 </div>

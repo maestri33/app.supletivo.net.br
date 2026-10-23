@@ -111,7 +111,7 @@ export const ENVIRONMENT_META: Record<
  * Identifica o ambiente primário de entrada com base na hierarquia de privilégios:
  * hub > promoter > student
  */
-export function getPrimaryEnvironment(backendRoles: string[] = []): CanonicalEnvironment {
+export function getPrimaryEnvironment(backendRoles: string[] = []): CanonicalEnvironment | null {
   const normalized = backendRoles.map((r) => r.toLowerCase().trim());
 
   if (normalized.some((r) => ["coordinator", "hub", "polo"].includes(r))) {
@@ -120,7 +120,7 @@ export function getPrimaryEnvironment(backendRoles: string[] = []): CanonicalEnv
   if (normalized.some((r) => ["promoter", "candidate", "training", "promotor"].includes(r))) {
     return "promoter";
   }
-  return "student";
+  return normalized.some((role) => ["lead", "enrollment", "student", "veteran", "aluno"].includes(role)) ? "student" : null;
 }
 
 /**
@@ -141,13 +141,50 @@ export function normalizeUserRoles(backendRoles: string[] = []): CanonicalEnviro
     }
   }
 
-  if (envSet.size === 0) {
-    return ["student"];
-  }
-
   // Ordem canônica de exibição: Aluno, Promotor, Hub
   const order: CanonicalEnvironment[] = ["student", "promoter", "hub"];
   return order.filter((env) => envSet.has(env));
+}
+
+export interface RoleIdentity {
+  roles: string[];
+  role_statuses?: Record<string, string>;
+}
+
+/** A missing backend state never grants an environment or successful status. */
+export function getRoleDestination(identity: RoleIdentity, requestedRole?: CanonicalEnvironment): string | null {
+  const environments = normalizeUserRoles(identity.roles);
+  const role = requestedRole ?? (environments.includes('hub') ? 'hub'
+    : environments.includes('promoter') ? 'promoter' : environments[0]);
+  if (!role) {
+    return identity.roles.some((value) => ['admin', 'staff', 'superuser'].includes(value))
+      ? 'https://admin.supletivo.net.br/' : null;
+  }
+  if (!environments.includes(role)) return null;
+  const status = identity.role_statuses?.[role];
+  const routes: Record<CanonicalEnvironment, Record<string, string>> = {
+    student: { lead: '/student/lead/payment', enrollment: '/student/enrollment',
+      active: '/student/active/dashboard', veteran: '/student/veteran/dashboard' },
+    promoter: { candidate: '/promoter/candidate', training: '/promoter/training',
+      active: '/promoter/active', suspended: '/promoter/suspended' },
+    hub: { active: '/hub/active', review: '/hub/review' },
+  };
+  return status ? routes[role][status] ?? null : null;
+}
+
+export function canVisitRolePath(identity: RoleIdentity, pathname: string): boolean {
+  const role = pathname.split('/')[1] as CanonicalEnvironment;
+  if (!['student', 'promoter', 'hub'].includes(role)) return true;
+  if (!normalizeUserRoles(identity.roles).includes(role)) return false;
+  const status = identity.role_statuses?.[role];
+  if (role === 'hub') return status === 'active' || status === 'review';
+  const section = pathname.split('/')[2];
+  if (role === 'student' && section === 'active') return status === 'active';
+  if (role === 'student' && section === 'veteran') return status === 'veteran';
+  if (role === 'student' && section === 'enrollment') return status === 'enrollment';
+  if (role === 'student' && section === 'lead') return status === 'lead';
+  if (role === 'promoter') return status === section;
+  return false;
 }
 
 /**

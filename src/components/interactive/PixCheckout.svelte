@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ApiError, getPixPage, getLeadMe, type PixPage, type CheckoutOut } from "@/lib/api";
+  import { ApiError, getPixPage, getLeadMe, getErrorMessage, type PixPage, type CheckoutOut } from "@/lib/api";
   import PixIcon from "@/components/icons/PixIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
   import CopyFeedbackIcon from "@/components/icons/CopyFeedbackIcon.svelte";
@@ -17,71 +17,94 @@
   const POLL_MS = 3_000;
 
   let phase = $state<Phase>(initialData ? "ready" : "loading");
-  let data = $state<any>(initialData || null);
+  let data = $state<CheckoutOut | PixPage | null>(initialData);
   let copied = $state(false);
   let isPaid = $state(false);
+  let copyError = $state<string | null>(null);
+  let payloadField: HTMLTextAreaElement | undefined;
+  let checking = $state(false);
+  let consultationError = $state<string | null>(null);
+  let lastCheckedAt = $state<string | null>(null);
+  let continuationUrl = $state<string | null>(null);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
   function formatMoney(amount: string | number | undefined): string {
-    if (!amount) return "R$ 0,00";
+    if (!amount) return "Valor indisponível";
     const val = typeof amount === "string" ? parseFloat(amount) : amount;
-    if (isNaN(val)) return "R$ 0,00";
+    if (isNaN(val)) return "Valor indisponível";
     return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   async function load() {
+    if (checking) return;
+    checking = true;
     try {
-      if (token === "demo") {
-        data = {
-          amount: 999,
-          qrcode_payload: "00020101021226870014br.gov.bcb.pix2565pix.asaas.com/qr/cobv/demo-supletivo-brasil-mec-ldb-71289123891273912735204000053039865802BR5925SUPLETIVO BRASIL EDUCAC6009SAO PAULO62070503***6304ABCD",
-          qrcode_image: "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=supletivo-brasil-matricula-oficial"
-        };
-        phase = "ready";
-        return;
-      }
+      if (token === "demo") { phase = "notfound"; return; }
 
       if (token && token !== "default" && !token.startsWith("sandbox")) {
         const next = await getPixPage(token);
         data = next;
+        consultationError = null;
+        lastCheckedAt = new Date().toLocaleTimeString("pt-BR");
         if (next.is_paid) {
           isPaid = true;
           phase = "paid";
           return;
         }
+        // The invoice token is sufficient for links opened from WhatsApp.
+        // An anonymous visitor has no authenticated lead; another signed-in
+        // account must not replace this invoice with its own checkout either.
+        phase = "ready";
+        return;
       }
 
       // Consulta status do lead logado (atualizado via webhook Asaas na borda)
       const lead = await getLeadMe();
-      if (lead?.checkout?.is_paid || (lead as any)?.status === "paid") {
+      consultationError = null;
+      lastCheckedAt = new Date().toLocaleTimeString("pt-BR");
+      if (lead?.checkout) data = lead.checkout;
+      if (lead.payment_status?.stage === "completed" || (!lead.payment_status && (lead.checkout?.is_paid || lead.status === "paid"))) {
         isPaid = true;
         phase = "paid";
+        const nextUrl = lead.payment_status?.continuation_url;
+        continuationUrl = nextUrl && /^\/student\/(enrollment|active|veteran)(?:[/?#]|$)/.test(nextUrl) ? nextUrl : null;
         return;
       }
       if (lead?.checkout) {
         data = { ...data, ...lead.checkout };
         phase = "ready";
+      } else {
+        phase = "notfound";
       }
     } catch (err) {
+      consultationError = err instanceof ApiError && err.status === 404
+        ? "Esta cobrança não está disponível. Confira a proposta no seu ambiente antes de pagar."
+        : getErrorMessage(err);
       if (err instanceof ApiError && err.status === 404) {
         if (!data) phase = "notfound";
       } else {
         if (!data) phase = "error";
       }
+    } finally {
+      checking = false;
     }
   }
 
   async function copyPix() {
     const payload = data?.qrcode_payload;
     if (!payload) return;
+    copied = false;
+    copyError = null;
+    clearTimeout(copyTimer);
     try {
       await navigator.clipboard.writeText(payload);
+      copied = true;
+      copyTimer = setTimeout(() => { copied = false; }, 2800);
     } catch {
-      // Fallback
+      payloadField?.focus();
+      payloadField?.select();
+      copyError = "Não conseguimos copiar automaticamente. O código está selecionado; use a opção Copiar do seu dispositivo.";
     }
-    copied = true;
-    setTimeout(() => {
-      copied = false;
-    }, 2800);
   }
 
   function handleVisibilityChange() {
@@ -89,15 +112,6 @@
       void load();
     }
   }
-
-  $effect(() => {
-    if (phase === "paid") {
-      const timer = setTimeout(() => {
-        window.location.href = "/student/enrollment";
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  });
 
   onMount(() => {
     void load();
@@ -111,6 +125,7 @@
 
     return () => {
       clearInterval(timer);
+      clearTimeout(copyTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
@@ -122,7 +137,7 @@
       <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl text-center flex flex-col items-center gap-4 shadow-2xl">
         <div class="size-12 animate-spin rounded-full border-4 border-[var(--yellow)] border-t-transparent"></div>
         <h2 class="text-base font-display font-bold text-white">Carregando cobrança PIX oficial…</h2>
-        <p class="text-xs text-white/60">Conectando ao gateway bancário homologado do Supletivo Brasil.</p>
+        <p class="text-xs text-white/60">Consultando sua cobrança no Asaas.</p>
       </div>
 
     {:else if phase === "notfound"}
@@ -136,15 +151,14 @@
         </div>
         <h1 class="text-xl font-display text-white">Cobrança PIX não encontrada</h1>
         <p class="text-xs text-white/70 leading-relaxed">
-          Esta cobrança já foi confirmada ou ainda não foi emitida. Acesse suas opções de pagamento abaixo.
+          Não encontramos uma cobrança disponível neste link. Entre na sua conta para consultar a proposta ou fale com o atendimento.
         </p>
-        <button
-          type="button"
-          onclick={() => window.location.reload()}
+        <a
+          href="/"
           class="btn mt-2 w-full min-h-[48px] py-3 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
         >
-          Recarregar Opções →
-        </button>
+          Abrir minha conta →
+        </a>
       </div>
 
     {:else if phase === "error"}
@@ -156,13 +170,14 @@
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </div>
-        <h1 class="text-xl font-display text-white">Aguardando emissão no gateway</h1>
-        <p class="text-xs text-white/70 leading-relaxed">
-          O gateway está processando a chave. Toque abaixo para verificar novamente.
+        <h1 class="text-xl font-display text-white">Não conseguimos consultar a cobrança</h1>
+        <p class="text-xs text-white/70 leading-relaxed" role="alert">
+          {consultationError} Tente consultar novamente antes de pagar.
         </p>
         <button
           type="button"
           onclick={() => void load()}
+          disabled={checking}
           class="btn mt-2 w-full min-h-[48px] py-3 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
         >
           Tentar Novamente ↺
@@ -182,21 +197,20 @@
         <div>
           <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento Confirmado!</h1>
           <p class="mt-2 text-xs sm:text-sm text-emerald-200/90 leading-relaxed max-w-sm mx-auto">
-            Seu PIX foi processado com sucesso pelo Banco Central. Liberando seu ambiente oficial de matrícula...
+            O pagamento desta cobrança foi confirmado. O aluno responsável acompanha a matrícula na própria conta.
           </p>
-        </div>
-
-        <div class="w-full bg-white/10 rounded-full h-1.5 overflow-hidden max-w-xs mx-auto">
-          <div class="h-full bg-emerald-400 rounded-full animate-[progress_1.8s_ease-out_forwards]"></div>
         </div>
 
         <div class="mt-2">
           <a
-            href="/student/enrollment"
-            class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 text-xs font-extrabold uppercase tracking-wider text-[var(--ink)] transition-all shadow-lg cursor-pointer"
+            href={continuationUrl ?? "/"}
+            class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 text-xs font-extrabold uppercase tracking-wider text-[var(--ink)] transition-[background-color,transform,box-shadow] duration-200 shadow-lg cursor-pointer touch-manipulation"
           >
-            Continuar para a Matrícula →
+            {continuationUrl ? "Continuar matrícula →" : "Entrar na minha conta →"}
           </a>
+          {#if data?.receipt_url}
+            <a href={data.receipt_url} target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Ver comprovante ↗</a>
+          {/if}
         </div>
       </div>
 
@@ -205,18 +219,18 @@
       <div class="text-center">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-wider mb-2">
           <PixIcon class="size-3.5 text-emerald-400" />
-          <span>PIX com Liberação Imediata</span>
+          <span>PIX da sua matrícula</span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento da Matrícula</h1>
-        <p class="mt-1 text-xs text-white/70">Pague via PIX para liberação imediata do seu ambiente de estudos</p>
+        <p class="mt-1 text-xs text-white/70">Pague via PIX para liberar a próxima etapa da matrícula</p>
       </div>
 
       <div class="w-full rounded-3xl border border-white/15 bg-white/[0.04] p-6 sm:p-8 backdrop-blur-xl flex flex-col items-center text-center gap-5 shadow-2xl relative">
         <!-- Preço em Destaque -->
         <div class="flex w-full items-center justify-between border-b border-white/10 pb-4">
-          <span class="text-xs font-semibold text-white/70">Valor à vista com desconto</span>
+          <span class="text-xs font-semibold text-white/70">Valor da sua cobrança</span>
           <span class="text-2xl font-display font-black text-emerald-400">
-            {formatMoney(data?.amount ?? 999)}
+            {formatMoney(data?.amount)}
           </span>
         </div>
 
@@ -236,16 +250,13 @@
           </div>
           <p class="text-[11px] text-white/60">Abra o app do seu banco e escaneie o código acima</p>
         {:else if data?.qrcode_payload}
-          <div class="size-56 rounded-2xl bg-white p-3.5 shadow-2xl flex items-center justify-center border-4 border-white/20">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.qrcode_payload)}`}
-              alt="QR Code PIX Oficial"
-              class="size-full object-contain"
-              width="224"
-              height="224"
-            />
+          <div class="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-left">
+            <p class="text-xs text-amber-100">O código PIX foi emitido pelo gateway. Use o campo Copia e Cola abaixo; a imagem oficial ainda não foi disponibilizada.</p>
           </div>
-          <p class="text-[11px] text-white/60">Abra o app do seu banco e escaneie o código acima</p>
+        {:else}
+          <div class="w-full rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-left">
+            <p class="text-xs text-amber-100">A cobrança ainda não possui um QR Code oficial. Atualize para consultar o gateway.</p>
+          </div>
         {/if}
 
         <!-- PIX Copia e Cola com Botão Elástico -->
@@ -261,15 +272,20 @@
             </div>
             <textarea
               id="pix-payload"
+              bind:this={payloadField}
               readonly
               value={data.qrcode_payload}
               onclick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}
-              class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)] select-all"
+              class="min-h-16 w-full resize-none rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90 focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30 select-all"
             ></textarea>
+            {#if copyError}
+              <p class="text-xs text-[var(--muted-on-dark)]" role="alert">{copyError}</p>
+            {/if}
+            <span class="sr-only" role="status">{copied ? "Código PIX copiado para a área de transferência." : ""}</span>
             <button
               type="button"
               onclick={copyPix}
-              class="copy-btn-elastic btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2"
+              class="copy-btn-elastic btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-lg hover:opacity-95 transition-[opacity,transform,box-shadow] duration-200 flex items-center justify-center gap-2 touch-manipulation"
             >
               <CopyFeedbackIcon copied={copied} class="size-4" />
               <span>{copied ? "Código PIX Copiado!" : "Copiar Código PIX"}</span>
@@ -278,15 +294,14 @@
         {/if}
 
         <!-- Radar de Compensação em Tempo Real -->
-        <div class="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-2xl bg-white/[0.04] border border-white/10 mt-1">
-          <div class="relative flex size-3.5 items-center justify-center">
-            <span class="absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
-            <span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
-          </div>
-          <p class="text-[11px] text-white/80 font-medium">
-            <strong class="text-emerald-400 font-semibold">Radar Bancário Ativo:</strong> 
-            Aguardando compensação em tempo real. Não precisa recarregar.
-          </p>
+        <div class="w-full py-3 px-4 rounded-2xl bg-white/[0.04] border border-white/10 mt-1 text-left">
+          {#if consultationError}
+            <p class="text-xs text-[var(--muted-on-dark)]" role="alert"><strong>Não conseguimos atualizar agora.</strong> {consultationError} Se já pagou, aguarde a confirmação e evite pagar novamente.</p>
+            <button type="button" onclick={() => void load()} disabled={checking} class="mt-2 inline-flex min-h-12 items-center text-xs font-bold text-[var(--yellow)] underline">{checking ? "Consultando…" : "Consultar pagamento novamente"}</button>
+          {:else}
+            <p class="text-xs text-[var(--muted-on-dark)]" role="status">{checking ? "Consultando confirmação do pagamento…" : "Aguardando confirmação do pagamento. A consulta é atualizada automaticamente."}</p>
+          {/if}
+          <p class="mt-1 text-[11px] text-[var(--muted-on-dark)]">Última consulta ao servidor: {lastCheckedAt ?? "ainda não concluída"}</p>
         </div>
 
         <!-- Guia Ilustrado em 4 Passos para Celular -->
@@ -309,7 +324,7 @@
             </li>
             <li class="flex items-start gap-2.5">
               <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">4</span>
-              <span>Cole o código e confirme. O sistema reconhece <strong>automaticamente em menos de 10 segundos</strong>!</span>
+              <span>Cole o código e confirme. A liberação ocorre após a confirmação do gateway.</span>
             </li>
           </ol>
         </div>
@@ -317,7 +332,7 @@
         <!-- Selo de Criptografia TLS e Segurança Bancária -->
         <div class="flex items-center justify-center gap-2 text-[11px] text-[var(--muted-on-dark)] pt-2 border-t border-white/10 w-full">
           <BankTlsSeal class="size-4 text-emerald-400" />
-          <span>Ambiente Criptografado TLS 256-Bit · Homologado Banco Central</span>
+          <span>Pagamento via Asaas · Conexão segura HTTPS</span>
         </div>
 
         <!-- Botão de Ajuda de Contingência no WhatsApp -->
@@ -326,7 +341,7 @@
             href="https://wa.me/5543996648750?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20pagamento%20da%20minha%20matr%C3%ADcula%20do%20Supletivo%20e%20preciso%20de%20ajuda."
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-all cursor-pointer"
+            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-colors duration-200 cursor-pointer touch-manipulation"
           >
             <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"/>

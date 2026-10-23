@@ -104,6 +104,8 @@ html {
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  /* Keep edge effects on the actual page scroller; body must forward gestures. */
+  overscroll-behavior-y: none;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -112,8 +114,7 @@ html {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: none;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
@@ -122,6 +123,43 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Shell de produto: o cabeçalho e o dock ocupam suas próprias camadas; a
+ * área central é o único scroller. Isso evita que um card fique escondido
+ * atrás da navegação fixa em telas pequenas e com teclado aberto.
+ */
+body.app-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+body.app-shell > #conteudo {
+  height: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+body.app-shell > #conteudo.app-scroll {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+
+body.app-shell [data-app-dock="true"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* No modo barra, o dock participa do layout e reserva sua própria altura. */
+body.app-shell > astro-island:has(> [data-app-dock-mode="bottom-bar"]) {
+  display: block;
+  flex: 0 0 auto;
+}
+
+body.app-shell [data-app-dock-mode="bottom-bar"] {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 /* Seleção com contraste canônico */
@@ -139,6 +177,10 @@ body {
   width: 100%;
   padding-top: 0;
   padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
+  scrollbar-gutter: stable;
 }
 
 /* Ergonomia de Toque e Acessibilidade Mobile-First (DESIGN.MD) */

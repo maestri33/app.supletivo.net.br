@@ -1,6 +1,7 @@
 import { API_BASE_URL, API_TIMEOUT_MS } from "@/lib/config";
+import { withDeadline } from "./deadline";
 import type { Pricing } from "@/lib/payment";
-import { clearSession, getAccessToken, getRefreshToken, saveLogin } from "@/lib/session";
+import { clearSession, getAccessToken, getRefreshToken, getLogin, saveLogin } from "@/lib/session";
 
 /* ============================== errors ============================== */
 
@@ -42,44 +43,42 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH";
   json?: unknown;
   file?: File;
+  formData?: FormData;
   token?: string;
   timeoutMs?: number;
 }
 
-/**
- * Retenta quando a conexão morre ANTES de virar resposta (`fetch` rejeita com TypeError).
- * O caso real: keep-alive ocioso que a borda já fechou e o browser reusa — o Chrome refaz
- * GET sozinho, mas nunca POST, então só os passos do funil quebravam (E2E 2026-07-28:
- * `/auth/check`, `/lead/identity` e `/auth/login` caindo em "Cadê a internet?" com o
- * request nem chegando no Caddy). Timeout (AbortError) NÃO entra aqui: ali o servidor
- * pode ter recebido, e repetir arriscaria cobrar/criar duas vezes.
- *
- * DUAS retentativas, com respiro entre elas: a primeira, imediata, ainda pegava o mesmo
- * socket morto do pool e falhava junto (observado no E2E — as duas tentativas morreram no
- * mesmo instante). O intervalo dá tempo de o browser aposentar a conexão e abrir outra.
- */
+/** Retry reads after a transport failure. A rejected fetch cannot prove a mutation was not processed. */
 const RETRY_DELAYS_MS = [250, 900];
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
+  const attempt = () => {
+    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+    return requestOnce<T>(path, { ...opts, timeoutMs: deadline - Date.now() });
+  };
+  const method = opts.method ?? (opts.json !== undefined || opts.file || opts.formData ? "POST" : "GET");
+  if (method !== "GET") return attempt();
   for (const delay of RETRY_DELAYS_MS) {
     try {
-      return await requestOnce<T>(path, opts);
+      return await attempt();
     } catch (err) {
       // Só conexão morta (TypeError do fetch); ApiError e AbortError sobem na hora.
       if (!(err instanceof TypeError)) throw err;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delay, Math.max(0, deadline - Date.now()))));
     }
   }
-  return await requestOnce<T>(path, opts);
+  return await attempt();
 }
 
 async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? API_TIMEOUT_MS);
-  try {
+  return withDeadline(async () => {
     const headers: Record<string, string> = { Accept: "application/json" };
     let body: BodyInit | undefined;
-    if (opts.file) {
+    if (opts.formData) {
+      body = opts.formData;
+    } else if (opts.file) {
       const form = new FormData();
       form.append("file", opts.file);
       body = form;
@@ -111,9 +110,7 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
       );
     }
     return data as T;
-  } finally {
-    clearTimeout(timeout);
-  }
+  }, opts.timeoutMs ?? API_TIMEOUT_MS, () => controller.abort());
 }
 
 let refreshPromise: Promise<LoginResponse> | null = null;
@@ -128,7 +125,7 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
       json: { refresh_token: refresh },
     })
       .then((tokens) => {
-        saveLogin({ ...tokens });
+        saveLogin({ ...getLogin(), ...tokens });
         return tokens;
       })
       .finally(() => {
@@ -145,19 +142,24 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
  * Single-flight mutex eliminates concurrent 401 refresh race conditions.
  */
 export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
   const token = getAccessToken();
   if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
   try {
     return await request<T>(path, { ...opts, token });
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    try {
-      const tokens = await refreshAuthTokens();
-      return await request<T>(path, { ...opts, token: tokens.access_token });
-    } catch {
-      clearSession();
-      throw new ApiError("Sessão expirada. Entre novamente.", 401);
+    let tokens: LoginResponse;
+    try { tokens = await withDeadline(refreshAuthTokens, deadline - Date.now()); }
+    catch (failure) {
+      if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
+        clearSession();
+        throw new ApiError("Sessão expirada. Entre novamente.", 401);
+      }
+      throw failure;
     }
+    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+    return await request<T>(path, { ...opts, timeoutMs: deadline - Date.now(), token: tokens.access_token });
   }
 }
 
@@ -379,13 +381,31 @@ export interface LeadMe {
   failed_reason?: string | null;
   created_at: string;
   customer: { name?: string | null; phone?: string | null; email?: string | null; cpf?: string | null };
-  promoter: Record<string, unknown>;
+  promoter: { external_id: string; name?: string | null; contact_url?: string | null };
+  hub?: { name?: string | null; coordinator_name?: string | null; contact_url?: string | null } | null;
   checkout?: CheckoutOut | null;
   pricing?: Pricing | null;
+  payment_status?: {
+    stage: "pending" | "provider_confirmed" | "completed" | "review";
+    continuation_url: string | null;
+    actual_capture_method?: string | null;
+    paid_amount?: string | null;
+  } | null;
 }
 
 export function getLeadMe(): Promise<LeadMe> {
   return requestAuth<LeadMe>("/api/v1/clients/lead/me");
+}
+
+export interface CardPaymentReferences {
+  order_nsu: string;
+  transaction_nsu: string;
+  slug: string;
+}
+
+/** Return references request server-side verification; they never confirm payment locally. */
+export function confirmLeadCardPayment(references: CardPaymentReferences): Promise<LeadMe> {
+  return requestAuth<LeadMe>("/api/v1/clients/lead/card-confirmation", { json: references });
 }
 
 /** UrlOut — single lead link (checkout when unpaid, receipt when paid). */
@@ -396,6 +416,11 @@ export function getLeadCheckoutUrl(): Promise<{ url: string }> {
 /** IdentityOut — passo 3 do funil v2: o CPF confirmado e a identidade do pergaminho. */
 export interface IdentityOut {
   cpf: string;
+  status?: "pending" | "success";
+  pending?: boolean;
+  lookup_id?: string | null;
+  attempts?: number;
+  last_error?: string | null;
   name: string | null;
   /** ISO YYYY-MM-DD — quem calcula a idade é o front. */
   birth_date: string | null;
@@ -415,6 +440,7 @@ export interface IdentityOut {
  * tentativa e avisa o titular) · 409 `CPF_ALREADY_SET` · 502 `CPF_SERVICE_DOWN`.
  */
 export function confirmIdentity(cpf: string): Promise<IdentityOut> {
+  // A pending ACK releases the form immediately; the durable server job is independent.
   return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } });
 }
 
@@ -476,7 +502,8 @@ export type DocumentType =
   | "address_proof" // comprovante de endereço
   | "id_card" // RG ou CNH
   | "birth_certificate" // certidão
-  | "military"; // certificado de reservista (condicional)
+  | "military_service"
+  | "blood_type";
 
 /** Tipo sanguíneo — 8 valores do sistema ABO+Rh. */
 export type BloodType = "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
@@ -506,7 +533,8 @@ export const DOCUMENT_LABEL: Record<DocumentType, string> = {
   address_proof: "Comprovante de endereço",
   id_card: "RG ou CNH",
   birth_certificate: "Certidão de nascimento/casamento",
-  military: "Certificado de reservista",
+  military_service: "Certificado de reservista",
+  blood_type: "Comprovante de tipo sanguíneo",
 };
 
 /** Hint copy shown under the FileUpload, per document type. */
@@ -516,7 +544,8 @@ export const DOCUMENT_HINT: Record<DocumentType, string> = {
   address_proof: "Conta de luz, água ou internet dos últimos 3 meses.",
   id_card: "Foto do RG ou CNH, aberta na página da foto.",
   birth_certificate: "Certidão de nascimento ou casamento (legível).",
-  military: "Certificado de reservista (frente).",
+  military_service: "Certificado de reservista (frente).",
+  blood_type: "Comprovante legível do seu tipo sanguíneo.",
 };
 
 /**
@@ -527,13 +556,11 @@ export const DOCUMENT_HINT: Record<DocumentType, string> = {
  * (pending/approved/rejected/review).
  */
 export interface StudentDocument {
-  type: DocumentType;
-  applies: boolean;
-  required: boolean;
-  uploaded_at: string | null;
+  doc_type: DocumentType;
+  has_photo: boolean;
   validation_status: ValidationStatus | null;
   analysis_reason: string | null;
-  photo_url: string | null;
+  analysis_status?: ValidationStatus | null;
   /** Echo do ack — presente no POST e em respostas com polling ativo. */
   poll_after_ms?: number | null;
   expires_at?: string | null;
@@ -564,10 +591,23 @@ export interface StudentMe {
   name?: string | null;
   status?: string | null;
   platform?: StudentPlatform | null;
+  partner_fees?: {
+    first: PartnerFee | null;
+    second: PartnerFee | null;
+    first_paid: boolean;
+    second_scheduled: boolean;
+  } | null;
   documents?: StudentDocument[];
   blood_type?: BloodType | null;
   pendencies?: StudentPendency[];
   diploma?: StudentDiploma | null;
+}
+
+export interface PartnerFee {
+  status: string;
+  amount: string;
+  scheduled_for?: string | null;
+  paid: boolean;
 }
 
 export function getStudentMe(): Promise<StudentMe> {
@@ -606,7 +646,7 @@ export function isDocSettled(
   type: DocumentType,
 ): (m: StudentMe) => boolean {
   return (m) => {
-    const status = m.documents?.find((d) => d.type === type)?.validation_status ?? null;
+    const status = m.documents?.find((d) => d.doc_type === type)?.validation_status ?? null;
     return ["approved", "rejected", "review"].includes(status ?? "");
   };
 }
@@ -816,6 +856,7 @@ export interface EducationIn {
   city: string;
   state: string;
   last_year_when?: string | null;
+  declaration_accepted: boolean;
 }
 
 /**
@@ -830,6 +871,9 @@ export interface AddressProofSection {
   photo: string | null;
   /** pending | approved | rejected | review | needs_kinship */
   status: string | null;
+  analysis_started_at?: string | null;
+  poll_after_ms?: number | null;
+  expires_at?: string | null;
   /** Orientação pública (o que fazer) — o critério fica interno (hub/staff). */
   reason: string | null;
   needs_kinship: boolean;
@@ -839,11 +883,24 @@ export interface AddressProofSection {
    */
   kinship_kind: "confirm" | "justify" | null;
   kinship_relation: string | null;
+  /** Titular extraído do comprovante pelo OCR/LLM, quando identificado. */
+  holder_name?: string | null;
   /** Coordenador rejeitou a justificativa: travar no comprovante até um novo upload. */
   needs_new_proof: boolean;
 }
 
 export interface EnrollmentMe {
+  release?: {
+    stage: "document_review" | "partner_setup" | "access_preparation" | "ready";
+    next_action: string;
+    hub_name: string;
+    coordinator_name: string | null;
+    contact_url: string | null;
+    updated_at: string | null;
+    payment_confirmed: boolean;
+    action_required: boolean;
+    action_route: string | null;
+  } | null;
   external_id: string;
   status: string;
   hub_external_id: string;
@@ -880,6 +937,12 @@ export interface AnalysisAck {
   expires_at?: string | null;
 }
 
+/** RG storage receipt. Analysis remains asynchronous after the file is saved. */
+export interface RgUploadAck extends AnalysisAck {
+  slot: "front" | "back" | "full";
+  stored: string;
+}
+
 export function getEnrollmentRg(): Promise<RgSection> {
   return requestAuth<RgSection>("/api/v1/clients/enrollment/documents/rg");
 }
@@ -899,8 +962,8 @@ export function patchEnrollmentRg(data: RgPatchIn): Promise<EnrollmentMe> {
 export function postEnrollmentRgPhoto(
   slot: "front" | "back" | "full",
   file: File,
-): Promise<AnalysisAck> {
-  return requestAuth<AnalysisAck>(`/api/v1/clients/enrollment/documents/rg/photo/${slot}`, {
+): Promise<RgUploadAck> {
+  return requestAuth<RgUploadAck>(`/api/v1/clients/enrollment/documents/rg/photo/${slot}`, {
     file,
     timeoutMs: 60_000,
   });
@@ -917,13 +980,14 @@ export interface DocClassify {
   completeness: "front" | "back" | "full" | null;
   is_legible?: boolean | null;
   reason?: string | null;
+  error_code?: string | null;
   confidence: number | null;
 }
 
 export function classifyDocument(file: File): Promise<DocClassify> {
   return requestAuth<DocClassify>("/api/v1/clients/enrollment/documents/classify", {
     file,
-    timeoutMs: 30_000,
+    timeoutMs: 60_000,
   });
 }
 

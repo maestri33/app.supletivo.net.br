@@ -51,16 +51,25 @@ A arquitetura desacopla a representação de estado da interface visual através
 
 Os papéis e estados refletem os modelos do backend Django Ninja (`src/lib/roles.ts`):
 
+O `whoami` retorna estados do ambiente: aluno `lead`, `enrollment`, `active`, `veteran`; promotor `candidate`, `training`, `active`, `suspended`; polo `active` (a fila `review` é uma tela operacional). Os estados documentais e acadêmicos abaixo são andamento interno, não concessão de papéis. `awaiting_diploma_issuance` continua no ambiente `active` até a retirada registrada no servidor promover o aluno a `veteran`.
+
+Em produção, `useDockSync` hidrata os três ambientes pelo `whoami` e pelo evento `supletivo:identity`, sem presumir promotor ativo ou sessão válida. O aluno ativo dispõe de Painel, Documentos, Disciplinas (link do parceiro), Avaliações e Sair. O diploma usa a informação do servidor e não recebe selo de aprovação ou download fictício pela mera visita à rota.
+
 ### 2.1. Aluno (`student` / `aluno`)
 | Status / Etapa | Identificador | Badge Dock | Ação Principal / Destaque |
 |---|---|---|---|
 | **1. Envio de Documentos** | `awaiting_documents` | `!` (Warning) | Foco em **Documentação**; provas e certificado inativos. |
 | **2. Análise da Secretaria** | `documents_under_review` | `•` (Info) | Foco em **Documentação** (em validação pelo polo). |
+| **Preparando acesso ao parceiro** | `awaiting_release`, `fee_paid`, `fee_scheduled` (andamento de `enrollment`) | Sem aprovação presumida | **Acompanhamento**, **Meus documentos**, **Pagamento**, **Falar com o polo** na rota `/student/enrollment`; as subrotas documentais preservam o wizard. |
 | **3. Prova Liberada** | `exam_released` | `Liberada` (Success) | Foco em **Provas & Avaliações**; agendamento presencial. |
 | **4. Emissão de Diploma** | `awaiting_diploma_issuance` | `Emissão` (Info) | Foco em **Certificação e Diploma** (registro MEC). |
 | **5. Formado / Concluído** | `veteran` | `Concluído` (Success) | Diploma digital liberado para download ICP-Brasil. |
 
 ### 2.2. Promotor / Consultor (`promoter` / `promotor`)
+O candidato usa o mesmo construtor de itens documentais do aluno em matrícula: identidade, endereço, escolaridade e selfie. No aluno, a identidade admite apenas RG; no candidato, RG ou CNH. O botão `Indicar` fica no dock do candidato e abre uma seção própria, disponível desde o cadastro inicial. Os hashes do candidato selecionam o conteúdo exibido, com travas para etapas futuras e consulta das já aprovadas. A chave PIX continua no fluxo existente antes da escolaridade e não implica cobrança para o promotor.
+
+O aluno `lead` conserva o pagamento antes da coleta documental. Equivalência de shell e estilo não altera essa regra de negócio, nem a escolaridade máxima do aluno; o promotor admite formação superior.
+
 | Status / Etapa | Identificador | Badge Dock | Ação Principal / Destaque |
 |---|---|---|---|
 | **1. Credenciamento** | `candidate` | `Onboarding` | Acesso restrito a termo de adesão, docs e chave PIX. |
@@ -140,15 +149,18 @@ window.dispatchEvent(
 );
 ```
 
+O acompanhamento da liberação emite `supletivo:enrollment-state` com `{ status }`. O dock armazena esse andamento em `enrollmentStep`, separado de `role_statuses.student` do `whoami`: uma hidratação tardia da identidade não devolve o aluno ao wizard. A consulta de matrícula também hidrata esse campo quando o evento ocorrer antes da montagem do dock. Os links locais `#documents`, `#payment` e `#contact` selecionam a seção sem prometer conclusão nem inventar contato externo.
+
 ---
 
 ## 4. Variantes Visuais e Ergonomia Touch
 
 1. **`variant="bottom-bar"` (Padrão Mandatório para Aplicação)**:
-   - Fixado em `bottom-0`, `z-40`, com fundo `bg-brand-ink/90 backdrop-blur-2xl`.
+   - Ocupa a linha inferior do shell autenticado (o componente ainda usa o estilo `bottom-0` como fallback fora do shell), `z-40`, com fundo `bg-brand-ink/90 backdrop-blur-2xl`.
    - Borda superior de 2px com gradiente patriótico (`brand-green` ➔ `brand-yellow` ➔ `brand-blue`).
    - Padding inferior dinâmico: `pb-[env(safe-area-inset-bottom)]`.
    - **Zero colisão com rodapé**: Suprime o rodapé institucional em telas de app (`showFooter={false}`).
+   - Dentro de `RootLayout`, `body.app-shell` tem altura `100dvh`; `#conteudo` é o único scroller e o wrapper `astro-island` do dock reserva a altura da barra. Não medir a rolagem por `window.scrollY` em testes de páginas autenticadas.
 
 2. **`variant="floating"` (Cápsula Flutuante Antigravity)**:
    - Cápsula elevada centralizada em `bottom-6 left-1/2 -translate-x-1/2`.
@@ -183,3 +195,9 @@ window.dispatchEvent(
 - [ ] `pwsh scripts/checkpoint/checkpoint.ps1 -Tier fast` validado.
 - [ ] O oráculo de versão global (`https://version.v7m.live/api/version`) foi consultado e respeitado.
 - [ ] Este documento (`docs/skills/role-status-dock.md`) foi mantido atualizado.
+
+## Ajuste de navegação — 13/10/2026
+
+Os rótulos dos botões documentais e de pagamento não têm prefixos numéricos. `Sair` fica na navbar superior do aluno e do promotor e usa `clearSession`; não aparece no dock desses papéis. O dock do candidato contém RG ou CNH, Endereço, Escolaridade, Selfie e Indicar. A indicação abre `#referral` com link e compartilhamento, sem aguardar ativação.
+
+No lead, `leadPhase` escolhe uma única fase ativa entre forma de pagamento e checkout, inclusive quando a rota conserva `/payment` após a emissão. A prontidão vem do checkout autenticado; voltar para revisar o meio não emite uma cobrança. Os estados financeiros `pending`, `provider_confirmed`, `completed` e `review` explicam o processamento e não criam papéis. O retorno do cartão envia suas referências ao endpoint autorizado; somente `completed` com destino devolvido pelo servidor permite continuar a matrícula.

@@ -2,6 +2,7 @@
 import AppHeader from '../components/layout/AppHeader.astro';
 import SiteFooter from '../components/layout/SiteFooter.astro';
 import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock';
+import RoleRouteGuard from '../components/interactive/RoleRouteGuard.svelte';
 import '../styles/globals.css';
 
 interface Props {
@@ -25,6 +26,7 @@ const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao
 const isTriageIndexRoute = pathname === '/student' || pathname === '/promoter' || pathname === '/hub';
 const shouldRenderDock = showDock ?? !isPublicAuthRoute;
 const shouldGuardAuth = requireAuth !== undefined ? requireAuth : (!isPublicAuthRoute && !isTriageIndexRoute);
+const shouldGuardRole = shouldGuardAuth && /^\/(student|promoter|hub)\//.test(pathname);
 
 let initialRole: "student" | "promoter" | "hub" = "student";
 if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
@@ -66,6 +68,7 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
     <link rel="icon" href="/favicon.ico" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {shouldGuardRole && <script is:inline>document.documentElement.dataset.roleAccess = 'pending';</script>}
     {shouldGuardAuth && (
       <script is:inline define:vars={{ authRedirectTarget }}>
         try {
@@ -84,7 +87,10 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
       </script>
     )}
   </head>
-  <body class="flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink">
+  <body
+    class:list={["flex min-h-dvh flex-col overflow-x-hidden bg-brand-bg text-brand-ink", shouldRenderDock && "app-shell"]}
+    data-app-shell={shouldRenderDock ? "true" : undefined}
+  >
     <a
       href="#conteudo"
       class="sr-only rounded-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:bg-brand-ink focus:px-4 focus:py-2 focus:font-bold focus:text-white"
@@ -99,6 +105,7 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
 
     <!-- App Header -->
     <AppHeader />
+    {shouldGuardRole && <RoleRouteGuard client:load pathname={pathname} />}
 
     <!-- Conteúdo principal rolável da aplicação -->
     <main
@@ -120,3 +127,8 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
     {showFooter && !shouldRenderDock && <SiteFooter />}
   </body>
 </html>
+
+<style is:global>
+  html[data-role-access="pending"] #conteudo,
+  html[data-role-access="pending"] nav[aria-label^="Navegação principal"] { display: none; }
+</style>

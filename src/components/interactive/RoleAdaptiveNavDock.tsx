@@ -51,6 +51,13 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   promoterState: controlledPromoterState,
   poloState: controlledPoloState,
 }) => {
+  const [currentHash, setCurrentHash] = React.useState("");
+  React.useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
   const {
     activeRole,
     isAuthenticated,
@@ -81,7 +88,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   }
 
   const context: AdapterContext = {
-    currentPath,
+    currentPath: currentPath.split("#")[0] + currentHash,
     onNavigate,
     onLogout: handleLogout,
   };
@@ -105,10 +112,15 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
   }
 
   // Renderização Opção 1: Bottom Bar Nativa (sem sobreposição de rodapé)
+  if (["student", "aluno", "promoter", "promotor"].includes(activeRole)) {
+    items = items.filter(item => item.id !== "logout");
+  }
   if (variant === "bottom-bar") {
     return (
       <nav
         aria-label={`Navegação principal do ${activeRole}`}
+        data-app-dock="true"
+        data-app-dock-mode="bottom-bar"
         className="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[var(--ink)]/90 backdrop-blur-2xl shadow-2xl pb-[env(safe-area-inset-bottom)]"
       >
         <div className="h-[2px] w-full bg-gradient-to-r from-[var(--green)] via-[var(--yellow)] to-[var(--blue)]" />
@@ -129,7 +141,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               <>
                 <div
                   className={cn(
-                    "relative flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
+                    "relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200",
                     indicatorClasses
                   )}
                 >
@@ -146,7 +158,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               </>
             );
 
-            const commonClasses = `flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
+            const commonClasses = `flex min-h-12 min-w-12 flex-col items-center gap-1 p-2 rounded-xl transition-[color,transform] duration-200 active:scale-95 cursor-pointer touch-manipulation ${
               item.isActive
                 ? "text-[var(--yellow)] font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
                 : "text-white/70 hover:text-white"
@@ -159,6 +171,7 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
                   type="button"
                   onClick={item.onClick}
                   disabled={item.disabled}
+                  aria-current={item.isActive ? "page" : undefined}
                   className={commonClasses}
                 >
                   {content}
@@ -170,6 +183,8 @@ export const RoleAdaptiveNavDock: React.FC<RoleAdaptiveNavDockProps> = ({
               <a
                 key={`${item.title}-${index}`}
                 href={item.href || "#"}
+                aria-disabled={item.disabled || undefined}
+                aria-current={item.isActive ? "page" : undefined}
                 onClick={(e) => {
                   if (item.disabled) {
                     e.preventDefault();

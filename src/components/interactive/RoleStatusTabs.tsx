@@ -154,7 +154,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               </div>
               <div>
                 <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Etapa 4 • Registro Oficial MEC</span>
-                <h3 className="text-xl font-bold text-white">Conferência no GDAE / Diário Oficial</h3>
+                <h3 className="text-xl font-bold text-white">Conferência documental da instituição</h3>
               </div>
             </div>
             <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold w-fit">
@@ -162,7 +162,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
             </span>
           </div>
           <p className="text-sm text-white/80 leading-relaxed">
-            Aluno aprovado com êxito em todas as bancas. A instituição emissora credenciada iniciou o registro no livro de concluintes e a publicação oficial no Diário Oficial / SISTEC-MEC.
+            Demonstração visual: em produção, o servidor informa o resultado da conferência e os registros disponíveis.
           </p>
           <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200 flex items-start gap-3">
             <IconAward className="size-5 shrink-0 mt-0.5 text-purple-400" />
@@ -195,7 +195,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
             </span>
           </div>
           <p className="text-sm text-white/85 leading-relaxed">
-            Parabéns! O diploma oficial do Ensino Médio com publicação no Diário Oficial está pronto para download do certificado digital com assinatura ICP-Brasil ou retirada física no polo.
+            Demonstração visual: o download e a retirada aparecem somente quando o servidor disponibiliza os arquivos oficiais.
           </p>
           <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-200 flex items-start gap-3">
             <IconCircleCheck className="size-5 shrink-0 mt-0.5 text-emerald-400" />
@@ -512,7 +512,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("aluno")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "aluno"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -523,7 +523,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("promotor")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "promotor"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -534,7 +534,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveRole("polo")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   activeRole === "polo"
                     ? "bg-[var(--blue)] text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -552,7 +552,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setDockVariant("bottom-bar")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   dockVariant === "bottom-bar"
                     ? "bg-emerald-600 text-white shadow-md"
                     : "text-white/70 hover:text-white"
@@ -564,7 +564,7 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
               <button
                 type="button"
                 onClick={() => setDockVariant("floating")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 touch-manipulation ${
                   dockVariant === "floating"
                     ? "bg-[var(--yellow)] text-black shadow-md"
                     : "text-white/70 hover:text-white"
