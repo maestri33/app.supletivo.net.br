@@ -94,8 +94,12 @@ export function saveLogin(payload: Record<string, unknown>): void {
   window.localStorage.setItem(LOGIN_KEY, JSON.stringify(payload));
   try {
     const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
-    document.cookie = `${AUTH_COOKIE}=1;path=/;domain=.supletivo.net.br;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
-    document.cookie = `${AUTH_COOKIE}=1;path=/;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
+    const roles = Array.isArray(payload.roles) ? (payload.roles as string[]) : [];
+    const statuses = (payload.role_statuses && typeof payload.role_statuses === "object") ? Object.keys(payload.role_statuses as Record<string, unknown>) : [];
+    const isPromoter = roles.some(r => ["promoter", "promotor", "candidate"].includes(r)) || statuses.includes("promoter");
+    const roleValue = isPromoter ? "promoter" : "student";
+    document.cookie = `${AUTH_COOKIE}=${roleValue};path=/;domain=.supletivo.net.br;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
+    document.cookie = `${AUTH_COOKIE}=${roleValue};path=/;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
   } catch {}
 }
 

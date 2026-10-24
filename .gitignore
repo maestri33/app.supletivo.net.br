@@ -47,3 +47,8 @@ blob-report/
 .claude-flow/
 .claude/
 .hive-mind/
+.release-*
+.payment-*
+.*-check
+*.log
+outputs/

@@ -93,10 +93,24 @@
     finally { educationLocationLoading = false; }
   }
 
-  let documentStatus = $derived(documentSection?.analysis_status ?? documentSection?.validation_status);
+  let documentStatus = $derived(
+    documentSection?.validation_status === "approved" ||
+    candidate?.documents?.rg?.validation_status === "approved" ||
+    candidate?.documents?.cnh?.validation_status === "approved"
+      ? "approved"
+      : documentSection?.analysis_status ?? documentSection?.validation_status ?? candidate?.documents?.rg?.analysis_status ?? candidate?.documents?.cnh?.analysis_status
+  );
   let selfieStatus = $derived(candidate?.selfie?.analysis_status ?? candidate?.selfie?.status);
   let hasDocumentMedia = $derived(Boolean(documentSection?.front_photo || documentSection?.full_photo || captureView.received.front || captureView.received.full));
-  let documentReady = $derived(Boolean(documentStatus === "approved" || (documentSection?.number && !documentSection?.next_slot)));
+  let documentReady = $derived(
+    Boolean(
+      documentStatus === "approved" ||
+      candidate?.status === "approved" ||
+      ["pix", "education", "selfie", "completed"].includes(candidate?.status ?? "") ||
+      (documentSection?.number && !documentSection?.next_slot) ||
+      (hasDocumentMedia && !documentSection?.next_slot)
+    )
+  );
   let addressHasData = $derived(Boolean(candidate?.address && ["street", "number", "city", "state", "zipcode"].every(key => Boolean(candidate?.address?.[key as keyof NonNullable<Candidate["address"]>]))));
   let proofReady = $derived(candidate?.address_proof?.status === "approved" && !(candidate?.address?.missing_fields?.length) && addressHasData);
   let gradeOptions = $derived(educationGrades(educationLevel));
@@ -268,8 +282,7 @@
     busy = true; error = null; notice = null; mutationRevision += 1;
     try {
       candidate = await requestAuth<Candidate>(`${base}${path}`, { method, json });
-      selectedSection = "";
-      window.history.replaceState(null, "", window.location.pathname);
+      if (!selectedSection && window.location.hash) { selectedSection = window.location.hash.slice(1); }
       await refresh();
     } catch (cause) { error = cause instanceof Error && !(cause instanceof ApiError) ? cause.message : getErrorMessage(cause); }
     finally { busy = false; scheduleRefresh(); }

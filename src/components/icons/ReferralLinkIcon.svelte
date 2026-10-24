@@ -1,9 +1,14 @@
 <script lang="ts">
-  export let className = "size-5";
+  interface Props {
+    class?: string;
+    className?: string;
+  }
+  let { class: classProp, className = "size-5" }: Props = $props();
+  const appliedClass = classProp ?? className;
 </script>
 
 <svg
-  class={className}
+  class={appliedClass}
   viewBox="0 0 24 24"
   fill="none"
   stroke="currentColor"
