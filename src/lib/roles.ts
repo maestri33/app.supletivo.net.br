@@ -195,6 +195,10 @@ export function formatStudentStatus(status?: string | null): {
   variant: "info" | "success" | "warning" | "danger";
 } {
   switch (status) {
+    case "active":
+      return { label: "Matrícula Ativa", variant: "success" };
+    case "regular":
+      return { label: "Matrícula Regular", variant: "success" };
     case "lead":
       return { label: "Aguardando Matrícula", variant: "warning" };
     case "enrollment":

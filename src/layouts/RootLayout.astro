@@ -3,6 +3,7 @@ import AppHeader from '../components/layout/AppHeader.astro';
 import SiteFooter from '../components/layout/SiteFooter.astro';
 import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock';
 import RoleRouteGuard from '../components/interactive/RoleRouteGuard.svelte';
+import Toaster from '../components/ui/Toaster.svelte';
 import '../styles/global.css';
 
 interface Props {
@@ -34,7 +35,11 @@ if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
 } else if (pathname.startsWith('/hub') || pathname.startsWith('/polo')) {
   initialRole = "hub";
 }
-const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
+const fullSearch = Astro.url.search;
+const returnToParam = encodeURIComponent(pathname + fullSearch);
+const authRedirectTarget = initialRole === "promoter"
+  ? (pathname === '/promoter' ? "/?role=promoter" : `/?role=promoter&return_to=${returnToParam}`)
+  : (pathname === '/' || pathname === '/student' ? "/" : `/?return_to=${returnToParam}`);
 ---
 
 <!doctype html>
@@ -68,7 +73,20 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
     <link rel="icon" href="/favicon.ico" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    {shouldGuardRole && <script is:inline>document.documentElement.dataset.roleAccess = 'pending';</script>}
+    <style is:inline>
+      html[data-role-access="pending"] #conteudo,
+      html[data-role-access="pending"] nav[aria-label^="Navegação principal"] { display: none !important; }
+    </style>
+    {shouldGuardRole && (
+      <script is:inline>
+        document.documentElement.dataset.roleAccess = 'pending';
+        setTimeout(function() {
+          if (document.documentElement.dataset.roleAccess === 'pending') {
+            delete document.documentElement.dataset.roleAccess;
+          }
+        }, 4000);
+      </script>
+    )}
     {shouldGuardAuth && (
       <script is:inline define:vars={{ authRedirectTarget }}>
         try {
@@ -125,6 +143,9 @@ const authRedirectTarget = initialRole === "promoter" ? "/?role=promoter" : "/";
 
     <!-- Rodapé institucional Zero-JS (suprimido quando há dock ativo para evitar colisão) -->
     {showFooter && !shouldRenderDock && <SiteFooter />}
+
+    <!-- Toaster Global para Notificações e Feedbacks -->
+    <Toaster client:load />
   </body>
 </html>
 

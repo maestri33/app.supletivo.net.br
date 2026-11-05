@@ -1,5 +1,5 @@
 import * as React from "react";
-import { IconId, IconHome, IconSchool, IconCamera } from "@tabler/icons-react";
+import { IconId, IconHome, IconSchool, IconCamera, IconDoorExit } from "@tabler/icons-react";
 import type { FloatingDockItem } from "@/components/ui/floating-dock";
 import type { ItemHealthStatus } from "./types";
 
@@ -10,6 +10,7 @@ export function identityDockItems(options: {
   paths: Record<IdentityStep, string>;
   health: Partial<Record<IdentityStep, ItemHealthStatus>>;
   enabled?: Partial<Record<IdentityStep, boolean>>;
+  onLogout?: () => void;
 }): FloatingDockItem[] {
   const steps = [
     { id: "documents", title: options.documentTitle, icon: IconId },
@@ -17,7 +18,7 @@ export function identityDockItems(options: {
     { id: "education", title: "Escolaridade", icon: IconSchool },
     { id: "selfie", title: "Selfie", icon: IconCamera },
   ] as const;
-  return steps.map(({ id, title, icon: Icon }) => {
+  const items: FloatingDockItem[] = steps.map(({ id, title, icon: Icon }) => {
     const health = options.health[id];
     const disabled = options.enabled?.[id] === false;
     return {
@@ -28,4 +29,15 @@ export function identityDockItems(options: {
       statusIndicator: disabled ? "disabled" : health === "approved" ? "success" : health === "rejected" ? "danger" : health === "under_review" ? "warning" : "normal",
     } satisfies FloatingDockItem;
   });
+
+  if (options.onLogout) {
+    items.push({
+      id: "logout",
+      title: "Sair",
+      icon: <IconDoorExit className="h-full w-full text-[var(--danger)]" />,
+      onClick: options.onLogout,
+    });
+  }
+
+  return items;
 }

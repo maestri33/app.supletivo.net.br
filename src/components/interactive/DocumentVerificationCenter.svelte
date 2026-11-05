@@ -3,9 +3,9 @@
   import { getEnrollmentMe, getLeadMe, getErrorMessage, whoami, type EnrollmentMe, type CheckoutOut } from "@/lib/api";
   import { openPrivateMedia } from "@/lib/private-media";
   import { safePartnerUrl } from "./student/workflow";
+  import DocumentStatusCard from "./documents/DocumentStatusCard.svelte";
   import { expectedStatus, followEnrollmentStatus } from "./student/workflow";
-  import "./student/workflow.css";
-
+  
   let enrollment = $state<EnrollmentMe | null>(null);
   let loading = $state(true);
   let error = $state("");
@@ -84,11 +84,19 @@
       {#if updated}<p class="muted update-note" role="status">{refreshing ? "Consultando a situação atual…" : "Situação consultada nesta visita."}</p>{/if}
       <p class="muted">Quando a liberação for concluída, esta página abrirá teu painel de aluno. O acesso também será enviado pelos canais cadastrados.</p>
     </section>
-    <section id="documents" class="panel" aria-labelledby="documents-title">
+    <section id="documents" class="panel flex flex-col gap-4" aria-labelledby="documents-title">
       <h2 id="documents-title">Meus documentos</h2>
-      <ul class="documents">{#each documents as item}<li><div><strong>{item.name}</strong><p class:approved={item.status === "approved"}>{labels[item.status ?? ""] ?? "Situação ainda não informada"}</p></div>
-        {#each item.paths as path, index}<button class="secondary" type="button" disabled={opening !== null} onclick={() => openDocument(path)} aria-label={`Abrir ${item.name}${item.paths.length > 1 ? ` — ${index === 0 ? "frente" : "verso"}` : ""}`}>{opening === path ? "Abrindo…" : item.paths.length > 1 ? index === 0 ? "Frente" : "Verso" : "Abrir"}</button>{/each}
-      </li>{/each}</ul>
+      <div class="flex flex-col gap-3">
+        {#each documents as item (item.name)}
+          <DocumentStatusCard
+            title={item.name}
+            status={item.status}
+            paths={item.paths}
+            openingPath={opening}
+            onOpen={openDocument}
+          />
+        {/each}
+      </div>
       <p class="muted">Escolaridade: {enrollment.education ? "informações recebidas" : "informações ainda não disponíveis"}.</p>
     </section>
     <section id="payment" class="panel" aria-labelledby="payment-title">
@@ -114,6 +122,12 @@
 </section>
 
 <style>
+  .student-workflow { width: 100%; max-width: var(--container-narrow); margin-inline: auto; padding: 1.5rem var(--gutter) 2rem; color: var(--paper); display: grid; gap: 1.5rem; }
+  .panel { background: var(--glass-bg-dark); border: 1px solid var(--glass-border-dark); border-radius: var(--radius); padding: 1.25rem; backdrop-filter: var(--glass-blur); display: grid; gap: 1rem; overflow-wrap: anywhere; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: .75rem 1.25rem; font-weight: 700; border-radius: 0.75rem; background: var(--yellow); color: var(--ink); text-decoration: none; width: fit-content; }
+  .secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border: 1px solid var(--glass-border-dark); border-radius: 0.75rem; padding: .7rem 1rem; background: var(--ink-soft); color: var(--paper); text-decoration: none; cursor: pointer; }
+  .muted { color: var(--muted-on-dark); }
+  .error { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: 0.75rem; }
   .release-view header { display: grid; gap: 1rem; }
   .release-art { width: 200px; margin-inline: auto; color: var(--paper); }
   .release-art svg { width: 100%; height: auto; }

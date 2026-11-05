@@ -9,6 +9,8 @@
   import CameraIcon from "@/components/icons/CameraIcon.svelte";
   import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
   type StepStatus = "pending" | "under_review" | "review" | "needs_kinship" | "approved";
   let status = $state<StepStatus>("pending"), studentName = $state("Titular da matrícula");
   let isAnalyzing = $state(false), isExtracting = $state(false), triageError = $state<string | null>(null);
@@ -145,35 +147,18 @@
 
     <!-- Estado de Triagem / Análise da IA -->
     {#if isAnalyzing || isExtracting}
-      <div class="p-5 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-200 flex items-center gap-4 animate-in fade-in">
-        <div class="relative size-10 flex items-center justify-center shrink-0">
-          <span class="absolute inline-flex size-full rounded-full bg-blue-400 opacity-75 animate-ping"></span>
-          <span class="relative size-8 rounded-full bg-blue-500 flex items-center justify-center">
-            <svg class="size-4 text-white animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-          </span>
-        </div>
-        <div>
-          <strong class="text-white text-xs block font-bold">{isAnalyzing ? "Conferindo o arquivo" : "Enviando o comprovante"}</strong>
-          <span class="text-[11px] text-blue-200/90 leading-tight block mt-0.5">
-            {isAnalyzing ? "Identificando o documento e sua legibilidade…" : "A análise do endereço continua no servidor após o envio."}
-          </span>
-        </div>
-      </div>
+      <Alert
+        variant="info"
+        title={isAnalyzing ? "Conferindo o arquivo" : "Enviando o comprovante"}
+        description={isAnalyzing ? "Identificando o documento e sua legibilidade…" : "A análise do endereço continua no servidor após o envio."}
+        class="animate-in fade-in"
+      />
     {:else if triageError}
-      <div class="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-200 flex items-start gap-3 text-left">
-        <svg class="size-5 text-rose-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <div class="text-xs">
-          <strong class="text-white font-bold block">Atenção no comprovante:</strong>
-          <p class="text-rose-200/90 mt-0.5 leading-relaxed">{triageError}</p>
-        </div>
-      </div>
+      <Alert
+        variant="danger"
+        title="Atenção no comprovante:"
+        description={triageError}
+      />
     {/if}
 
     <!-- Visualização do Comprovante ou Slot de Envio -->
@@ -193,9 +178,9 @@
               <UtilityBillIcon class="size-4 text-emerald-400" />
               <span>Fatura Recebida</span>
             </span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300">
+            <Badge variant="success" size="sm" pulse>
               ✓ Análise em Andamento
-            </span>
+            </Badge>
           </div>
 
           <div class="mt-3 relative rounded-xl overflow-hidden border border-white/20 max-h-48 w-full bg-black/60 flex items-center justify-center">

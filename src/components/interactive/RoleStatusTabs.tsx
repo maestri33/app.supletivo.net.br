@@ -149,23 +149,23 @@ export const RoleStatusTabs: React.FC<RoleStatusTabsProps> = ({
         <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+              <div className="size-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                 <IconAward className="size-5" />
               </div>
               <div>
-                <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Etapa 4 • Registro Oficial MEC</span>
+                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Etapa 4 • Registro Oficial MEC</span>
                 <h3 className="text-xl font-bold text-white">Conferência documental da instituição</h3>
               </div>
             </div>
-            <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold w-fit">
+            <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold w-fit">
               Emissão em Andamento
             </span>
           </div>
           <p className="text-sm text-white/80 leading-relaxed">
             Demonstração visual: em produção, o servidor informa o resultado da conferência e os registros disponíveis.
           </p>
-          <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200 flex items-start gap-3">
-            <IconAward className="size-5 shrink-0 mt-0.5 text-purple-400" />
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 flex items-start gap-3">
+            <IconAward className="size-5 shrink-0 mt-0.5 text-emerald-400" />
             <div>
               <strong className="font-semibold block mb-0.5">Comportamento do Dock:</strong>
               O ícone <strong className="text-white">Certificação e Diploma</strong> ganha o badge <span className="bg-sky-500 text-white px-2 py-0.5 rounded-full font-black text-[10px]">Emissão</span> e assume o destaque visual de conclusão.

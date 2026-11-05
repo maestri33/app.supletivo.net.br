@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { whoami, requestAuth, getErrorMessage, ApiError } from '@/lib/api';
-  import { getAccessToken, getLogin, saveLogin } from '@/lib/session';
+  import { getAccessToken, getLogin, saveLogin, clearLogin } from '@/lib/session';
   import { getRoleDestination, type CanonicalEnvironment } from '@/lib/roles';
   let { role }: { role?: CanonicalEnvironment } = $props();
   let error = $state<string | null>(null);
@@ -10,6 +10,7 @@
     error = null;
     busy = true;
     if (!getAccessToken()) {
+      clearLogin();
       window.location.replace(role === 'promoter' ? '/?role=promoter' : '/');
       return;
     }

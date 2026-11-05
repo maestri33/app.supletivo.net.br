@@ -22,9 +22,12 @@
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) {
         clearSession();
-        window.location.replace('/');
+        const search = typeof window !== 'undefined' ? window.location.search : '';
+        const target = `/?return_to=${encodeURIComponent(pathname + search)}`;
+        window.location.replace(target);
         return;
       }
+      delete document.documentElement.dataset.roleAccess;
       error = failure instanceof Error ? failure.message : getErrorMessage(failure);
     }
   }

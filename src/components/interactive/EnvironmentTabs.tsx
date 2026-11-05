@@ -27,8 +27,8 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
         <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[var(--blue)]/80 to-[var(--blue-deep)]/90 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 mb-2">
-                <span className="size-2 rounded-full bg-emerald-400"></span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--success)]/15 border border-[var(--success)]/30 text-xs font-semibold text-[var(--success)] mb-2">
+                <span className="size-2 rounded-full bg-[var(--success)]"></span>
                 Ambiente de Formação Ativo
               </div>
               <h2 className="text-2xl sm:text-3xl font-display text-white">
@@ -90,7 +90,7 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
             </div>
 
             <a
-              href="/promotor/leads"
+              href="/promoter/active/leads"
               className="inline-flex items-center gap-2 text-xs py-2.5 px-5 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-white font-bold transition-colors"
             >
               Ver Meus Leads →
@@ -122,27 +122,36 @@ export const EnvironmentTabs: React.FC<EnvironmentTabsProps> = ({
       value: "polo",
       content: (
         <div className="w-full overflow-hidden relative rounded-3xl p-6 sm:p-8 text-white glass-panel border border-white/15 bg-gradient-to-br from-[var(--ink)]/90 to-[var(--blue)]/90 shadow-2xl">
-          <div className="border-b border-white/10 pb-6 mb-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 mb-2">
-              Secretaria do Polo Regional
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--blue)]/20 border border-[var(--blue)]/40 text-xs font-semibold text-blue-200 mb-2">
+                Secretaria do Polo Regional
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-display text-white">
+                Conferência Documental & Turmas
+              </h2>
+              <p className="text-xs sm:text-sm text-white/70 mt-1">
+                Validação de documentação física, agendamento de bancas e entrega de certificados.
+              </p>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-display text-white">
-              Conferência Documental & Turmas
-            </h2>
-            <p className="text-xs sm:text-sm text-white/70 mt-1">
-              Validação de documentação física, agendamento de bancas e entrega de certificados.
-            </p>
+
+            <a
+              href="/hub/active/dashboard"
+              className="inline-flex items-center gap-2 text-xs py-2.5 px-5 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-white font-bold transition-colors whitespace-nowrap"
+            >
+              Acessar Secretaria →
+            </a>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Pendências de Validação</span>
-              <p className="text-xl font-bold text-amber-300 mt-1">Consultar fila de revisão</p>
+              <p className="text-xl font-bold text-[var(--warning)] mt-1">Consultar fila de revisão</p>
               <p className="text-xs text-white/60 mt-1">RG, Histórico e Comprovantes em fila</p>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="text-xs text-white/60 uppercase font-semibold">Diplomas Prontos para Retirada</span>
-              <p className="text-xl font-bold text-emerald-400 mt-1">Consultar emissão</p>
+              <p className="text-xl font-bold text-[var(--success)] mt-1">Consultar emissão</p>
               <p className="text-xs text-white/60 mt-1">Aguardando assinatura do concluinte</p>
             </div>
           </div>

@@ -2,8 +2,13 @@
   import { onMount } from "svelte";
   import { requestAuth, getEnrollmentMe, getStudentPendencies, postStudentBloodType, postStudentDocument, postStudentExamSchedule, getErrorMessage, type StudentMe, type StudentDocument, type EnrollmentMe, type DocumentType, type BloodType } from "@/lib/api";
   import { openPrivateMedia } from "@/lib/private-media";
-  import { safePartnerUrl, STUDENT_STATUS_LABELS, dateLabel, imageError } from "./workflow";
-  import "./workflow.css";
+  import { safePartnerUrl, STUDENT_STATUS_LABELS, dateLabel, imageError, documentFileError } from "./workflow";
+  import Card from "@/components/ui/Card.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
+
   type Exam = { external_id: string; subject: string; scheduled_at: string; result: string; notes?: string | null; attempt_number: number };
   type State = Omit<StudentMe, "documents"> & { documents?: (StudentDocument & { photo?: string | null })[]; exam_available_at?: string | null; exam_can_schedule?: boolean; exams?: Exam[] };
   let { view = "dashboard" }: { view?: "dashboard" | "documents" | "access" | "subjects" | "assessments" } = $props();
@@ -38,9 +43,13 @@
     const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; input.value = "";
     if (!file || busy) return; busy = true; actionError = ""; message = ""; let received = false;
     try {
-      const invalid = imageError(file); if (invalid) throw new Error(invalid);
-      if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie uma foto legível de até 15 MB.");
-      const bitmap = await createImageBitmap(file); bitmap.close();
+      if (file.type === "application/pdf") {
+        if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie um arquivo PDF legível de até 15 MB.");
+      } else {
+        const invalid = imageError(file); if (invalid) throw new Error(invalid);
+        if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie uma foto legível de até 15 MB.");
+        const bitmap = await createImageBitmap(file); bitmap.close();
+      }
       await postStudentDocument(type, file); received = true;
       const deadline = Date.now() + 60_000;
       do {
@@ -57,57 +66,389 @@
   async function schedule(event: SubmitEvent) { event.preventDefault(); if (!subject.trim() || !scheduledAt || busy || me?.exam_can_schedule !== true) return; busy = true; actionError = ""; try { await postStudentExamSchedule({ subject: subject.trim(), scheduled_at: new Date(scheduledAt).toISOString() }); me = await requestAuth<State>("/api/v1/clients/student/me"); } catch (cause) { actionError = failure(cause); } finally { busy = false; } }
   onMount(() => { void load(); return () => { active = false; }; });
 </script>
-<section class="student-workflow" aria-busy={loading || busy}>
-  {#if loading}<h1>Consultando seu ambiente</h1><p role="status">Buscando os dados do servidor…</p>
-  {:else if error}<h1>Não foi possível consultar seu ambiente</h1><p class="error" role="alert">{error}</p><button type="button" class="secondary" onclick={load}>Tentar novamente</button>
+
+<section class="w-full max-w-3xl mx-auto p-4 sm:p-6 space-y-6 text-white" aria-busy={loading || busy}>
+  {#if loading}
+    <div class="space-y-4">
+      <Skeleton class="h-10 w-48 rounded-xl" />
+      <Skeleton class="h-40 w-full rounded-2xl" />
+      <Skeleton class="h-56 w-full rounded-3xl" />
+    </div>
+  {:else if error}
+    <div class="space-y-3">
+      <Alert variant="danger" title="Não foi possível consultar seu ambiente" description={error} />
+      <button
+        type="button"
+        onclick={load}
+        class="min-h-[48px] px-6 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer"
+      >
+        Tentar novamente
+      </button>
+    </div>
   {:else if me}
-    {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
-    {#if message}<p role="status">{message}</p>{/if}
-    <button class="secondary" disabled={busy || loading} onclick={load}>Atualizar situação</button>
-    <div class="stack"><p class="muted">Status da matrícula</p><h1 data-testid="student-status">{statusLabel}</h1></div>
+    {#if actionError}
+      <Alert variant="danger" title="Atenção" description={actionError} />
+    {/if}
+    {#if message}
+      <Alert variant="info" title="Informação" description={message} />
+    {/if}
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
+      <div>
+        <span class="text-xs font-semibold text-white/60 uppercase tracking-wider block">Status da Matrícula</span>
+        <h1 data-testid="student-status" class="text-xl sm:text-2xl font-display font-bold text-white mt-0.5">
+          {statusLabel}
+        </h1>
+      </div>
+      <button
+        type="button"
+        disabled={busy || loading}
+        onclick={load}
+        class="min-h-[48px] px-5 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+      >
+        Atualizar situação
+      </button>
+    </div>
+
     {#if view === "dashboard"}
-      <div class="panel"><h2>Acesso ao parceiro educacional</h2>{#if partnerUrl}<a class="btn" href={partnerUrl} target="_blank" rel="noopener noreferrer" aria-label="Acessar ambiente do parceiro">Acessar ambiente do parceiro</a>{:else}<p class="muted">O polo ainda não informou o ambiente educacional externo.</p>{/if}
-        {#if me.platform?.login}<dl><div><dt>Login do parceiro</dt><dd>{me.platform.login}</dd></div>{#if me.platform.notes}<div><dt>Orientações</dt><dd>{me.platform.notes}</dd></div>{/if}</dl><button type="button" class="secondary" aria-label="Mostrar senha" onclick={() => { showPassword = !showPassword; }}>{showPassword ? "Ocultar senha" : "Mostrar senha"}</button>{#if showPassword}<p>{me.platform.password ?? "Senha ainda não informada pelo polo."}</p>{/if}{/if}</div>
-      {#if pendencies.length}<div class="panel"><h2>Pendências do polo</h2>{#each pendencies as item}<p class="warning">{item.description ?? "Pendência sem descrição."}{#if item.amount_cents} <strong>R$ {(item.amount_cents / 100).toFixed(2).replace(".", ",")}</strong>{/if}</p>{/each}</div>{/if}
-      <div class="panel"><h2>Documentos complementares</h2><p class="muted">O andamento dos documentos aparece conforme a análise do servidor.</p><a class="secondary" href="/student/active/documents">Ver documentação</a></div>
-    {:else if view === "documents"}
-      <div class="panel"><h2>Documentos da matrícula</h2>
-        {#each enrollmentFiles as item}<button class="secondary" onclick={() => openFile(item.path)}>Abrir {item.label}</button>{/each}
-        {#if !enrollmentFiles.length}<p class="muted">Nenhum arquivo disponível nesta consulta.</p>{/if}
-      </div>
-      <div class="panel"><h2>Documentos complementares</h2>
-        <p class="muted">O histórico escolar anterior é obrigatório para liberar a prova. Envie certificados se tiver; os demais comprovantes abaixo são opcionais. Seu RG e endereço já conferidos na matrícula continuam disponíveis acima.</p>
-        {#each documentTypes as type}
-          {@const doc = documentFor(type)}
-          <div class="stack"><strong>{documentLabels[type]} — {type === "transcript" ? "obrigatório" : "opcional"}</strong>
-            {#if type === "military_service"}<p class="muted">Envie quando exigido pelo polo para sua matrícula.</p>{/if}
-            <span class="muted">{validationLabels[doc?.validation_status ?? ""] ?? "Não enviado"}</span>
-            {#if doc?.analysis_reason}<p>{doc.analysis_reason}</p>{/if}
-            {#if doc?.photo}<button class="secondary" onclick={() => openFile(doc.photo)}>Abrir arquivo enviado</button>{/if}
-            <label>Enviar {documentLabels[type]}<input aria-label={`Enviar comprovante de ${documentLabels[type]}`} type="file" accept="image/jpeg,image/png,image/webp" onchange={(event) => upload(type, event)} disabled={busy || doc?.validation_status === "approved" || !["awaiting_documents", "documents_under_review"].includes(me.status ?? "")} /></label>
+      <!-- Acesso ao parceiro educacional -->
+      <Card title="Acesso ao Parceiro Educacional" description="Ambiente de estudos e conteúdos didáticos">
+        {#snippet actions()}
+          {#if partnerUrl}
+            <Badge variant="success" size="sm">Disponível</Badge>
+          {:else}
+            <Badge variant="warning" size="sm">Aguardando Polo</Badge>
+          {/if}
+        {/snippet}
+
+        <div class="space-y-4 pt-2">
+          {#if partnerUrl}
+            <a
+              href={partnerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="min-h-[48px] px-6 py-3 rounded-2xl bg-[var(--yellow)] hover:bg-[var(--yellow-soft)] text-brand-ink font-bold text-sm shadow-xl transition inline-flex items-center gap-2"
+              aria-label="Acessar ambiente do parceiro"
+            >
+              Acessar ambiente do parceiro →
+            </a>
+          {:else}
+            <p class="text-xs text-white/60">O polo ainda não informou o ambiente educacional externo.</p>
+          {/if}
+
+          {#if me.platform?.login}
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white/5 border border-white/10 text-xs">
+              <div>
+                <dt class="text-white/60">Login do parceiro</dt>
+                <dd class="text-sm font-mono font-bold text-white mt-0.5">{me.platform.login}</dd>
+              </div>
+              <div>
+                <dt class="text-white/60">Senha de acesso</dt>
+                <dd class="text-sm font-mono font-bold text-white mt-0.5">
+                  {showPassword ? (me.platform.password ?? "Não informada") : "••••••••"}
+                </dd>
+              </div>
+              {#if me.platform.notes}
+                <div class="sm:col-span-2 pt-1 border-t border-white/10">
+                  <dt class="text-white/60">Orientações do polo</dt>
+                  <dd class="text-xs text-white/90 mt-0.5 leading-relaxed">{me.platform.notes}</dd>
+                </div>
+              {/if}
+            </dl>
+            <button
+              type="button"
+              onclick={() => { showPassword = !showPassword; }}
+              class="min-h-[44px] px-4 py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer"
+            >
+              {showPassword ? "Ocultar senha" : "Mostrar senha"}
+            </button>
+          {/if}
+        </div>
+      </Card>
+
+      {#if pendencies.length}
+        <Card title="Pendências do Polo" description="Ações requeridas pela secretaria escolar">
+          <div class="space-y-2 pt-2">
+            {#each pendencies as item}
+              <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-center justify-between gap-3">
+                <span>{item.description ?? "Pendência sem descrição."}</span>
+                {#if item.amount_cents}
+                  <strong class="font-mono text-white text-sm">R$ {(item.amount_cents / 100).toFixed(2).replace(".", ",")}</strong>
+                {/if}
+              </div>
+            {/each}
           </div>
-        {/each}
-        <label>Tipo sanguíneo (opcional)<select bind:value={bloodType}><option value="">Selecione</option>{#each ["A+","A-","B+","B-","AB+","AB-","O+","O-"] as option}<option value={option}>{option}</option>{/each}</select></label>
-        <button type="button" class="btn" onclick={saveBloodType} disabled={!bloodType || busy}>Salvar tipo sanguíneo</button>
-      </div>
-    {:else if view === "access" || view === "subjects"}
-      <div class="panel"><h2>Acesso à plataforma parceira</h2><p>As disciplinas, aulas e conteúdos ficam exclusivamente no ambiente externo da instituição parceira.</p>{#if partnerUrl}<a class="btn" href={partnerUrl} target="_blank" rel="noopener noreferrer">Abrir plataforma parceira</a>{:else}<p class="warning">O polo ainda não informou o endereço da plataforma.</p>{/if}
-        {#if me.platform?.login}<dl><div><dt>Login</dt><dd>{me.platform.login}</dd></div>{#if me.platform.password}<div><dt>Senha</dt><dd>{showPassword ? me.platform.password : "••••••••"}</dd></div>{/if}{#if me.platform.notes}<div><dt>Orientações do polo</dt><dd>{me.platform.notes}</dd></div>{/if}</dl><button type="button" class="secondary" onclick={() => { showPassword = !showPassword; }}>{showPassword ? "Ocultar senha" : "Mostrar senha"}</button>{:else}<p class="muted">O polo ainda não cadastrou o login da plataforma parceira.</p>{/if}
-      </div>
-      <div class="panel"><h2>Taxas da instituição parceira</h2>
-        <p class="muted">O polo paga a primeira taxa e agenda o pagamento da segunda.</p>
-        {#if me.partner_fees}
-          {#each [{ label: "Primeira taxa", fee: me.partner_fees.first }, { label: "Segunda taxa", fee: me.partner_fees.second }] as item}
-            <div class="stack"><h3>{item.label}</h3>
-              {#if item.fee}<dl><div><dt>Situação</dt><dd>{item.fee.paid ? "Pago" : feeLabels[item.fee.status] ?? "Situação em conferência"}</dd></div><div><dt>Valor</dt><dd>{feeAmount(item.fee.amount)}</dd></div>{#if item.fee.scheduled_for}<div><dt>Pagamento programado para</dt><dd>{dateLabel(item.fee.scheduled_for)}</dd></div>{/if}</dl>
-              {:else}<p class="muted">Pagamento ainda não registrado pelo polo.</p>{/if}
+        </Card>
+      {/if}
+
+      <Card title="Documentação Acadêmica" description="Envio e acompanhamento de certidões e históricos">
+        <p class="text-xs text-white/70 leading-relaxed">
+          O andamento dos documentos aparece conforme a conferência do servidor e da secretaria credenciada.
+        </p>
+        {#snippet footer()}
+          <a
+            href="/student/active/documents"
+            class="min-h-[48px] px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition inline-flex items-center gap-2"
+          >
+            Ver documentação completa →
+          </a>
+        {/snippet}
+      </Card>
+
+    {:else if view === "documents"}
+      <!-- Documentos da matrícula -->
+      <Card title="Documentos da Matrícula" description="Arquivos digitalizados durante a confirmação de inscrição">
+        <div class="flex flex-wrap gap-2.5 pt-2">
+          {#each enrollmentFiles as item}
+            <button
+              type="button"
+              onclick={() => openFile(item.path)}
+              class="min-h-[48px] px-4 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer"
+            >
+              Abrir {item.label}
+            </button>
+          {/each}
+          {#if !enrollmentFiles.length}
+            <p class="text-xs text-white/60">Nenhum arquivo disponível nesta consulta.</p>
+          {/if}
+        </div>
+      </Card>
+
+      <!-- Documentos complementares -->
+      <Card title="Documentos Complementares" description="Histórico escolar anterior obrigatório para liberação de provas e certificados opcionais">
+        <p class="text-xs text-white/70 leading-relaxed pb-3">
+          O histórico escolar anterior é obrigatório para liberar a prova. Envie certificados se tiver; os demais comprovantes abaixo são opcionais.
+        </p>
+
+        <div class="space-y-4">
+          {#each documentTypes as type}
+            {@const doc = documentFor(type)}
+            <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <strong class="text-sm font-bold text-white capitalize">
+                  {documentLabels[type]} — {type === "transcript" ? "Obrigatório" : "Opcional"}
+                </strong>
+                <Badge
+                  variant={doc?.validation_status === "approved" ? "success" : doc?.validation_status === "rejected" ? "danger" : doc?.validation_status === "review" ? "warning" : "default"}
+                  size="sm"
+                >
+                  {validationLabels[doc?.validation_status ?? ""] ?? "Não enviado"}
+                </Badge>
+              </div>
+
+              {#if type === "military_service"}
+                <p class="text-xs text-white/60">Envie quando exigido pelo polo para sua matrícula.</p>
+              {/if}
+
+              {#if doc?.analysis_reason}
+                <p class="text-xs text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">{doc.analysis_reason}</p>
+              {/if}
+
+              <div class="flex flex-wrap items-center gap-3">
+                {#if doc?.photo}
+                  <button
+                    type="button"
+                    onclick={() => openFile(doc.photo)}
+                    class="min-h-[44px] px-4 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition cursor-pointer"
+                  >
+                    Abrir arquivo enviado
+                  </button>
+                {/if}
+
+                <label class="min-h-[48px] px-5 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer inline-flex items-center gap-2">
+                  <span>{doc?.photo ? "Substituir arquivo" : "Enviar arquivo"}</span>
+                  <input
+                    aria-label={`Enviar comprovante de ${documentLabels[type]}`}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onchange={(event) => upload(type, event)}
+                    disabled={busy || doc?.validation_status === "approved" || !["awaiting_documents", "documents_under_review"].includes(me.status ?? "")}
+                    class="sr-only"
+                  />
+                </label>
+              </div>
             </div>
           {/each}
-        {:else}<p class="muted">A situação das taxas não foi disponibilizada nesta consulta.</p>{/if}
-      </div>
+
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+            <label for="student-blood-type" class="block text-xs font-bold text-white/80">
+              Tipo sanguíneo (opcional)
+            </label>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <select
+                id="student-blood-type"
+                bind:value={bloodType}
+                class="h-12 rounded-xl bg-white/10 border border-white/20 px-4 text-sm text-white focus:outline-none focus:border-[var(--yellow)] transition cursor-pointer flex-1"
+              >
+                <option value="" class="bg-[var(--ink)] text-white">Selecione seu tipo sanguíneo</option>
+                {#each ["A+","A-","B+","B-","AB+","AB-","O+","O-"] as option}
+                  <option value={option} class="bg-[var(--ink)] text-white">{option}</option>
+                {/each}
+              </select>
+              <button
+                type="button"
+                onclick={saveBloodType}
+                disabled={!bloodType || busy}
+                class="min-h-[48px] px-6 py-2.5 rounded-xl bg-[var(--yellow)] hover:bg-[var(--yellow-soft)] text-brand-ink font-bold text-xs sm:text-sm shadow-md transition cursor-pointer disabled:opacity-40"
+              >
+                Salvar tipo sanguíneo
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+    {:else if view === "access" || view === "subjects"}
+      <Card title="Acesso à Plataforma Parceira" description="As disciplinas, aulas e conteúdos ficam exclusivamente no ambiente externo da instituição credenciada">
+        <div class="space-y-4 pt-2">
+          {#if partnerUrl}
+            <a
+              href={partnerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="min-h-[48px] px-6 py-3 rounded-2xl bg-[var(--yellow)] hover:bg-[var(--yellow-soft)] text-brand-ink font-bold text-sm shadow-xl transition inline-flex items-center gap-2"
+            >
+              Abrir plataforma parceira →
+            </a>
+          {:else}
+            <Alert variant="warning" title="Endereço não informado" description="O polo ainda não cadastrou o endereço da plataforma parceira." />
+          {/if}
+
+          {#if me.platform?.login}
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white/5 border border-white/10 text-xs">
+              <div>
+                <dt class="text-white/60">Login</dt>
+                <dd class="text-sm font-mono font-bold text-white mt-0.5">{me.platform.login}</dd>
+              </div>
+              <div>
+                <dt class="text-white/60">Senha</dt>
+                <dd class="text-sm font-mono font-bold text-white mt-0.5">
+                  {showPassword ? (me.platform.password ?? "Não informada") : "••••••••"}
+                </dd>
+              </div>
+              {#if me.platform.notes}
+                <div class="sm:col-span-2 pt-1 border-t border-white/10">
+                  <dt class="text-white/60">Orientações do polo</dt>
+                  <dd class="text-xs text-white/90 mt-0.5 leading-relaxed">{me.platform.notes}</dd>
+                </div>
+              {/if}
+            </dl>
+            <button
+              type="button"
+              onclick={() => { showPassword = !showPassword; }}
+              class="min-h-[44px] px-4 py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer"
+            >
+              {showPassword ? "Ocultar senha" : "Mostrar senha"}
+            </button>
+          {/if}
+        </div>
+      </Card>
+
+      <Card title="Taxas da Instituição Parceira" description="O polo credenciado realiza a quitação das taxas operacionais e pedagógicas">
+        {#if me.partner_fees}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            {#each [{ label: "Primeira taxa", fee: me.partner_fees.first }, { label: "Segunda taxa", fee: me.partner_fees.second }] as item}
+              <div class="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <h3 class="text-sm font-bold text-white">{item.label}</h3>
+                {#if item.fee}
+                  <dl class="text-xs space-y-1">
+                    <div class="flex justify-between">
+                      <dt class="text-white/60">Situação:</dt>
+                      <dd class="font-bold text-white">{item.fee.paid ? "Pago" : feeLabels[item.fee.status] ?? "Em conferência"}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                      <dt class="text-white/60">Valor:</dt>
+                      <dd class="font-mono font-bold text-white">{feeAmount(item.fee.amount)}</dd>
+                    </div>
+                    {#if item.fee.scheduled_for}
+                      <div class="flex justify-between">
+                        <dt class="text-white/60">Programado para:</dt>
+                        <dd class="text-white/80">{dateLabel(item.fee.scheduled_for)}</dd>
+                      </div>
+                    {/if}
+                  </dl>
+                {:else}
+                  <p class="text-xs text-white/60">Pagamento ainda não registrado pelo polo.</p>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="text-xs text-white/60 pt-2">A situação das taxas não foi disponibilizada nesta consulta.</p>
+        {/if}
+      </Card>
+
     {:else}
-      {#if me.exams?.length}<div class="panel"><h2>Suas provas</h2>{#each me.exams as exam (exam.external_id)}<div class="stack"><strong>{exam.subject}</strong><p>{dateLabel(exam.scheduled_at)} — tentativa {exam.attempt_number}</p><p>Resultado: {exam.result === "passed" ? "Aprovado" : exam.result === "failed" ? "Reprovado" : "Aguardando resultado"}</p>{#if exam.notes}<p>{exam.notes}</p>{/if}</div>{/each}</div>{/if}
-      <div class="panel"><h2>Agendamento de prova</h2>{#if me.exam_can_schedule === true}<form class="stack" onsubmit={schedule}><label>Matéria da prova<input aria-label="Matéria da prova" bind:value={subject} required maxlength="120" /></label><label>Data e hora combinadas com o polo<input aria-label="Data e hora combinadas com o polo" type="datetime-local" bind:value={scheduledAt} required /></label><button type="submit" class="btn" disabled={busy}>Confirmar agendamento</button></form>{:else}<p class="muted">O agendamento exige documentos aprovados e dois meses completos desde a confirmação do pagamento.</p>{#if me.exam_available_at}<p>Prazo mínimo: {dateLabel(me.exam_available_at)}.</p>{/if}{/if}</div>
+      <!-- Avaliações e Provas -->
+      {#if me.exams?.length}
+        <Card title="Suas Provas" description="Resultados das provas registradas no sistema acadêmico">
+          <div class="space-y-3 pt-2">
+            {#each me.exams as exam (exam.external_id)}
+              <div class="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-bold text-white">{exam.subject}</h3>
+                  <p class="text-xs text-white/60 mt-0.5">{dateLabel(exam.scheduled_at)} • Tentativa {exam.attempt_number}</p>
+                  {#if exam.notes}
+                    <p class="text-xs text-white/80 mt-1">{exam.notes}</p>
+                  {/if}
+                </div>
+                <Badge variant={exam.result === "passed" ? "success" : exam.result === "failed" ? "danger" : "warning"} size="sm">
+                  {exam.result === "passed" ? "✓ Aprovado" : exam.result === "failed" ? "✕ Reprovado" : "Aguardando resultado"}
+                </Badge>
+              </div>
+            {/each}
+          </div>
+        </Card>
+      {/if}
+
+      <Card title="Agendamento de Prova" description="O agendamento exige documentos aprovados e 60 dias completos desde a confirmação do pagamento">
+        {#if me.exam_can_schedule === true}
+          <form class="space-y-4 pt-2" onsubmit={schedule}>
+            <div class="space-y-1.5">
+              <label for="exam-subject-input" class="block text-xs font-bold text-white/80">
+                Matéria da prova *
+              </label>
+              <input
+                id="exam-subject-input"
+                aria-label="Matéria da prova"
+                bind:value={subject}
+                required
+                maxlength="120"
+                class="w-full h-12 rounded-xl bg-white/10 border border-white/20 px-4 text-sm text-white focus:outline-none focus:border-[var(--yellow)] transition"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label for="exam-scheduled-at-input" class="block text-xs font-bold text-white/80">
+                Data e hora combinadas com o polo *
+              </label>
+              <input
+                id="exam-scheduled-at-input"
+                aria-label="Data e hora combinadas com o polo"
+                type="datetime-local"
+                bind:value={scheduledAt}
+                required
+                class="w-full h-12 rounded-xl bg-white/10 border border-white/20 px-4 text-sm text-white focus:outline-none focus:border-[var(--yellow)] transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={busy}
+              class="w-full sm:w-auto min-h-[48px] px-8 py-3 rounded-2xl bg-[var(--yellow)] hover:bg-[var(--yellow-soft)] text-brand-ink font-bold text-sm shadow-xl transition cursor-pointer disabled:opacity-40"
+            >
+              Confirmar agendamento →
+            </button>
+          </form>
+        {:else}
+          <div class="space-y-2 pt-2">
+            <p class="text-xs text-white/60 leading-relaxed">
+              O agendamento de provas presenciais/finais exige que todos os documentos estejam validados e período mínimo pedagógico de 60 dias desde a confirmação do pagamento da matrícula.
+            </p>
+            {#if me.exam_available_at}
+              <p class="text-xs font-semibold text-[var(--yellow)]">Prazo mínimo estimado: {dateLabel(me.exam_available_at)}.</p>
+            {/if}
+          </div>
+        {/if}
+      </Card>
     {/if}
   {/if}
 </section>

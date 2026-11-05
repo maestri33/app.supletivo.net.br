@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { whoami, requestAuth } from "@/lib/api";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
 
   interface ReviewItem {
     id: string;
@@ -158,10 +162,9 @@
   <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-amber-500/40 bg-gradient-to-br from-amber-950/60 to-blue-deep/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
       <div>
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-xs font-semibold text-amber-300 mb-2">
-          <span class="size-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <Badge variant="warning" pulse size="md" class="mb-2">
           Status de Atenção: Revisão
-        </div>
+        </Badge>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Central de Análises do Polo</h1>
         <p class="text-xs sm:text-sm text-amber-100/80 mt-1">
           Pendências documentais de matrículas e aprovações de novos consultores aguardando validação presencial ou documental do coordenador <strong>{coordinatorName}</strong>.
@@ -179,31 +182,47 @@
     </div>
 
     {#if decisionError}
-      <div class="p-3 mb-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-200 flex items-center justify-between">
-        <span>{decisionError}</span>
-        <button type="button" onclick={() => (decisionError = null)} class="text-white/60 hover:text-white ml-2">✕</button>
-      </div>
+      <Alert
+        variant="danger"
+        title="Erro na decisão"
+        description={decisionError}
+        class="mb-4"
+      >
+        <button type="button" onclick={() => (decisionError = null)} class="text-white/60 hover:text-white mt-1 text-xs underline cursor-pointer">Fechar aviso</button>
+      </Alert>
     {/if}
 
     {#if loadError}
-      <div class="p-4 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-xs text-rose-200">
-        <span>{loadError}</span>
+      <Alert
+        variant="danger"
+        title="Erro ao carregar fila de revisões"
+        description={loadError}
+        class="mb-4"
+      >
         <button
           type="button"
           onclick={loadReviewQueue}
-          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-semibold cursor-pointer transition-colors"
+          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-semibold cursor-pointer transition-colors mt-2"
         >
           Tentar novamente
         </button>
-      </div>
+      </Alert>
     {/if}
 
     <!-- Lista de Itens para Revisão -->
     {#if loading}
-      <div class="p-8 text-center text-xs text-white/60">Carregando fila de revisões do polo...</div>
+      <div class="p-4 space-y-3">
+        <Skeleton class="h-16 w-full rounded-2xl" />
+        <Skeleton class="h-16 w-full rounded-2xl" />
+        <Skeleton class="h-16 w-full rounded-2xl" />
+      </div>
     {:else if !loadError && items.length === 0}
-      <div class="p-8 rounded-2xl border border-dashed border-white/15 text-center text-xs text-white/70">
-        🎉 Nenhuma pendência documental na fila do polo no momento.
+      <div class="p-4">
+        <EmptyState
+          icon="🎉"
+          title="Nenhuma pendência na fila"
+          description="Todas as pendências documentais e aprovações do polo foram conferidas no momento."
+        />
       </div>
     {:else}
       <div class="space-y-3">
@@ -211,9 +230,9 @@
           <div class="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded font-bold uppercase text-[10px] {item.type === 'enrollment' ? 'bg-blue-500/20 text-blue-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                <Badge variant={item.type === 'enrollment' ? 'info' : 'success'} size="sm">
                   {item.type === 'enrollment' ? 'Matrícula' : item.type === 'student' ? 'Aluno' : 'Promotor'}
-                </span>
+                </Badge>
                 <strong class="text-sm font-bold text-white">{item.name}</strong>
               </div>
               <p class="text-white/60">{item.doc}</p>

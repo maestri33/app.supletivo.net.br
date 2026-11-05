@@ -19,9 +19,11 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
           refresh_token: "mock-refresh-token",
           token_type: "bearer",
           roles: ["aluno"],
+          role_statuses: { student: "active" },
           user: {
             external_id: "22222222-2222-4222-8222-222222222222",
             roles: ["aluno"],
+            role_statuses: { student: "active" },
           },
           savedAt: Date.now(),
         })
@@ -35,6 +37,7 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
         body: JSON.stringify({
           external_id: externalId,
           roles: ["aluno"],
+          role_statuses: { student: "active" },
           name: "Maria Silva",
         }),
       });
@@ -58,22 +61,21 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
         contentType: "application/json",
         body: JSON.stringify({
           external_id: externalId,
-          status: "awaiting_documents",
+          status: "active",
           pendencies: [{ id: "doc-1", type: "id_card" }],
           platform: { url: "https://ava.parceiro.com.br" },
         }),
       });
     });
 
-    await page.goto("/student/enrollment");
-
-    // Item de Matrícula/Documentos do dock visível
-    const docItem = page.locator("a[href='/student/enrollment']").first();
-    await expect(docItem).toBeVisible({ timeout: 10000 });
+    await page.goto("/student/active/dashboard");
 
     // Permanece no dock globalmente
-    const homeItem = page.locator("a[href='/student']").first();
+    const homeItem = page.locator("a[href='/student/active/dashboard']").first();
     await expect(homeItem).toBeVisible({ timeout: 10000 });
+
+    const docItem = page.locator("a[href='/student/active/documents']").first();
+    await expect(docItem).toBeVisible({ timeout: 10000 });
   });
 
   test("deve transmutar itens do dock ao alternar tabs em usuário multi-role", async ({ page }) => {
@@ -87,9 +89,11 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
           refresh_token: "mock-refresh-token",
           token_type: "bearer",
           roles: ["aluno", "promotor"],
+          role_statuses: { student: "enrollment", promoter: "candidate" },
           user: {
             external_id: "33333333-3333-4333-8333-333333333333",
             roles: ["aluno", "promotor"],
+            role_statuses: { student: "enrollment", promoter: "candidate" },
           },
           savedAt: Date.now(),
         })
@@ -103,6 +107,7 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
         body: JSON.stringify({
           external_id: externalId,
           roles: ["aluno", "promotor"],
+          role_statuses: { student: "enrollment", promoter: "candidate" },
           name: "Carlos Consultor",
         }),
       });
@@ -141,20 +146,20 @@ test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
     await expect(tabAluno).toBeVisible({ timeout: 10000 });
     await expect(tabPromotor).toBeVisible();
 
-    // Inicialmente dock do aluno tem /student/enrollment
-    await expect(page.locator("a[href='/student/enrollment']").first()).toBeVisible();
+    // Inicialmente dock do aluno no status awaiting_documents tem itens de documentação
+    await expect(page.locator("a[href='/student/enrollment/rg']").first()).toBeVisible();
 
     // Clica na tab Promotor
     await tabPromotor.click();
 
-    // O dock deve transmutar para os itens de credenciamento do candidato (/promoter/candidate)
-    await expect(page.locator("a[href='/promoter/candidate']").first()).toBeVisible();
+    // O dock deve transmutar para os itens de credenciamento do candidato (#documents, #pix, etc.)
+    await expect(page.locator("a[href='#pix']").first()).toBeVisible();
 
     // Alterna para o status de Promotor Ativo
     await page.locator("button[role='tab']:has-text('Promotor Ativo')").click();
 
-    // O dock deve transmutar para os itens do Promotor Ativo (/promoter/active e /promoter/training)
-    await expect(page.locator("a[href='/promoter/active']").first()).toBeVisible();
-    await expect(page.locator("a[href='/promoter/training']").first()).toBeVisible();
+    // O dock deve transmutar para os itens do Promotor Ativo (/promoter/active/dashboard e /promoter/active/leads)
+    await expect(page.locator("a[href='/promoter/active/dashboard']").first()).toBeVisible();
+    await expect(page.locator("a[href='/promoter/active/leads']").first()).toBeVisible();
   });
 });

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getErrorMessage, mediaUrl, requestAuth, whoami } from "@/lib/api";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
 
   interface Material {
     material_external_id: string;
@@ -96,13 +99,28 @@
     <p class="eyebrow">Treinamento obrigatório</p>
     <h1>Capacitação do promotor</h1>
     <p>As matérias e perguntas abaixo são carregadas da sua atribuição atual. A liberação depende da correção do backend.</p>
-    {#if promoter}<p class:locked={promoter.locked} class:released={!promoter.locked} class="state-pill">{promoter.locked ? "Painel bloqueado enquanto houver matéria pendente" : "Painel liberado"}</p>{/if}
+    {#if promoter}
+      <div class="mt-3">
+        <Badge variant={promoter.locked ? "warning" : "success"} size="sm" pulse={promoter.locked}>
+          {promoter.locked ? "Painel bloqueado enquanto houver matéria pendente" : "Painel liberado"}
+        </Badge>
+      </div>
+    {/if}
   </header>
-  {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
-  {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
-  {#if loading}<p role="status">Consultando matérias atribuídas…</p>
+  {#if error}
+    <Alert variant="danger" title="Atenção" description={error} />
+  {/if}
+  {#if notice}
+    <Alert variant="info" title="Informação" description={notice} />
+  {/if}
+  {#if loading}
+    <p role="status">Consultando matérias atribuídas…</p>
   {:else if materials.length === 0}
-    <section class="training-card"><h2>Nenhuma matéria atribuída</h2><p>O treinamento aparecerá quando a coordenação atribuir uma matéria ao seu perfil.</p></section>
+    <EmptyState
+      icon="📚"
+      title="Nenhuma matéria atribuída"
+      description="O treinamento aparecerá quando a coordenação atribuir uma matéria ao seu perfil."
+    />
   {:else}
     <nav class="materials" aria-label="Matérias atribuídas">
       {#each materials as item}
@@ -113,7 +131,15 @@
     </nav>
     {#if active}
       <article class="training-card">
-        <div class="card-heading"><div><p class="kicker">{active.kind === "transitory" ? "Atualização" : "Matéria atribuída"}</p><h2>{active.title}</h2></div><span class="status">{statusLabel(active)}</span></div>
+        <div class="card-heading">
+          <div>
+            <p class="kicker">{active.kind === "transitory" ? "Atualização" : "Matéria atribuída"}</p>
+            <h2>{active.title}</h2>
+          </div>
+          <Badge variant={approved ? "success" : rejected ? "danger" : waiting ? "warning" : "info"} size="sm" pulse={waiting}>
+            {statusLabel(active)}
+          </Badge>
+        </div>
         {#if active.text_content}<p class="material-text">{active.text_content}</p>{/if}
         {#each active.content_blocks ?? [] as block}
           {#if block.type === "video" && (block.url || block.src)}<video controls preload="metadata" src={mediaUrl(block.url ?? block.src) ?? undefined}></video>

@@ -41,7 +41,7 @@ const { appName = "Supletivo", brandColor } = Astro.props;
     </div>
 
     <div class="flex items-center gap-2">
-      <AppHeaderUser client:load showLogout={/^\/(student|promoter)(\/|$)/.test(Astro.url.pathname)} />
+      <AppHeaderUser client:load showLogout={/^\/(student|aluno|promoter|promotor|hub|polo)(\/|$)/.test(Astro.url.pathname)} />
     </div>
   </div>
 </header>

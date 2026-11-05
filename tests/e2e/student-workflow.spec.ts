@@ -102,7 +102,7 @@ test("selfie exibe contrato vigente, exige ciência e espera liberação do polo
   await page.goto("/student/enrollment/selfie");
   await expect(page.getByText("Contrato vigente fornecido pelo servidor.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeDisabled();
-  await page.getByLabel("Li o contrato e autorizo a assinatura com minha selfie").check();
+  await page.getByLabel(/Li o contrato e autorizo a assinatura/i).check();
   await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
   await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
   await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
@@ -118,7 +118,7 @@ test("falha no envio da selfie continua recuperável e não confirma matrícula"
   await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture-version", hash: "fixture-hash", text: "Contrato de teste." } }));
   await page.route("**/api/v1/clients/enrollment/selfie", route => route.fulfill({ status: 422, json: { detail: "Envie uma imagem legível." } }));
   await page.goto("/student/enrollment/selfie");
-  await page.getByLabel("Li o contrato e autorizo a assinatura com minha selfie").check();
+  await page.getByLabel(/Li o contrato e autorizo a assinatura/i).check();
   await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
   await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
   await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();

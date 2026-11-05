@@ -2,6 +2,11 @@
   import { onMount } from "svelte";
   import { requestAuth, getErrorMessage } from "@/lib/api";
   import { commissionTotal, moneyLabel, COMMISSION_STATUS_LABELS, type PromoterProfile } from "@/lib/promoter";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import Table from "@/components/ui/Table.svelte";
 
   interface CommissionItem {
     external_id: string;
@@ -57,14 +62,19 @@
 </script>
 
 <div class="w-full max-w-5xl mx-auto p-4 sm:p-6 text-white space-y-6">
-  {#if error}<div role="alert" class="text-[var(--danger)]"><p>{error}</p><button type="button" class="btn min-h-12 px-5 mt-3" onclick={load}>Tentar novamente</button></div>{:else}
+  {#if error}
+    <div class="space-y-3">
+      <Alert variant="danger" title="Erro no extrato" description={error} />
+      <button type="button" class="btn min-h-12 px-5" onclick={load}>Tentar novamente</button>
+    </div>
+  {:else}
   <!-- Painel de Repasses PIX -->
   <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-green-deep/90 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
       <div>
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-xs font-semibold text-[var(--yellow)] mb-2">
+        <Badge variant="conversion" size="md" class="mb-2">
           Finanças & Repasses
-        </div>
+        </Badge>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Comissões & Extrato PIX</h1>
         <p class="text-xs sm:text-sm text-white/70 mt-1">
           Acompanhe suas bonificações por matrícula aprovada e datas de fechamento semanal.
@@ -110,60 +120,59 @@
 
   <!-- Extrato de Comissões -->
   <div class="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-md overflow-hidden shadow-xl">
-    <div class="p-5 border-b border-white/10 bg-white/5 flex items-center justify-between">
+    <div class="p-5 border-b border-white/10 bg-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <h2 class="text-base font-bold text-white">Histórico de Comissões</h2>
       <span class="text-xs text-white/60">R$ 100,00 por matrícula + Bônus de R$ 500,00 a cada 5 matrículas na semana</span>
     </div>
 
     {#if loading}
-      <div class="p-12 text-center text-white/60">
-        <div class="size-6 border-2 border-[var(--yellow)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p class="text-sm">Carregando extrato de comissões...</p>
+      <div class="p-6 space-y-3">
+        <Skeleton class="h-10 w-full rounded-xl" />
+        <Skeleton class="h-10 w-full rounded-xl" />
+        <Skeleton class="h-10 w-full rounded-xl" />
       </div>
     {:else if commissions.length === 0}
-      <div class="p-12 text-center text-white/60">
-        <p class="text-base font-semibold text-white/80">Nenhuma comissão registrada</p>
-        <p class="text-xs text-white/50 mt-1">Quando seus alunos efetuarem o pagamento da matrícula, a bonificação aparecerá aqui.</p>
+      <div class="p-6">
+        <EmptyState
+          icon="💰"
+          title="Nenhuma comissão registrada"
+          description="Quando seus alunos efetuarem o pagamento da matrícula, a bonificação aparecerá aqui."
+        />
       </div>
     {:else}
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs text-white/80">
-          <thead class="border-b border-white/10 bg-white/5 text-[11px] uppercase tracking-wider text-white/60 font-semibold">
-            <tr>
-              <th class="p-4 pl-6">Origem da Bonificação</th>
-              <th class="p-4">Data</th>
-              <th class="p-4">Valor</th>
-              <th class="p-4 pr-6 text-right">Status do Repasse</th>
+      <Table>
+        <thead class="border-b border-white/10 bg-white/5 text-[11px] uppercase tracking-wider text-white/60 font-semibold">
+          <tr>
+            <th class="p-4 pl-6">Origem da Bonificação</th>
+            <th class="p-4">Data</th>
+            <th class="p-4">Valor</th>
+            <th class="p-4 pr-6 text-right">Status do Repasse</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/10">
+          {#each commissions as item (item.external_id)}
+            <tr class="hover:bg-white/5 transition-colors">
+              <td class="p-4 pl-6 font-medium text-white">
+                {item.source}
+              </td>
+              <td class="p-4 text-white/60">
+                {formatDate(item.created_at)}
+              </td>
+              <td class="p-4 font-bold text-emerald-400">
+                R$ {parseFloat(item.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </td>
+              <td class="p-4 pr-6 text-right">
+                <Badge
+                  variant={item.status === "paid" ? "success" : "warning"}
+                  size="sm"
+                >
+                  {item.status === "paid" ? "✓ Pago no PIX" : (COMMISSION_STATUS_LABELS[item.status] ?? "Status não informado")}
+                </Badge>
+              </td>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-white/10">
-            {#each commissions as item (item.external_id)}
-              <tr class="hover:bg-white/5 transition-colors">
-                <td class="p-4 pl-6 font-medium text-white">
-                  {item.source}
-                </td>
-                <td class="p-4 text-white/60">
-                  {formatDate(item.created_at)}
-                </td>
-                <td class="p-4 font-bold text-emerald-400">
-                  R$ {parseFloat(item.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </td>
-                <td class="p-4 pr-6 text-right">
-                  {#if item.status === "paid"}
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      ✓ Pago no PIX
-                    </span>
-                  {:else}
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      {COMMISSION_STATUS_LABELS[item.status] ?? "Status não informado"}
-                    </span>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {/each}
+        </tbody>
+      </Table>
     {/if}
   </div>
   {/if}

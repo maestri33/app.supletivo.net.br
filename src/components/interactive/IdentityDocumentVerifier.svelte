@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { compressImage } from "@/lib/image-compression";
   import { getEnrollmentMe, postEnrollmentRgPhoto, rgAnalysisStatus } from "@/lib/api";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   interface Props {
     canReceiveCnh?: boolean;
@@ -24,6 +25,7 @@
   let isAnalyzing = $state(false);
   let isUploading = $state(false);
   let triageError = $state<string | null>(null);
+  let isErrorDialogOpen = $state(false);
   let mounted = $state(false);
 
   onMount(async () => {
@@ -122,6 +124,7 @@
 
       if (!triage.valid) {
         triageError = triage.errorMessage || "Não foi possível validar o documento. Tente novamente.";
+        isErrorDialogOpen = true;
         return;
       }
 
@@ -185,6 +188,7 @@
       }
     } catch (e: any) {
       triageError = e?.message || "Erro ao processar o arquivo. Tente novamente.";
+      isErrorDialogOpen = true;
     } finally {
       isAnalyzing = false;
     }
@@ -396,4 +400,14 @@
       </div>
     </div>
   {/if}
+
+  <ErrorDialog
+    isOpen={isErrorDialogOpen}
+    error={triageError}
+    primaryAction={{
+      label: "Tentar Novamente",
+      action: () => { isErrorDialogOpen = false; }
+    }}
+    onClose={() => { isErrorDialogOpen = false; }}
+  />
 </div>

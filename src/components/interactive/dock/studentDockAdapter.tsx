@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { identityDockItems } from "./identityDockItems";
 import type { FloatingDockItem, DockStatusIndicator } from "@/components/ui/floating-dock";
 import type { AdapterContext, StudentDockState, ItemHealthStatus } from "./types";
@@ -33,7 +33,7 @@ function mapHealthToIndicator(health?: ItemHealthStatus): DockStatusIndicator {
 /**
  * Adapter do Ambiente do Estudante.
  * Mapeia dinamicamente os itens do dock reagindo ao status (lead, enrollment, active, veteran).
- * Cada botão aponta estritamente para rota padronizada: /student/{status}/{action}
+ * Cada botÃ£o aponta estritamente para rota padronizada: /student/{status}/{action}
  */
 export function getStudentDockItems(
   state: StudentDockState,
@@ -42,7 +42,7 @@ export function getStudentDockItems(
   const { currentPath, onLogout } = ctx;
   const rawStatus = state.status || "";
 
-  // ── 1. STATUS LEAD: Funil de Conversão & Checkout (2 Etapas + Sair) ──
+  // â”€â”€ 1. STATUS LEAD: Funil de ConversÃ£o & Checkout (2 Etapas + Sair) â”€â”€
   if (
     rawStatus === "lead" ||
     currentPath.startsWith("/student/lead")
@@ -58,7 +58,7 @@ export function getStudentDockItems(
       modality === "pix"
         ? "Checkout PIX"
         : modality === "credit_card"
-          ? "Checkout Cartão"
+          ? "Checkout CartÃ£o"
           : "Checkout";
 
     const checkoutIcon =
@@ -125,7 +125,7 @@ export function getStudentDockItems(
     ];
   }
 
-  // ── 2. STATUS ACTIVE: Estudante Ativo / Cursando Módulos ──
+  // â”€â”€ 2. STATUS ACTIVE: Estudante Ativo / Cursando Módulos â”€â”€
   if (
     rawStatus === "active" ||
     rawStatus === "exam_released" ||
@@ -202,7 +202,7 @@ export function getStudentDockItems(
     ];
   }
 
-  // ── 3. STATUS VETERAN: Concluinte / Emissão de Diploma MEC ──
+  // â”€â”€ 3. STATUS VETERAN: Concluinte / Emissão de Diploma MEC â”€â”€
   if (
     rawStatus === "veteran" ||
     rawStatus === "graduated" ||
@@ -263,13 +263,14 @@ export function getStudentDockItems(
     ];
   }
 
-  // ── 4. STATUS ENROLLMENT: Matrícula & Documentação Obrigatória ──
-  // Padrão para alunos que pagaram matrícula e estão na fase documental
+  // â”€â”€ 4. STATUS ENROLLMENT: MatrÃ­cula & Documentação Obrigatória â”€â”€
+  // Padrão para alunos que pagaram matrÃ­cula e estão na fase documental
   const documentPath = currentPath.split("#")[0];
   const active = documentPath.endsWith("/address") ? "address" : documentPath.endsWith("/education") ? "education" : documentPath.endsWith("/selfie") ? "selfie" : "documents";
   return identityDockItems({
     documentTitle: "RG", active,
     paths: { documents: "/student/enrollment/rg", address: "/student/enrollment/address", education: "/student/enrollment/education", selfie: "/student/enrollment/selfie" },
     health: { documents: state.rgStatus, address: state.addressStatus, education: state.educationStatus, selfie: state.selfieStatus },
+    onLogout,
   });
 }

@@ -115,7 +115,14 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
 
 let refreshPromise: Promise<LoginResponse> | null = null;
 
-async function refreshAuthTokens(): Promise<LoginResponse> {
+async function doRefreshAuthTokens(failedToken?: string): Promise<LoginResponse> {
+  const currentAccess = getAccessToken();
+  // Se outra aba ou chamada concorrente já renovou o token de acesso, reutiliza imediatamente
+  if (failedToken && currentAccess && currentAccess !== failedToken) {
+    const refresh = getRefreshToken() ?? "";
+    return { access_token: currentAccess, refresh_token: refresh } as LoginResponse;
+  }
+
   if (!refreshPromise) {
     const refresh = getRefreshToken();
     if (!refresh) {
@@ -136,10 +143,21 @@ async function refreshAuthTokens(): Promise<LoginResponse> {
 }
 
 /**
+ * Renova tokens de autenticação com sincronização cross-tab via Web Locks API (navigator.locks).
+ * Evita invalidação múltipla de refresh token quando múltiplas abas retornam 401 ao mesmo tempo.
+ */
+async function refreshAuthTokens(failedToken?: string): Promise<LoginResponse> {
+  if (typeof navigator !== "undefined" && navigator?.locks?.request) {
+    return navigator.locks.request("supletivo_auth_refresh_lock", () => doRefreshAuthTokens(failedToken));
+  }
+  return doRefreshAuthTokens(failedToken);
+}
+
+/**
  * Authenticated request with silent refresh: on 401, exchanges the refresh_token
  * once (POST /auth/refresh) and retries. If refresh also fails, the session is
  * cleared so guards send the user back to the funnel start.
- * Single-flight mutex eliminates concurrent 401 refresh race conditions.
+ * Cross-tab Web Lock + single-flight mutex eliminates concurrent 401 refresh race conditions.
  */
 export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
@@ -150,7 +168,7 @@ export async function requestAuth<T>(path: string, opts: RequestOptions = {}): P
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
     let tokens: LoginResponse;
-    try { tokens = await withDeadline(refreshAuthTokens, deadline - Date.now()); }
+    try { tokens = await withDeadline(() => refreshAuthTokens(token), deadline - Date.now()); }
     catch (failure) {
       if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
         clearSession();

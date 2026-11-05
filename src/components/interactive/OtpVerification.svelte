@@ -20,10 +20,16 @@
   } from "@/lib/session";
   import { getRoleDestination } from "@/lib/roles";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
+  import InputOtp from "@/components/ui/InputOtp.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
+  import { toast } from "@/lib/toast";
 
-  let digits = $state(["", "", "", "", "", ""]);
+  let code = $state("");
+  let otpInputRef = $state<ReturnType<typeof InputOtp> | null>(null);
   let busy = $state(false);
   let errorMessage = $state<string | null>(null);
+  let errorCode = $state("");
+  let isErrorDialogOpen = $state(false);
   let resendCooldown = $state(60);
   let phone = $state("");
   let externalId = $state("");
@@ -35,7 +41,6 @@
 
   let isPromoter = $derived(role === "promotor" || role === "promoter");
 
-  let code = $derived(digits.join(""));
   let isComplete = $derived(code.length === 6);
 
   onMount(async () => {
@@ -135,9 +140,6 @@
       return;
     }
 
-    // Foca o primeiro input
-    focusInput(0);
-
     // Inicia contagem regressiva
     const timer = setInterval(() => {
       if (resendCooldown > 0) {
@@ -147,75 +149,6 @@
 
     return () => clearInterval(timer);
   });
-
-  function focusInput(idx: number) {
-    const el = document.getElementById(`otp-${idx}`) as HTMLInputElement | null;
-    if (el) {
-      el.focus();
-    } else {
-      setTimeout(() => {
-        const fallback = document.getElementById(`otp-${idx}`) as HTMLInputElement | null;
-        fallback?.focus();
-      }, 0);
-    }
-  }
-
-  function handleInput(idx: number, e: Event) {
-    const target = e.target as HTMLInputElement;
-    const val = target.value.replace(/\D/g, "");
-
-    if (val.length > 1) {
-      // Tratamento de colagem (paste) ou digitação rápida
-      const chars = val.slice(0, 6).split("");
-      for (let i = 0; i < 6; i++) {
-        digits[i] = chars[i] || "";
-      }
-      if (chars.length === 6) {
-        focusInput(5);
-        submitCode();
-      } else {
-        focusInput(chars.length);
-      }
-      return;
-    }
-
-    digits[idx] = val;
-    errorMessage = null;
-
-    if (val && idx < 5) {
-      focusInput(idx + 1);
-    }
-
-    if (idx === 5 && digits.every((d) => d.length === 1)) {
-      submitCode();
-    }
-  }
-
-  function handleKeyDown(idx: number, e: KeyboardEvent) {
-    if (e.key === "Backspace" && !digits[idx] && idx > 0) {
-      digits[idx - 1] = "";
-      focusInput(idx - 1);
-    }
-  }
-
-  function handlePaste(e: ClipboardEvent) {
-    e.preventDefault();
-    const pasted = e.clipboardData?.getData("text") || "";
-    const clean = pasted.replace(/\D/g, "").slice(0, 6);
-    if (!clean) return;
-
-    const chars = clean.split("");
-    for (let i = 0; i < 6; i++) {
-      digits[i] = chars[i] || "";
-    }
-
-    if (clean.length === 6) {
-      focusInput(5);
-      submitCode();
-    } else {
-      focusInput(clean.length);
-    }
-  }
 
   async function submitCode() {
     if (!isComplete || busy) return;
@@ -269,15 +202,19 @@
         });
         const target = getRoleDestination(who);
         if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
-        window.location.href = target;
+        const returnTo = urlParams.get("return_to");
+        const safeReturnTo = (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) ? returnTo : null;
+        window.location.href = safeReturnTo || target;
         return;
       } catch {
         window.location.href = '/autenticacao/conta';
       }
     } catch (err: any) {
       errorMessage = getErrorMessage(err);
-      digits = ["", "", "", "", "", ""];
-      focusInput(0);
+      errorCode = err?.code || "";
+      isErrorDialogOpen = true;
+      code = "";
+      otpInputRef?.clear();
     } finally {
       busy = false;
     }
@@ -304,15 +241,21 @@
         saveSession({ ...saved, phone, externalId: res.external_id });
       }
       resendCooldown = res.otp_wait || 60;
-      digits = ["", "", "", "", "", ""];
-      focusInput(0);
+      code = "";
+      otpInputRef?.clear();
+      isErrorDialogOpen = false;
+      toast.success("Novo código enviado para seu WhatsApp!");
     } catch (err: any) {
       if (err?.status === 429) {
         const retrySec = Number(err?.extra?.retry_after_s) || 60;
         resendCooldown = retrySec;
         errorMessage = `Aguarde ${retrySec}s antes de pedir outro código.`;
+        errorCode = "RATE_LIMITED";
+        isErrorDialogOpen = true;
       } else {
         errorMessage = "Não foi possível reenviar o código. Tente novamente em instantes.";
+        errorCode = "RESEND_FAILED";
+        isErrorDialogOpen = true;
       }
     } finally {
       busy = false;
@@ -341,39 +284,38 @@
     </p>
     <div class="mt-1 flex items-center justify-center gap-2">
       <span class="font-mono font-bold text-emerald-300 text-sm">{formatDisplayPhone(phone)}</span>
-      <a href="/" class="text-xs text-white/40 hover:text-white underline">
+      <a href={`/?trocar=1&tel=${encodeURIComponent(phone)}`} class="text-xs text-white/40 hover:text-white underline">
         Trocar
       </a>
     </div>
   </div>
 
   <div class="space-y-6">
-    <!-- Grid dos 6 dígitos -->
-    <div class="flex items-center justify-between gap-2 sm:gap-3" onpaste={handlePaste}>
-      {#each digits as digit, i (i)}
-        <input
-          id="otp-{i}"
-          type="text"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          maxlength={i === 0 ? 6 : 1}
-          autocomplete={i === 0 ? "one-time-code" : "off"}
-          value={digit}
-          oninput={(e) => handleInput(i, e)}
-          onkeydown={(e) => handleKeyDown(i, e)}
-          disabled={busy}
-          data-hydrated={mounted}
-          class="size-12 sm:size-14 text-center text-xl sm:text-2xl font-bold font-mono rounded-xl bg-white/5 border border-white/20 text-white focus:border-yellow focus:ring-2 focus:ring-yellow/30 focus:outline-none transition shadow-inner"
-        />
-      {/each}
-    </div>
+    <!-- Grid dos 6 dígitos (InputOTP Component) -->
+    <InputOtp
+      bind:this={otpInputRef}
+      bind:value={code}
+      length={6}
+      disabled={busy}
+      error={isErrorDialogOpen || !!errorMessage}
+      oncomplete={() => { submitCode(); }}
+    />
 
-    {#if errorMessage}
-      <div class="p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-200 text-xs flex items-center gap-2">
-        <span>⚠️</span>
-        <span>{errorMessage}</span>
-      </div>
-    {/if}
+    <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
+    <ErrorDialog
+      isOpen={isErrorDialogOpen}
+      error={errorMessage}
+      code={errorCode}
+      primaryAction={errorCode === "OTP_EXPIRED" || (errorMessage || "").toLowerCase().includes("expirado")
+        ? { label: "Reenviar Novo Código", action: () => { isErrorDialogOpen = false; void handleResend(); } }
+        : errorCode === "OTP_INVALID" || (errorMessage || "").toLowerCase().includes("incorreto")
+          ? { label: "Digitar Novamente", action: () => { isErrorDialogOpen = false; code = ""; otpInputRef?.clear(); otpInputRef?.focus(); } }
+          : undefined}
+      secondaryAction={errorCode === "OTP_EXPIRED" || (errorMessage || "").toLowerCase().includes("expirado")
+        ? { label: "Trocar Número", action: () => { window.location.href = `/?trocar=1&tel=${encodeURIComponent(phone)}`; } }
+        : undefined}
+      onClose={() => { isErrorDialogOpen = false; }}
+    />
 
     <!-- Indicador Passivo Zero-Button (sem dependência de clique manual) -->
     <div class="pt-1">

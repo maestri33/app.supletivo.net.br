@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { requestAuth } from "@/lib/api";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import Card from "@/components/ui/Card.svelte";
 
   interface Student { id?: string; external_id?: string; name?: string; status?: string; }
   interface Payload { items?: Student[]; }
@@ -26,24 +31,37 @@
 
 <section class="w-full max-w-4xl mx-auto flex-1 flex flex-col p-4 sm:p-6 pb-28 space-y-6" aria-busy={loading}>
   <div class="border-b border-white/10 pb-4">
-    <span class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Secretaria de Polo</span>
+    <Badge variant="info" size="sm" class="mb-2">Secretaria de Polo</Badge>
     <h1 class="text-2xl sm:text-3xl font-extrabold text-white font-display">Provas presenciais</h1>
     <p class="text-sm text-white/70 mt-2">Esta fila mostra somente alunos que o servidor liberou ou agendou para avaliação.</p>
   </div>
 
   {#if error}
-    <div class="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-100" role="alert">{error}</div>
+    <Alert variant="danger" title="Erro na consulta" description={error} />
   {:else if loading}
-    <p class="text-sm text-white/60" role="status">Consultando o servidor…</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <Skeleton class="h-28 w-full rounded-2xl" />
+      <Skeleton class="h-28 w-full rounded-2xl" />
+    </div>
   {:else if examStudents.length === 0}
-    <div class="p-6 rounded-2xl border border-white/10 bg-white/5 text-white/70">Nenhuma avaliação liberada ou agendada no momento.</div>
+    <EmptyState
+      icon="📝"
+      title="Nenhuma avaliação agendada"
+      description="Nenhuma avaliação liberada ou agendada no polo no momento."
+    />
   {:else}
     <div class="grid gap-4 sm:grid-cols-2">
       {#each examStudents as item}
-        <article class="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-          <h2 class="text-base font-bold text-white">{item.name || item.external_id || item.id || "Aluno"}</h2>
-          <p class="text-xs text-sky-200">Status do servidor: {item.status === "exam_scheduled" ? "Prova agendada" : "Prova liberada"}</p>
-        </article>
+        <Card
+          title={item.name || item.external_id || item.id || "Aluno"}
+          description={`ID: ${item.external_id || item.id || "—"}`}
+        >
+          {#snippet actions()}
+            <Badge variant={item.status === "exam_scheduled" ? "warning" : "success"} size="sm" pulse={item.status === "exam_scheduled"}>
+              {item.status === "exam_scheduled" ? "Prova agendada" : "Prova liberada"}
+            </Badge>
+          {/snippet}
+        </Card>
       {/each}
     </div>
   {/if}

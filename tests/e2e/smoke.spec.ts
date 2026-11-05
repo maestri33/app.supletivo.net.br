@@ -77,6 +77,7 @@ test.describe("app-supletivo · smoke", () => {
         body: JSON.stringify({
           external_id: externalId,
           roles: ["aluno"],
+          role_statuses: { student: "active" },
           name: "Aluno Teste",
         }),
       });

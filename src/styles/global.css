@@ -49,6 +49,7 @@
   /* Tipografia Canônica */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Archivo Black', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Cores Canônicas (DESIGN.md) */
   --color-green: var(--green);
@@ -269,6 +270,12 @@ textarea {
   18%,
   100% {
     transform: translateX(130%) skewX(-8deg);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 

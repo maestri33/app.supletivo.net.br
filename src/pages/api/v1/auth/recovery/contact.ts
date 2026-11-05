@@ -114,7 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
           }
         );
       }
-    } catch (backendErr) {
+    } catch {
       console.warn("[CONTACT_RECOVERY] Backend unavailable; recovery was not confirmed.");
     }
 

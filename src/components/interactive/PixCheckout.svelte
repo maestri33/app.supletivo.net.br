@@ -5,6 +5,11 @@
   import PixIcon from "@/components/icons/PixIcon.svelte";
   import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
   import CopyFeedbackIcon from "@/components/icons/CopyFeedbackIcon.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import EmptyState from "@/components/ui/EmptyState.svelte";
+  import { toast } from "@/lib/toast";
 
   interface Props {
     token: string;
@@ -28,6 +33,9 @@
   let lastCheckedAt = $state<string | null>(null);
   let continuationUrl = $state<string | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  let isErrorDialogOpen = $state(false);
+  let dialogErrorMessage = $state<string | null>(null);
+  let dialogRecoveryAction = $state<"retry" | "home">("retry");
 
   function formatMoney(amount: string | number | undefined): string {
     if (!amount) return "Valor indisponível";
@@ -84,7 +92,12 @@
       if (err instanceof ApiError && err.status === 404) {
         if (!data) phase = "notfound";
       } else {
-        if (!data) phase = "error";
+        if (!data) {
+          phase = "error";
+          dialogErrorMessage = consultationError;
+          dialogRecoveryAction = "retry";
+          isErrorDialogOpen = true;
+        }
       }
     } finally {
       checking = false;
@@ -100,18 +113,31 @@
     try {
       await navigator.clipboard.writeText(payload);
       copied = true;
+      toast.success("Código Pix copiado com sucesso! Cole no app do seu banco.");
       copyTimer = setTimeout(() => { copied = false; }, 2800);
     } catch {
       payloadField?.focus();
       payloadField?.select();
       copyError = "Não conseguimos copiar automaticamente. O código está selecionado; use a opção Copiar do seu dispositivo.";
+      dialogErrorMessage = copyError;
+      dialogRecoveryAction = "retry";
+      isErrorDialogOpen = true;
     }
   }
 
+  let visibilityTimer: ReturnType<typeof setTimeout> | undefined;
+
   function handleVisibilityChange() {
+    clearTimeout(visibilityTimer);
     if (typeof document !== "undefined" && document.visibilityState === "visible" && !isPaid) {
-      void load();
+      visibilityTimer = setTimeout(() => {
+        if (document.visibilityState === "visible" && !isPaid) void load();
+      }, 400);
     }
+  }
+
+  function handleOnline() {
+    if (!isPaid) void load();
   }
 
   onMount(() => {
@@ -123,11 +149,14 @@
     }, POLL_MS);
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       clearInterval(timer);
       clearTimeout(copyTimer);
+      clearTimeout(visibilityTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
     };
   });
 </script>
@@ -135,31 +164,28 @@
 <main id="conteudo" class="flex flex-1 px-4 sm:px-6 py-6 pb-28">
   <div class="m-auto flex w-full max-w-[460px] flex-col items-center gap-5">
     {#if phase === "loading"}
-      <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl text-center flex flex-col items-center gap-4 shadow-2xl">
-        <div class="size-12 animate-spin rounded-full border-4 border-[var(--yellow)] border-t-transparent"></div>
-        <h2 class="text-base font-display font-bold text-white">Carregando cobrança PIX oficial…</h2>
-        <p class="text-xs text-white/60">Consultando sua cobrança no Asaas.</p>
+      <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl flex flex-col items-center gap-6 shadow-2xl">
+        <div class="flex flex-col items-center gap-2 w-full">
+          <Skeleton class="h-6 w-32" rounded="rounded-full" />
+          <Skeleton class="h-8 w-64 mt-2" />
+          <Skeleton class="h-4 w-48" />
+        </div>
+        <Skeleton class="size-56" rounded="rounded-2xl" />
+        <div class="w-full space-y-3">
+          <Skeleton class="h-14 w-full" rounded="rounded-xl" />
+          <Skeleton class="h-12 w-full" rounded="rounded-full" />
+        </div>
       </div>
 
     {:else if phase === "notfound"}
-      <div class="w-full rounded-3xl border border-rose-500/30 bg-rose-950/30 p-6 sm:p-8 backdrop-blur-xl text-center flex flex-col gap-4 shadow-2xl">
-        <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400">
-          <svg class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-        </div>
-        <h1 class="text-xl font-display text-white">Cobrança PIX não encontrada</h1>
-        <p class="text-xs text-white/70 leading-relaxed">
-          Não encontramos uma cobrança disponível neste link. Entre na sua conta para consultar a proposta ou fale com o atendimento.
-        </p>
-        <a
-          href="/"
-          class="btn mt-2 w-full min-h-[48px] py-3 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
-        >
-          Abrir minha conta →
-        </a>
+      <div class="w-full">
+        <EmptyState
+          icon="🔍"
+          title="Cobrança PIX não encontrada"
+          description="Não encontramos uma cobrança disponível neste link. Entre na sua conta para consultar a proposta ou fale com o atendimento."
+          actionLabel="Abrir minha conta →"
+          onAction={() => { window.location.href = "/"; }}
+        />
       </div>
 
     {:else if phase === "error"}
@@ -218,10 +244,10 @@
     {:else}
       <!-- Fase Ready: Exibição da cobrança PIX Oficial com Design System e Radar -->
       <div class="text-center">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-wider mb-2">
+        <Badge variant="success" size="md" class="mb-2">
           <PixIcon class="size-3.5 text-emerald-400" />
           <span>PIX da sua matrícula</span>
-        </div>
+        </Badge>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Pagamento da Matrícula</h1>
         <p class="mt-1 text-xs text-white/70">Pague via PIX para liberar a próxima etapa da matrícula</p>
       </div>
@@ -295,14 +321,45 @@
         {/if}
 
         <!-- Radar de Compensação em Tempo Real -->
-        <div class="w-full py-3 px-4 rounded-2xl bg-white/[0.04] border border-white/10 mt-1 text-left">
+        <div class="w-full py-4 px-4 sm:px-5 rounded-2xl bg-white/[0.04] border border-white/10 mt-1 text-left flex flex-col gap-2.5">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="relative flex size-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full size-2.5 bg-emerald-500"></span>
+              </span>
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Radar de Compensação Pix</span>
+            </div>
+            <span class="text-[10px] text-white/50 font-mono">{lastCheckedAt ?? "conectando..."}</span>
+          </div>
+
           {#if consultationError}
-            <p class="text-xs text-[var(--muted-on-dark)]" role="alert"><strong>Não conseguimos atualizar agora.</strong> {consultationError} Se já pagou, aguarde a confirmação e evite pagar novamente.</p>
-            <button type="button" onclick={() => void load()} disabled={checking} class="mt-2 inline-flex min-h-12 items-center text-xs font-bold text-[var(--yellow)] underline">{checking ? "Consultando…" : "Consultar pagamento novamente"}</button>
+            <p class="text-xs text-[var(--muted-on-dark)]" role="alert">
+              <strong>Não conseguimos atualizar agora.</strong> {consultationError} Se já pagou, aguarde a confirmação e evite pagar novamente.
+            </p>
           {:else}
-            <p class="text-xs text-[var(--muted-on-dark)]" role="status">{checking ? "Consultando confirmação do pagamento…" : "Aguardando confirmação do pagamento. A consulta é atualizada automaticamente."}</p>
+            <p class="text-xs text-white/70" role="status">
+              {checking ? "Consultando confirmação com o banco Asaas…" : "Aguardando confirmação do pagamento. A consulta é atualizada automaticamente a cada 3 segundos."}
+            </p>
           {/if}
-          <p class="mt-1 text-[11px] text-[var(--muted-on-dark)]">Última consulta ao servidor: {lastCheckedAt ?? "ainda não concluída"}</p>
+
+          <!-- Botão Manual de Verificação Imediata (Zero Dead-End) -->
+          <button
+            type="button"
+            onclick={() => void load()}
+            disabled={checking}
+            class="mt-1 flex items-center justify-center gap-2 w-full min-h-[48px] py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold uppercase tracking-wider transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+          >
+            {#if checking}
+              <div class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <span>Conferindo com o banco...</span>
+            {:else}
+              <svg class="size-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <span>Já paguei no meu banco / Conferir agora</span>
+            {/if}
+          </button>
         </div>
 
         <!-- Guia Ilustrado em 4 Passos para Celular -->
@@ -353,4 +410,13 @@
       </div>
     {/if}
   </div>
+
+  <ErrorDialog
+    isOpen={isErrorDialogOpen}
+    error={dialogErrorMessage}
+    primaryAction={dialogRecoveryAction === "retry"
+      ? { label: "Tentar Novamente", action: () => { isErrorDialogOpen = false; void load(); } }
+      : { label: "Abrir Minha Conta", action: () => { window.location.href = "/"; } }}
+    onClose={() => { isErrorDialogOpen = false; }}
+  />
 </main>

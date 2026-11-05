@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { bounded, stopTracks, waitForCameraFrame } from "@/lib/camera-session";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   let { disabled = false, onCapture }: { disabled?: boolean; onCapture: (file: File) => Promise<void> } = $props();
   let video = $state<HTMLVideoElement>();
@@ -11,6 +12,24 @@
   let mounted = false;
   let operation: AbortController | undefined;
   let ready = $state(false);
+  let fileInput = $state<HTMLInputElement>();
+  let uploadingFile = $state(false);
+
+  async function handleFileInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    uploadingFile = true;
+    error = "";
+    try {
+      await onCapture(file);
+    } catch {
+      error = "Não foi possível enviar a foto. Tente novamente.";
+    } finally {
+      uploadingFile = false;
+      if (input) input.value = "";
+    }
+  }
 
   function stopCamera() {
     operation?.abort(); operation = undefined;
@@ -88,13 +107,62 @@
     <button type="button" class="btn" disabled={disabled || capturing || !ready} onclick={capture}>{capturing ? "Capturando…" : opening ? "Preparando câmera…" : "Fotografar e enviar selfie"}</button>
     <button type="button" class="secondary" onclick={stopCamera} disabled={capturing}>Fechar câmera</button>
   {:else}
-    <button type="button" class="btn" disabled={disabled || opening || capturing} onclick={openCamera}>{opening ? "Abrindo câmera…" : "Abrir câmera para selfie"}</button>
+    <div class="flex flex-col gap-2.5">
+      <button type="button" class="btn" disabled={disabled || opening || capturing || uploadingFile} onclick={openCamera}>
+        {opening ? "Abrindo câmera…" : "Abrir câmera para selfie"}
+      </button>
+
+      <div class="relative flex py-1 items-center">
+        <div class="flex-grow border-t border-white/10"></div>
+        <span class="flex-shrink mx-3 text-[11px] text-white/50 uppercase tracking-wider font-semibold">ou alternativa</span>
+        <div class="flex-grow border-t border-white/10"></div>
+      </div>
+
+      <label class="flex items-center justify-center gap-2.5 min-h-[48px] px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs uppercase tracking-wider cursor-pointer transition active:scale-[0.98]">
+        <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span>{uploadingFile ? "Enviando foto..." : "Tirar foto no celular ou enviar da galeria"}</span>
+        <input
+          bind:this={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          capture="user"
+          class="hidden"
+          onchange={handleFileInput}
+          disabled={disabled || opening || capturing || uploadingFile}
+        />
+      </label>
+    </div>
   {/if}
   {#if opening}
     <p role="status">Autorize o uso da câmera quando o navegador pedir. A imagem só será enviada ao tocar em fotografar.</p>
     <button type="button" class="secondary" onclick={stopCamera}>Cancelar abertura</button>
   {/if}
-  {#if error}<p class="camera-error" role="alert">{error}</p>{/if}
+  {#if error}
+    <p class="camera-error" role="alert">{error}</p>
+    <ErrorDialog
+      isOpen={Boolean(error)}
+      error={error}
+      primaryAction={{
+        label: "Tentar Novamente",
+        action: () => {
+          error = "";
+          if (!stream) void openCamera();
+        }
+      }}
+      secondaryAction={{
+        label: "Enviar Foto da Galeria",
+        action: () => {
+          error = "";
+          fileInput?.click();
+        }
+      }}
+      onClose={() => { error = ""; }}
+    />
+  {/if}
 </div>
 
 <style>

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { whoami, requestAuth } from "@/lib/api";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
 
   interface LeadershipStudentItem {
     id?: string;
@@ -119,10 +122,9 @@
   <div class="rounded-3xl p-6 sm:p-8 glass-panel border border-white/15 bg-gradient-to-br from-ink/95 to-blue/90 shadow-2xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
       <div>
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-xs font-semibold text-blue-300 mb-2">
-          <span class="size-2 rounded-full bg-blue-400"></span>
+        <Badge variant="info" pulse size="md" class="mb-2">
           Status: Ativo
-        </div>
+        </Badge>
         <h1 class="text-2xl sm:text-3xl font-display text-white">Secretaria de Polo (Hub)</h1>
         <p class="text-xs sm:text-sm text-white/70 mt-1">
           Gestão operacional do polo regional sob responsabilidade de <strong>{coordinatorName}</strong>.
@@ -141,54 +143,67 @@
     </div>
 
     {#if loadError}
-      <div class="p-4 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-xs text-rose-200">
-        <span>{loadError}</span>
+      <Alert
+        variant="danger"
+        title="Erro operacional no polo"
+        description={loadError}
+        class="mb-4"
+      >
         <button
           type="button"
           onclick={loadHubData}
-          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-semibold cursor-pointer transition-colors"
+          class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-white font-semibold cursor-pointer transition-colors mt-2"
         >
           Tentar novamente
         </button>
-      </div>
+      </Alert>
     {/if}
 
     <!-- Métricas Reais do Polo -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Fila de Conferência</span>
-        <p class="text-3xl font-bold text-amber-300 mt-1">
+        <div class="mt-1">
           {#if isLoading}
-            <span class="text-sm font-normal text-white/50">Carregando...</span>
-          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
+            <Skeleton class="h-9 w-28 rounded-lg" />
+          {:else if loadError}
+            <span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
-            {pendingReviewsCount} pendências
+            <p class="text-3xl font-bold text-amber-300">
+              {pendingReviewsCount} pendências
+            </p>
           {/if}
-        </p>
+        </div>
         <p class="text-xs text-white/60 mt-1.5">RG, histórico e selfies</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Provas presenciais</span>
-        <p class="text-3xl font-bold text-blue-300 mt-1">
+        <div class="mt-1">
           {#if isLoading}
-            <span class="text-sm font-normal text-white/50">Carregando...</span>
-          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
+            <Skeleton class="h-9 w-28 rounded-lg" />
+          {:else if loadError}
+            <span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
-            {scheduledExamsCount} agendadas
+            <p class="text-3xl font-bold text-blue-300">
+              {scheduledExamsCount} agendadas
+            </p>
           {/if}
-        </p>
+        </div>
         <p class="text-xs text-white/60 mt-1.5">Exames presenciais no polo</p>
       </div>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
         <span class="text-xs text-white/60 uppercase font-semibold">Diplomas Prontos</span>
-        <p class="text-3xl font-bold text-emerald-400 mt-1">
+        <div class="mt-1">
           {#if isLoading}
-            <span class="text-sm font-normal text-white/50">Carregando...</span>
-          {:else if loadError}<span class="text-sm font-normal text-white/50">Indisponível</span>
+            <Skeleton class="h-9 w-28 rounded-lg" />
+          {:else if loadError}
+            <span class="text-sm font-normal text-white/50">Indisponível</span>
           {:else}
-            {readyDiplomasCount} para retirada
+            <p class="text-3xl font-bold text-emerald-400">
+              {readyDiplomasCount} prontos
+            </p>
           {/if}
-        </p>
+        </div>
         <p class="text-xs text-white/60 mt-1.5">Aguardando assinatura do concluinte</p>
       </div>
     </div>

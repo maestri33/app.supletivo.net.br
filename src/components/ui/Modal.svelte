@@ -6,7 +6,7 @@
     onClose: () => void;
     title?: string;
     eyebrow?: string;
-    eyebrowVariant?: "blue" | "green" | "amber" | "yellow" | "purple";
+    eyebrowVariant?: "blue" | "green" | "amber" | "yellow";
     description?: string;
     size?: "sm" | "md" | "lg" | "xl";
     showCloseButton?: boolean;
@@ -78,7 +78,6 @@
     green: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
     amber: "bg-amber-500/20 text-amber-300 border-amber-500/30",
     yellow: "bg-[var(--yellow)]/20 text-[var(--yellow)] border-[var(--yellow)]/30",
-    purple: "bg-purple-500/20 text-purple-300 border-purple-400/30",
   };
 </script>
 
@@ -135,7 +134,9 @@
               aria-label="Fechar janela"
               data-testid="modal-close-btn"
             >
-              ✕
+              <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           {/if}
         </div>

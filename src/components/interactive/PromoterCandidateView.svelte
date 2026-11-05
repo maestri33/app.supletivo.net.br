@@ -13,6 +13,7 @@
   import IdCardIcon from "@/components/icons/IdCardIcon.svelte";
   import CameraIcon from "@/components/icons/CameraIcon.svelte";
   import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
 
   interface DocumentSection {
     doc_type?: string | null;
@@ -429,8 +430,12 @@
     <h1>Seu cadastro</h1>
     <p>Envie seus documentos. Os dados de identidade e endereço são extraídos automaticamente.</p>
   </header>
-  {#if error}<p class="feedback error" role="alert">{error}</p>{/if}
-  {#if notice}<p class="feedback info" role="status">{notice}</p>{/if}
+  {#if error}
+    <Alert variant="danger" title="Atenção no credenciamento" description={error} class="mb-4" />
+  {/if}
+  {#if notice}
+    <Alert variant="info" title="Informação" description={notice} class="mb-4" />
+  {/if}
   {#if loading}<p role="status">Consultando seu credenciamento…</p>
   {:else if candidate}
     {#if displayStep === "referral"}
@@ -609,7 +614,9 @@
           <label for="candidate-education-city">Cidade onde estudou (opcional)</label>
           <input id="candidate-education-city" list="candidate-education-cities" bind:value={educationCity} disabled={busy || !educationState || educationLocationLoading} placeholder={educationLocationLoading ? "Carregando cidades…" : "Digite para buscar"} />
           <datalist id="candidate-education-cities">{#each educationCities as municipality}<option value={municipality}></option>{/each}</datalist>
-          {#if educationLocationError}<p class="feedback error" role="alert">{educationLocationError}</p>{/if}
+          {#if educationLocationError}
+            <Alert variant="danger" title="Erro no carregamento das cidades" description={educationLocationError} class="my-2" />
+          {/if}
           <label for="candidate-education-year">Ano da última frequência (opcional)</label>
           <input id="candidate-education-year" type="number" min="1950" max="2100" bind:value={educationYear} disabled={busy} />
           <label for="candidate-education-school">Última escola (opcional)</label>

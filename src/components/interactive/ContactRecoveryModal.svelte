@@ -2,6 +2,7 @@
   import { fetchJsonWithDeadline } from "@/lib/deadline";
   import { maskBrPhone, isValidBrMobile } from "@/lib/phone";
   import Modal from "@/components/ui/Modal.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   interface Props {
     isOpen?: boolean;
@@ -29,6 +30,7 @@
   let otpCode = $state("");
   let selectedMethod = $state<"email" | "birth_date" | "biometric" | "secretaria">("email");
   let errorMessage = $state<string | null>(null);
+  let isErrorDialogOpen = $state(false);
   let protocol = $state<string | null>(null);
   let instructions = $state<string | null>(null);
   let maskedEmail = $state<string | null>(null);
@@ -85,16 +87,19 @@
 
     if (cleanCpf.length !== 11) {
       errorMessage = "Por favor, digite um CPF válido com 11 dígitos.";
+      isErrorDialogOpen = true;
       return;
     }
 
     if (!isValidBrMobile(cleanPhone)) {
       errorMessage = "Por favor, informe seu novo celular com DDD (11 dígitos).";
+      isErrorDialogOpen = true;
       return;
     }
 
     if (selectedMethod === "birth_date" && birthDate.replace(/\D/g, "").length !== 8) {
       errorMessage = "Por favor, informe a data de nascimento completa (DD/MM/AAAA).";
+      isErrorDialogOpen = true;
       return;
     }
 
@@ -135,6 +140,7 @@
     } catch (err: any) {
       step = "form";
       errorMessage = err.message || "Erro de conexão ao processar recuperação.";
+      isErrorDialogOpen = true;
     }
   }
 
@@ -142,6 +148,7 @@
     const cleanOtp = otpCode.replace(/\D/g, "");
     if (cleanOtp.length !== 6) {
       errorMessage = "Informe o código de segurança com 6 dígitos.";
+      isErrorDialogOpen = true;
       return;
     }
 
@@ -175,6 +182,7 @@
     } catch (err: any) {
       step = "challenge";
       errorMessage = err.message || "Erro ao validar código OTP.";
+      isErrorDialogOpen = true;
     }
   }
 
@@ -289,7 +297,7 @@
                 placeholder="DD/MM/AAAA"
                 value={birthDate}
                 oninput={onBirthDateInput}
-                class="h-10 w-full rounded-lg bg-white/10 border border-white/20 px-3 text-sm font-mono text-white focus:border-yellow focus:outline-none focus:ring-2 focus:ring-yellow/30 transition"
+                class="h-12 w-full rounded-xl bg-white/10 border border-white/20 px-4 text-sm font-mono text-white focus:border-yellow focus:outline-none focus:ring-2 focus:ring-yellow/30 transition"
               />
             </div>
           {/if}
@@ -441,4 +449,14 @@
       </button>
     </div>
   {/if}
+
+  <ErrorDialog
+    isOpen={isErrorDialogOpen}
+    error={errorMessage}
+    primaryAction={{
+      label: "Entendido",
+      action: () => { isErrorDialogOpen = false; }
+    }}
+    onClose={() => { isErrorDialogOpen = false; }}
+  />
 </Modal>

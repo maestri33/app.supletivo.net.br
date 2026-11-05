@@ -15,6 +15,11 @@
   import IdCardIcon from "@/components/icons/IdCardIcon.svelte";
   import CameraIcon from "@/components/icons/CameraIcon.svelte";
   import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Dialog from "@/components/ui/Dialog.svelte";
+  import Accordion from "@/components/ui/Accordion.svelte";
+  import AccordionItem from "@/components/ui/AccordionItem.svelte";
 
   let capture = $state(createRgCaptureState());
   const view = $derived(deriveRgCapture(capture));
@@ -24,7 +29,7 @@
   let section = $state<RgSection | null>(null);
   let nextPath = $state<string | null>(null);
   let image = $state<{ url: string; type: string; label: string } | null>(null);
-  let sourceDialog: HTMLDialogElement;
+  let isSourceDialogOpen = $state(false);
   let cameraInput: HTMLInputElement, fileInput: HTMLInputElement;
   let active = true, pollGeneration = 0, snapshotSequence = 0;
   let pollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -118,9 +123,9 @@
     } catch (cause) { if (active) consultationError = failure(cause); }
     finally { if (active) consulting = false; }
   }
-  function openSources() { if (canCapture && !busy) sourceDialog.showModal(); }
+  function openSources() { if (canCapture && !busy) isSourceDialogOpen = true; }
   function chooseSource(source: "camera" | "file") {
-    sourceDialog.close();
+    isSourceDialogOpen = false;
     (source === "camera" ? cameraInput : fileInput).click();
   }
   async function processSelectedFile(file: File) {
@@ -177,8 +182,16 @@
     <p>Envie o documento. Nós identificamos os lados e preenchemos seus dados.</p>
   </header>
   <div class="capture-panel" class:awaiting={!view.error && (view.received.front || view.received.back || view.received.full) && view.phase !== "approved"} class:approved={view.phase === "approved"} aria-busy={busy || consulting}>
-    {#if error || view.error}<p class="feedback error" role="alert">{error || view.error}</p>{/if}
-    {#if consultationError}<p class="feedback warning" role="status">{consultationError}</p>{/if}
+    {#if error || view.error}
+      <Alert variant="danger" title="Atenção no RG" class="mb-2">
+        {error || view.error}
+      </Alert>
+    {/if}
+    {#if consultationError}
+      <Alert variant="warning" title="Aviso na consulta" class="mb-2">
+        {consultationError}
+      </Alert>
+    {/if}
     {#if loading}
       <div class="state-message" role="status"><IdCardIcon class="document-icon" /><h2>Consultando seu RG</h2><p>Verificando se já existe um arquivo recebido.</p></div>
     {:else if uploadUncertain}
@@ -198,16 +211,25 @@
       </div>
     {/if}
     {#if view.received.front || view.received.back || view.received.full}
-      <p class="receipt" role="status">
-        {view.received.full ? "✓ Frente e verso recebidos no mesmo arquivo" : view.received.front && view.received.back ? "✓ Frente e verso recebidos" : view.received.front ? "✓ Frente recebida" : "✓ Verso recebido"}
-        {#if canCapture && !view.error && !view.received.full}<span>A análise dos dados continua enquanto você envia o outro lado.</span>{/if}
-      </p>
+      <div class="mt-2 flex flex-col gap-1.5" role="status">
+        <Badge variant="success" size="md">
+          {view.received.full ? "✓ Frente e verso recebidos no mesmo arquivo" : view.received.front && view.received.back ? "✓ Frente e verso recebidos" : view.received.front ? "✓ Frente recebida" : "✓ Verso recebido"}
+        </Badge>
+        {#if canCapture && !view.error && !view.received.full}
+          <span class="text-xs text-white/60">A análise dos dados continua enquanto você envia o outro lado.</span>
+        {/if}
+      </div>
     {/if}
     {#if image}
-      <details class="preview"><summary>Ver arquivo recebido</summary>
-        {#if image.type.startsWith("image/")}<img src={image.url} alt={image.label} width="640" height="400" decoding="async" />
-        {:else}<a href={image.url} target="_blank" rel="noopener noreferrer">Abrir PDF recebido ↗</a>{/if}
-      </details>
+      <Accordion class="mt-2">
+        <AccordionItem title="Ver arquivo recebido" description={image.label}>
+          {#if image.type.startsWith("image/")}
+            <img src={image.url} alt={image.label} width="640" height="400" decoding="async" class="rounded-xl border border-white/10 max-h-80 w-auto object-contain mx-auto" />
+          {:else}
+            <a href={image.url} target="_blank" rel="noopener noreferrer" class="text-[var(--yellow)] underline inline-flex items-center min-h-[44px]">Abrir PDF recebido ↗</a>
+          {/if}
+        </AccordionItem>
+      </Accordion>
     {/if}
     {#if view.phase === "approved" && nextPath}<a href={nextPath} class="btn continue">Continuar matrícula →</a>{/if}
     {#if loading || uploadUncertain || consultationError || view.phase === "analysis" || view.phase === "review" || (view.phase === "approved" && !nextPath)}
@@ -216,22 +238,47 @@
     {#if !view.complete && !loading}<p class="file-help">JPG, PNG, WebP ou PDF · até 15 MB</p>{/if}
   </div>
   {#if view.phase === "approved" && section?.number}
-    <details class="extracted"><summary>Dados extraídos do RG</summary>
-      <dl><dt>Nome</dt><dd>{section.name || "Ainda não identificado"}</dd><dt>Número</dt><dd>{section.number}</dd>
-        <dt>Órgão emissor</dt><dd>{section.issuing_agency || "Ainda não identificado"}</dd><dt>Filiação</dt><dd>{section.mother_name || "Ainda não identificada"}</dd></dl>
-    </details>
+    <Accordion class="mt-4">
+      <AccordionItem title="Dados extraídos do RG" description="Identificação conferida pelo sistema">
+        <dl><dt>Nome</dt><dd>{section.name || "Ainda não identificado"}</dd><dt>Número</dt><dd>{section.number}</dd>
+          <dt>Órgão emissor</dt><dd>{section.issuing_agency || "Ainda não identificado"}</dd><dt>Filiação</dt><dd>{section.mother_name || "Ainda não identificada"}</dd></dl>
+      </AccordionItem>
+    </Accordion>
   {/if}
   <p class="photo-help">Deixe as quatro bordas visíveis, com boa luz e sem reflexos.</p>
 </section>
 
 <input bind:this={cameraInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden onchange={onFileInputChange} aria-label="Fotografar RG" />
 <input bind:this={fileInput} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden onchange={onFileInputChange} aria-label="Selecionar arquivo do RG" />
-<dialog bind:this={sourceDialog} class="source-dialog" aria-labelledby="source-title">
-  <h2 id="source-title">Como quer enviar o RG?</h2><p>Uma foto, uma imagem com os dois lados ou um PDF.</p>
-  <button type="button" class="btn source-action" onclick={() => chooseSource("camera")}><CameraIcon class="action-icon" /> Tirar foto</button>
-  <button type="button" class="secondary source-action" onclick={() => chooseSource("file")}><UploadFileIcon class="action-icon" /> Escolher arquivo</button>
-  <button type="button" class="secondary cancel" onclick={() => sourceDialog.close()}>Cancelar</button>
-</dialog>
+<Dialog
+  isOpen={isSourceDialogOpen}
+  onClose={() => { isSourceDialogOpen = false; }}
+  title="Como quer enviar o RG?"
+  description="Uma foto, uma imagem com os dois lados ou um PDF."
+  eyebrow="Captura do RG"
+  eyebrowVariant="blue"
+  size="md"
+>
+  <div class="flex flex-col gap-3 pt-2">
+    <button
+      type="button"
+      class="btn w-full min-h-[48px] flex items-center justify-center gap-2.5 text-xs uppercase font-extrabold tracking-wider bg-[var(--yellow)] text-[var(--ink)] rounded-full cursor-pointer shadow-lg"
+      onclick={() => chooseSource("camera")}
+    >
+      <CameraIcon class="size-4 shrink-0" />
+      <span>Tirar foto</span>
+    </button>
+
+    <button
+      type="button"
+      class="w-full min-h-[48px] flex items-center justify-center gap-2.5 text-xs uppercase font-bold tracking-wider rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-white cursor-pointer transition"
+      onclick={() => chooseSource("file")}
+    >
+      <UploadFileIcon class="size-4 shrink-0" />
+      <span>Escolher arquivo</span>
+    </button>
+  </div>
+</Dialog>
 
 <style>
   .rg-flow { width: 100%; max-width: 36rem; margin: 0 auto; font-family: var(--font-sans); color: var(--ink); }

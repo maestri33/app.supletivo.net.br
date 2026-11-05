@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import RelationshipPicker from "./RelationshipPicker.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
   import { getSession } from "@/lib/session";
   import {
     whoami,
@@ -40,6 +41,7 @@
   let isAnalyzing = $state(false);
   let isExtracting = $state(false);
   let triageError = $state<string | null>(null);
+  let isErrorDialogOpen = $state(false);
   let isRelationshipModalOpen = $state(false);
   let mounted = $state(false);
   let enrollmentAddressCache = $state<EnrollmentMe["address"]>(null);
@@ -164,6 +166,7 @@
       const triage = await validateAddressDocFront(file);
       if (!triage.valid) {
         triageError = triage.errorMessage || "Arquivo inválido.";
+        isErrorDialogOpen = true;
         return;
       }
 
@@ -193,7 +196,9 @@
         isRelationshipModalOpen = true;
       } else {
         if (!me?.address_proof || me.address_proof.status !== "approved" || !me.address) {
-          throw new Error("O comprovante foi enviado e aguarda a análise do polo.");
+          status = "under_review";
+          onStatusChange?.("under_review");
+          return;
         }
         const holder = resolvedStudentName || studentName;
         extractedHolder = holder;
@@ -201,6 +206,7 @@
       }
     } catch (e: any) {
       triageError = e?.message || "Erro ao processar comprovante.";
+      isErrorDialogOpen = true;
     } finally {
       isAnalyzing = false;
     }
@@ -238,6 +244,7 @@
       me = await submitAddressProofKinship(relationship);
     } catch (failure) {
       triageError = failure instanceof Error ? failure.message : "Não foi possível confirmar o vínculo do titular.";
+      isErrorDialogOpen = true;
       return;
     }
     confirmExtractedAddress(extractedHolder, relationship, me?.address ?? enrollmentAddressCache);
@@ -405,5 +412,15 @@
     holderName={extractedHolder}
     onSelect={handleRelationshipSelect}
     onClose={() => { isRelationshipModalOpen = false; }}
+  />
+
+  <ErrorDialog
+    isOpen={isErrorDialogOpen}
+    error={triageError}
+    primaryAction={{
+      label: "Tentar Novamente",
+      action: () => { isErrorDialogOpen = false; }
+    }}
+    onClose={() => { isErrorDialogOpen = false; }}
   />
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import PixIcon from "../icons/PixIcon.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
   import {
     calculatePromoterWeeklyMetrics,
     type PromoterSummary,
@@ -30,9 +31,9 @@
 >
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-5 border-b border-white/10">
     <div>
-      <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--yellow)]/15 border border-[var(--yellow)]/30 text-[11px] font-semibold text-[var(--yellow)] mb-1">
+      <Badge variant="conversion" size="sm" class="mb-1">
         Ciclo Semanal PIX
-      </div>
+      </Badge>
       <h2 class="text-base sm:text-lg font-display font-bold text-white tracking-tight">
         Comissões do Promotor
       </h2>
@@ -56,10 +57,10 @@
       <div>
         <div class="flex items-center justify-between gap-2 mb-2">
           <span class="text-xs text-white/70 uppercase font-semibold">Comissões Recebidas</span>
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <Badge variant="success" size="sm">
             <PixIcon class="size-3 text-emerald-300" />
-            Pago no PIX
-          </span>
+            <span>Pago no PIX</span>
+          </Badge>
         </div>
         <p class="text-3xl font-display font-bold text-white tracking-tight mt-1">
           {metrics.receivedLabel}
@@ -77,9 +78,9 @@
       <div>
         <div class="flex items-center justify-between gap-2 mb-2">
           <span class="text-xs text-white/70 uppercase font-semibold">Comissão a Receber na Semana</span>
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--yellow)]/15 text-[var(--yellow)] border border-[var(--yellow)]/30">
+          <Badge variant="conversion" size="sm">
             Previsão do Ciclo
-          </span>
+          </Badge>
         </div>
         <p class="text-3xl font-display font-bold text-[var(--yellow)] tracking-tight mt-1">
           {metrics.weekPendingLabel}

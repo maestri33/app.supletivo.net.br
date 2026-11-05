@@ -47,6 +47,10 @@ export function safeMediaUrl(value: string | null | undefined): string | null {
 }
 
 export const STUDENT_STATUS_LABELS: Record<string, string> = {
+  active: "Matrícula Ativa",
+  regular: "Matrícula Regular",
+  lead: "Aguardando Matrícula",
+  enrollment: "Fase de Matrícula",
   awaiting_documents: "Aguardando documentos", documents_under_review: "Documentos em análise",
   blood_type_pending: "Tipo sanguíneo pendente", exam_released: "Prova liberada",
   exam_scheduled: "Prova agendada", exam_failed: "Nova prova necessária",
@@ -63,4 +67,9 @@ export function dateLabel(value: string | null | undefined): string {
 export function imageError(file: File): string | null {
   return ["image/jpeg", "image/png", "image/webp"].includes(file.type)
     ? null : "Envie uma imagem JPG, PNG ou WebP legível.";
+}
+
+export function documentFileError(file: File): string | null {
+  return ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)
+    ? null : "Envie uma imagem (JPG, PNG, WebP) ou arquivo PDF legível.";
 }

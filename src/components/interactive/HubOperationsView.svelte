@@ -4,7 +4,9 @@
   import { requestAuth, getErrorMessage } from "@/lib/api";
   import { ENROLLMENT_STATUS_LABELS, amountInCents, centsLabel, type HubRow, type HubStudentsPage, type HubEnrollment, type HubStudent, type HubCandidate, type HubMedia } from "@/lib/hub";
   import { STUDENT_STATUS_LABELS, safeMediaUrl, safePartnerUrl, dateLabel, imageError } from "./student/workflow";
-  import "./student/workflow.css";
+    import Alert from "@/components/ui/Alert.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Pagination from "@/components/ui/Pagination.svelte";
 
   type Exam = { external_id: string; subject: string; scheduled_at: string; result: string; notes?: string | null; attempt_number: number };
   type StudentDetail = Omit<HubStudent, "diploma"> & { exams?: Exam[]; diploma?: HubStudent["diploma"] & { diploma_file?: string | null; transcript_file?: string | null } };
@@ -165,8 +167,12 @@
     <button class="choice" aria-pressed={section === "student"} disabled={busy || loading} onclick={() => choose("student")}>Alunos</button>
     <button class="choice" aria-pressed={section === "candidate"} disabled={busy || loading} onclick={() => choose("candidate")}>Candidatos</button>
   </div>
-  {#if error}<p role="alert" class="error">{error}</p>{/if}
-  {#if message}<p role="status" class="success">{message}</p>{/if}
+  {#if error}
+    <Alert variant="danger" title="Atenção" description={error} class="my-2" />
+  {/if}
+  {#if message}
+    <Alert variant="success" title="Sucesso" description={message} class="my-2" />
+  {/if}
   <button class="secondary" disabled={busy || loading} onclick={refresh}>Atualizar situação</button>
   <a class="secondary" href="/hub/review">Fila de revisões</a>
   {#if loading}<p role="status">Consultando alunos...</p>{/if}
@@ -175,14 +181,21 @@
     {#if !loading && !error && rows.length === 0}<p>Nenhum processo nesta lista.</p>{/if}
     {#each rows as row (row.external_id)}
       <button class="secondary process-row" disabled={busy || loading} aria-pressed={selectedId === row.external_id} onclick={() => choose(section, row.external_id)}>
-        <span>{row.name || "Nome não informado"}<small>{row.phone || row.external_id}</small></span><span>{label(row.status)}</span>
+        <span>{row.name || "Nome não informado"}<small>{row.phone || row.external_id}</small></span>
+        <Badge variant={row.status === "approved" || row.status === "completed" ? "success" : row.status?.includes("review") ? "warning" : "info"} size="sm">
+          {label(row.status)}
+        </Badge>
       </button>
     {/each}
     {#if section === "student" && total > 50}
-      <p class="muted">{offset + 1}–{Math.min(offset + rows.length, total)} de {total} alunos</p>
-      <div class="choices">
-        <button class="secondary" disabled={busy || loading || offset === 0} onclick={() => { offset -= 50; void refresh(); }}>Anterior</button>
-        <button class="secondary" disabled={busy || loading || offset + rows.length >= total} onclick={() => { offset += 50; void refresh(); }}>Próxima</button>
+      <div class="mt-4">
+        <Pagination
+          page={Math.floor(offset / 50) + 1}
+          totalPages={Math.ceil(total / 50)}
+          totalItems={total}
+          itemsPerPage={50}
+          onPageChange={(nextPage) => { offset = (nextPage - 1) * 50; void refresh(); }}
+        />
       </div>
     {/if}
   </section>
@@ -299,6 +312,27 @@
   {/if}
 </div>
 <style>
-  .process-row { justify-content: space-between; text-align: left; flex-wrap: wrap; }
+  .panel {
+    background: var(--glass-bg-dark);
+    border: 1px solid var(--glass-border-dark);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    backdrop-filter: var(--glass-blur);
+    display: grid;
+    gap: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .stack { display: grid; gap: .75rem; }
+  .choices { display: flex; flex-wrap: wrap; gap: .75rem; }
+  .choice, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 48px; border: 1px solid var(--glass-border-dark); border-radius: 0.75rem; padding: .7rem 1rem; background: var(--ink-soft); color: var(--paper); font: inherit; cursor: pointer; text-decoration: none; }
+  .choice[aria-pressed="true"] { border-color: var(--yellow); color: var(--yellow); }
+  .btn { min-height: 48px; padding: .75rem 1.25rem; font: inherit; font-weight: 700; cursor: pointer; width: fit-content; max-width: 100%; border-radius: 0.75rem; background: var(--yellow); color: var(--ink); }
+  .process-row { justify-content: space-between; text-align: left; flex-wrap: wrap; width: 100%; }
   .process-row small { display: block; color: var(--muted-on-dark); }
+  label { display: grid; gap: 0.5rem; font-weight: 700; font-size: 0.875rem; }
+  input:not([type="checkbox"]), select { min-height: 48px; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); padding: 0.75rem 1rem; color: #fff; }
+  .warning { color: var(--warning); background: var(--warning-bg); padding: 1rem; border-radius: 0.75rem; }
+  .error { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: 0.75rem; }
+  .notice { color: var(--info); background: var(--info-bg); padding: 1rem; border-radius: 0.75rem; }
+  .muted { color: var(--muted-on-dark); font-size: 0.875rem; }
 </style>

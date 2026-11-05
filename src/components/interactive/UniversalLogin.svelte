@@ -5,10 +5,12 @@
   import { isValidBrMobile } from "@/lib/phone";
   import { getRoleDestination, normalizeUserRoles } from "@/lib/roles";
   import UnregisteredRoleModal from "@/components/interactive/UnregisteredRoleModal.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   let phone = $state("");
   let busy = $state(false);
   let errorMessage = $state<string | null>(null);
+  let isErrorDialogOpen = $state(false);
   let notFound = $state(false);
   let isRoleModalOpen = $state(false);
   let isRoleSubmitting = $state(false);
@@ -21,16 +23,30 @@
 
   onMount(async () => {
     mounted = true;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has("trocar") || urlParams.has("switch") || urlParams.has("logout")) {
+      clearSession();
+    }
+    const telParam = urlParams.get("tel");
+    if (telParam) {
+      phone = formatPhone(telParam);
+    }
+
     if (getAccessToken()) {
       checkingSession = true;
       try {
         const who = await whoami();
         const target = getRoleDestination(who);
         if (!target) throw new Error('Não foi possível identificar a etapa da sua conta. Tente novamente.');
-        window.location.replace(target);
+        const returnTo = urlParams.get("return_to");
+        const safeReturnTo = (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) ? returnTo : null;
+        window.location.replace(safeReturnTo || target);
       } catch (failure) {
         if (failure instanceof ApiError && failure.status === 401) clearSession();
-        else errorMessage = failure instanceof Error ? failure.message : 'Não foi possível consultar sua conta.';
+        else {
+          errorMessage = failure instanceof Error ? failure.message : 'Não foi possível consultar sua conta.';
+          isErrorDialogOpen = true;
+        }
         checkingSession = false;
       }
     }
@@ -73,6 +89,7 @@
 
       if (res.whatsapp === false) {
         errorMessage = "Este número não possui WhatsApp ativo. O código é enviado exclusivamente por WhatsApp.";
+        isErrorDialogOpen = true;
         busy = false;
         return;
       }
@@ -86,14 +103,17 @@
         return;
       }
 
+      const returnTo = new URLSearchParams(window.location.search).get("return_to");
+      const returnQuery = returnTo ? `&return_to=${encodeURIComponent(returnTo)}` : "";
       if (res.external_id) {
         saveSession({ phone: digits, externalId: res.external_id });
-        window.location.href = `/autenticacao/otp?id=${encodeURIComponent(res.external_id)}&tel=${encodeURIComponent(digits)}`;
+        window.location.href = `/autenticacao/otp?id=${encodeURIComponent(res.external_id)}&tel=${encodeURIComponent(digits)}${returnQuery}`;
       } else {
-        window.location.href = `/autenticacao/otp?tel=${encodeURIComponent(digits)}`;
+        window.location.href = `/autenticacao/otp?tel=${encodeURIComponent(digits)}${returnQuery}`;
       }
     } catch (err: any) {
       errorMessage = getErrorMessage(err);
+      isErrorDialogOpen = true;
       busy = false;
     }
   }
@@ -135,11 +155,16 @@
     </p>
   </div>
 
-  {#if errorMessage}
-    <div class="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-200 text-center">
-      {errorMessage}
-    </div>
-  {/if}
+  <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
+  <ErrorDialog
+    isOpen={isErrorDialogOpen}
+    error={errorMessage}
+    primaryAction={{
+      label: errorMessage?.includes("WhatsApp") ? "Corrigir Telefone" : "Tentar Novamente",
+      action: () => { isErrorDialogOpen = false; }
+    }}
+    onClose={() => { isErrorDialogOpen = false; }}
+  />
 
   {#if notFound}
     <div class="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 text-center">
@@ -163,9 +188,9 @@
         Seu WhatsApp:
       </label>
       <div class="relative">
-        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-lg opacity-70 pointer-events-none">
-          💬
-        </span>
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-emerald-400 opacity-90 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
         <input
           id="phone"
           data-hydrated={mounted}

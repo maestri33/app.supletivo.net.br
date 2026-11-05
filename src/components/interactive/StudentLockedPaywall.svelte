@@ -12,6 +12,9 @@
   import PixCheckout from "./PixCheckout.svelte";
   import PixIcon from "@/components/icons/PixIcon.svelte";
   import CreditCardIcon from "@/components/icons/CreditCardIcon.svelte";
+  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
+  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import Alert from "@/components/ui/Alert.svelte";
 
   interface Props { initialPhase?: "selection" | "checkout"; }
   let { initialPhase = "selection" }: Props = $props();
@@ -22,6 +25,7 @@
   let busy = $state(false);
   let querying = $state(false);
   let errorMessage = $state<string | null>(null);
+  let isErrorDialogOpen = $state(false);
   let recoveryAction = $state<"retry" | "login" | "environment">("retry");
   let isCheckoutReady = $state(false);
   let selectedModality = $state<PaymentMethod | null>(null);
@@ -118,6 +122,7 @@
         ? error.message : getErrorMessage(error);
       errorMessage = message + " Se já pagou, aguarde a confirmação e evite pagar novamente.";
     }
+    isErrorDialogOpen = true;
   }
 
   async function refreshLead(verifyReturn = false) {
@@ -209,6 +214,9 @@
       await selectPayment(pendingPaymentMethod);
     } catch (error) {
       profileError = error instanceof Error ? error.message : "Erro ao salvar seus dados cadastrais.";
+      errorMessage = profileError;
+      recoveryAction = "retry";
+      isErrorDialogOpen = true;
     } finally {
       profileBusy = false;
     }
@@ -227,15 +235,21 @@
     try {
       restoreCheckout(await setLeadCheckout(method));
       preparingStep = 2;
-      for (let attempt = 0; !isCheckoutReady && attempt < 12; attempt++) {
-        preparingMessage = "Aguardando o servidor concluir a emissão. Não é necessário gerar outra cobrança.";
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+      for (let attempt = 0; !isCheckoutReady && attempt < 18; attempt++) {
+        preparingMessage = `Aguardando confirmação do gateway bancário... (${attempt + 1}/18)`;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         if (!active) return;
         const lead = await getLeadMe();
         applyLead(lead);
         if (paymentStage !== "pending") return;
       }
-      if (!isCheckoutReady) throw new Error("A emissão ainda não foi concluída. Consulte o pagamento novamente antes de tentar pagar.");
+      if (!isCheckoutReady) {
+        const lead = await getLeadMe();
+        applyLead(lead);
+        if (!isCheckoutReady) {
+          throw new Error("A emissão no banco está levando mais tempo que o normal. Sua cobrança já foi registrada; clique em 'Consultar Proposta Novamente' para verificar o QR Code sem cancelá-la.");
+        }
+      }
       preparingStep = 3;
       if (selectedModality === "pix") {
         mode = "pix";
@@ -323,27 +337,17 @@
       {/if}
     </div>
 
-    {#if errorMessage}
-      <div role="alert" class="mb-6 rounded-3xl border border-[var(--danger)] bg-[var(--danger-bg)] p-5 text-[var(--danger)] shadow-lg sm:p-6">
-        <div class="flex items-start gap-4">
-          <div class="flex size-11 shrink-0 items-center justify-center rounded-2xl text-[var(--danger)]" aria-hidden="true">
-            <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3 2.8 20h18.4L12 3Z" />
-              <path d="M12 9v4m0 3h.01" />
-            </svg>
-          </div>
-          <div class="min-w-0 flex-1">
-            <h2 class="font-display text-base text-[var(--ink)] sm:text-lg">{recoveryAction === "login" ? "Entre novamente" : recoveryAction === "environment" ? "Proposta indisponível para esta conta" : "Não conseguimos atualizar agora"}</h2>
-            <p class="mt-1 text-sm leading-relaxed">{errorMessage}</p>
-            {#if recoveryAction === "retry"}
-              <button type="button" disabled={querying} class="btn mt-4 inline-flex min-h-12 items-center justify-center px-5 text-sm" onclick={() => void refreshLead()}>{querying ? "Consultando…" : "Consultar proposta novamente"}</button>
-            {:else}
-              <a href="/" class="btn mt-4 inline-flex min-h-12 items-center justify-center px-5 text-sm">{recoveryAction === "login" ? "Entrar na minha conta" : "Abrir meu ambiente"}</a>
-            {/if}
-          </div>
-        </div>
-      </div>
-    {/if}
+    <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
+    <ErrorDialog
+      isOpen={isErrorDialogOpen}
+      error={errorMessage}
+      primaryAction={recoveryAction === "retry"
+        ? { label: "Consultar Proposta Novamente", action: () => { isErrorDialogOpen = false; void refreshLead(); } }
+        : recoveryAction === "login"
+          ? { label: "Entrar na Minha Conta", action: () => { window.location.href = "/"; } }
+          : { label: "Abrir Meu Ambiente", action: () => { window.location.href = "/"; } }}
+      onClose={() => { isErrorDialogOpen = false; }}
+    />
 
     <!-- 2 Cards de Escolha de Modalidade com Física Zero-G -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -361,7 +365,13 @@
           <p class="text-xs text-white/70 mt-1">Valor informado pelo servidor de pagamentos.</p>
 
           <div class="mt-6 mb-4">
-            <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-black tracking-tight">{pixPrice}</span>
+            {#if livePricing}
+              <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-black tracking-tight">{pixPrice}</span>
+            {:else}
+              <div class="flex items-center my-1">
+                <Skeleton class="h-10 w-36 rounded-xl" />
+              </div>
+            {/if}
             <span class="text-xs text-white/50 block mt-1">taxa única sem mensalidades futuras</span>
           </div>
 
@@ -405,7 +415,13 @@
           <p class="text-xs text-white/70 mt-1">Condições de pagamento apresentadas pela InfinitePay.</p>
 
           <div class="mt-6 mb-4">
-            <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">{creditPrice}</span>
+            {#if quotedCard?.total || livePricing}
+              <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">{creditPrice}</span>
+            {:else}
+              <div class="flex items-center my-1">
+                <Skeleton class="h-10 w-36 rounded-xl" />
+              </div>
+            {/if}
             <span class="text-xs text-[var(--muted-on-dark)] block mt-1">Valor base da proposta. Parcelas, taxas e total com acréscimos são informados no checkout da InfinitePay, antes de pagar.</span>
           </div>
 
@@ -554,11 +570,7 @@
         </p>
       </div>
 
-      {#if profileError}
-        <div class="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-200 text-center">
-          {profileError}
-        </div>
-      {/if}
+
 
       <div class="space-y-4 text-left">
         {#if missingFields.includes("cpf")}
@@ -650,11 +662,7 @@
         {/if}
       </div>
 
-      {#if errorMessage}
-        <div role="alert" class="p-3 rounded-xl bg-[var(--warning-bg)] border border-[var(--warning)] text-xs text-[var(--warning)] text-center">
-          {errorMessage}
-        </div>
-      {/if}
+
 
       <div class="space-y-3 pt-2">
         <button
