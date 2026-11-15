@@ -3,8 +3,31 @@ import { triageDocument } from '../../../../../lib/typesafe.ts';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   try {
+    // 1. Defesa em Profundidade: Requer sessão ativa de aluno ou token de autorização para evitar exaustão de quota
+    const url = new URL(request.url);
+    const isLocalOrTest = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || process.env.NODE_ENV === 'test';
+    const hasAuthHeader = Boolean(request.headers.get('Authorization'));
+    const hasCookieHeader = Boolean(request.headers.get('cookie')?.includes('supletivo.'));
+    const hasSessionCookie = Boolean(
+      cookies?.get?.('supletivo.auth')?.value ||
+      cookies?.get?.('supletivo.session')?.value ||
+      hasCookieHeader ||
+      hasAuthHeader ||
+      isLocalOrTest
+    );
+
+    if (!hasSessionCookie) {
+      return new Response(
+        JSON.stringify({
+          error: 'unauthorized',
+          message: 'Sessão ativa ou validação Turnstile necessária para análise de documentos.',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body = await request.json();
     const { fileName, fileSize, fileType, textSnippet } = body || {};
 
