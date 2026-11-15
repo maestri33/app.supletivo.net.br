@@ -16,7 +16,23 @@ export const ALL: APIRoute = async (context) => {
   }
   const targetUrl = new URL(pathname + url.search, URL_BACKEND);
 
-  const headers = new Headers(request.headers);
+  const headers = new Headers();
+  for (const [key, val] of request.headers.entries()) {
+    const lk = key.toLowerCase();
+    if (
+      lk === 'content-length' ||
+      lk === 'connection' ||
+      lk === 'keep-alive' ||
+      lk === 'transfer-encoding' ||
+      lk === 'upgrade' ||
+      lk === 'expect' ||
+      lk === 'cf-ray' ||
+      lk === 'cf-visitor'
+    ) {
+      continue;
+    }
+    headers.set(key, val);
+  }
   headers.set('host', targetUrl.host);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
@@ -29,10 +45,8 @@ export const ALL: APIRoute = async (context) => {
     headers.set('x-forwarded-for', clientIp);
   }
 
-  const body =
-    request.method !== 'GET' && request.method !== 'HEAD'
-      ? await request.arrayBuffer()
-      : undefined;
+  const hasBody = !['GET', 'HEAD'].includes(request.method);
+  const body = hasBody ? await request.arrayBuffer() : undefined;
 
   try {
     const res = await fetch(targetUrl.toString(), {
@@ -40,12 +54,18 @@ export const ALL: APIRoute = async (context) => {
       headers,
       body,
       redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
     });
 
     const responseHeaders = new Headers(res.headers);
     // Remove headers that should not be forwarded
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-length');
+
+    // Otimização de Edge Cache para dados públicos de vitrine e catálogo
+    if (request.method === 'GET' && res.ok && pathname === '/api/v1/clients/pricing') {
+      responseHeaders.set('Cache-Control', 'public, max-age=10, s-maxage=30, stale-while-revalidate=60');
+    }
 
     return new Response(res.body, {
       status: res.status,
@@ -62,7 +82,11 @@ export const ALL: APIRoute = async (context) => {
       }),
       {
         status: 502,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': '5',
+          'Cache-Control': 'no-store',
+        },
       }
     );
   }
