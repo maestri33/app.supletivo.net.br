@@ -3,7 +3,7 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import {
-    setLeadCheckout, getLeadMe, confirmLeadCardPayment, confirmIdentity, setLeadEmail,
+    setLeadCheckout, getLeadMe, confirmLeadCardPayment, confirmIdentity, confirmIdentityWithRetry, setLeadEmail,
     ApiError, getErrorMessage, type CheckoutOut, type LeadMe, type CardPaymentReferences,
   } from "@/lib/api";
   import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
@@ -204,8 +204,7 @@
       if (missingFields.includes("cpf") && profileCpf.trim()) {
         const cleanCpf = profileCpf.replace(/\D/g, "");
         if (cleanCpf.length !== 11) throw new Error("CPF deve conter 11 dígitos numéricos.");
-        const identity = await confirmIdentity(cleanCpf);
-        if (identity.pending) throw new Error("Seu CPF está em conferência. Tente continuar em instantes.");
+        await confirmIdentityWithRetry(cleanCpf);
       }
       if (missingFields.includes("email") && profileEmail.trim()) {
         if (!profileEmail.includes("@") || !profileEmail.includes(".")) throw new Error("Informe um endereço de e-mail válido.");

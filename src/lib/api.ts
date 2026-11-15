@@ -462,6 +462,30 @@ export function confirmIdentity(cpf: string): Promise<IdentityOut> {
   return requestAuth<IdentityOut>("/api/v1/clients/lead/identity", { json: { cpf } });
 }
 
+/**
+ * Consulta o status da validação do CPFHub no backend.
+ */
+export function getIdentityStatus(): Promise<IdentityOut> {
+  return requestAuth<IdentityOut>("/api/v1/clients/lead/identity/status");
+}
+
+/**
+ * Confirma o CPF e, caso retorne pendente, aguarda com tentativas breves de polling (até 4s).
+ * Retorna o resultado final sem bloquear o fluxo caso o enriquecimento assíncrono permaneça na fila.
+ */
+export async function confirmIdentityWithRetry(cpf: string, maxAttempts = 3): Promise<IdentityOut> {
+  let identity = await confirmIdentity(cpf);
+  for (let attempt = 0; attempt < maxAttempts && identity.pending; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      identity = await getIdentityStatus();
+    } catch {
+      // Ignora erro transitório no polling
+    }
+  }
+  return identity;
+}
+
 /** EmailOut — passo 5 do funil v2: o e-mail gravado (normalizado pelo backend). */
 export interface EmailOut {
   email: string;
