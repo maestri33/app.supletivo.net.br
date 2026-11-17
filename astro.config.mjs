@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
-import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
 import node from '@astrojs/node';
 import tailwindcss from '@tailwindcss/vite';
@@ -76,7 +75,7 @@ export default defineConfig({
       destination: '/student',
     },
   },
-  integrations: [svelte(), react()],
+  integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {

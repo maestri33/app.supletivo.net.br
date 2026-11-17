@@ -50,7 +50,7 @@
     try {
       if (token === "demo") { phase = "notfound"; return; }
 
-      if (token && token !== "default" && !token.startsWith("sandbox")) {
+      if (token && token !== "default") {
         const next = await getPixPage(token);
         data = next;
         consultationError = null;
@@ -161,7 +161,7 @@
   });
 </script>
 
-<main id="conteudo" class="flex flex-1 px-4 sm:px-6 py-6 pb-28">
+<div class="flex flex-1 px-4 sm:px-6 py-6 pb-28">
   <div class="m-auto flex w-full max-w-[460px] flex-col items-center gap-5">
     {#if phase === "loading"}
       <div class="w-full rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl flex flex-col items-center gap-6 shadow-2xl">
@@ -419,4 +419,4 @@
       : { label: "Abrir Minha Conta", action: () => { window.location.href = "/"; } }}
     onClose={() => { isErrorDialogOpen = false; }}
   />
-</main>
+</div>

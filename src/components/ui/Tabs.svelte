@@ -2,97 +2,161 @@
   import type { Snippet } from "svelte";
 
   export interface TabItem {
-    id: string;
-    label: string;
+    title: string;
+    value: string;
     badge?: string;
-    disabled?: boolean;
+    icon?: string;
+    content?: any;
   }
 
   interface Props {
-    items: TabItem[];
+    tabs: TabItem[];
+    defaultValue?: string;
     value?: string;
-    onchange?: (id: string) => void;
-    class?: string;
-    children?: Snippet<[string]>;
+    onChange?: (value: string) => void;
+    onTabChange?: (tab: TabItem) => void;
+    containerClassName?: string;
+    tablistWrapperClassName?: string;
+    tablistClassName?: string;
+    tabClassName?: string;
+    activeTabClassName?: string;
+    contentClassName?: string;
+    ariaLabel?: string;
+    children?: Snippet<[{ activeValue: string }]>;
   }
 
   let {
-    items = [],
-    value = $bindable(items[0]?.id || ""),
-    onchange,
-    class: className = "",
+    tabs = [],
+    defaultValue,
+    value: controlledValue,
+    onChange,
+    onTabChange,
+    containerClassName = "",
+    tablistWrapperClassName = "",
+    tablistClassName = "",
+    tabClassName = "",
+    activeTabClassName = "",
+    contentClassName = "",
+    ariaLabel = "Navegação por abas de conteúdo",
     children,
   }: Props = $props();
 
-  function selectTab(id: string) {
-    value = id;
-    onchange?.(id);
+  let internalValue = $state<string>(defaultValue || tabs?.[0]?.value || "");
+  let activeValue = $derived(controlledValue !== undefined ? controlledValue : internalValue);
+
+  let tabButtons: (HTMLButtonElement | null)[] = $state([]);
+
+  function selectTab(tab: TabItem) {
+    if (tab.value === activeValue) return;
+    if (controlledValue === undefined) {
+      internalValue = tab.value;
+    }
+    onChange?.(tab.value);
+    onTabChange?.(tab);
   }
 
-  function handleKeydown(e: KeyboardEvent, index: number) {
-    const enabledTabs = items.filter((t) => !t.disabled);
-    const currentIndex = enabledTabs.findIndex((t) => t.id === items[index]?.id);
-    if (currentIndex === -1) return;
-
-    let nextIndex = -1;
+  function handleKeyDown(e: KeyboardEvent, index: number) {
+    let targetIndex = -1;
     if (e.key === "ArrowRight") {
-      nextIndex = (currentIndex + 1) % enabledTabs.length;
+      targetIndex = (index + 1) % tabs.length;
     } else if (e.key === "ArrowLeft") {
-      nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+      targetIndex = (index - 1 + tabs.length) % tabs.length;
     } else if (e.key === "Home") {
-      nextIndex = 0;
+      targetIndex = 0;
     } else if (e.key === "End") {
-      nextIndex = enabledTabs.length - 1;
+      targetIndex = tabs.length - 1;
+    } else {
+      return;
     }
 
-    if (nextIndex !== -1) {
-      e.preventDefault();
-      const targetId = enabledTabs[nextIndex].id;
-      selectTab(targetId);
-      const btn = document.getElementById(`tab-${targetId}`);
-      btn?.focus();
+    e.preventDefault();
+    const targetTab = tabs[targetIndex];
+    if (targetTab) {
+      selectTab(targetTab);
+      tabButtons[targetIndex]?.focus();
     }
   }
 </script>
 
-<div class="w-full {className}">
-  <div
-    role="tablist"
-    class="flex items-center gap-1.5 p-1 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl overflow-x-auto no-scrollbar"
-  >
-    {#each items as tab, index (tab.id)}
-      {@const isSelected = value === tab.id}
-      <button
-        id={`tab-${tab.id}`}
-        type="button"
-        role="tab"
-        aria-selected={isSelected}
-        aria-controls={`panel-${tab.id}`}
-        tabindex={isSelected ? 0 : -1}
-        disabled={tab.disabled}
-        onclick={() => selectTab(tab.id)}
-        onkeydown={(e) => handleKeydown(e, index)}
-        class="min-h-[48px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center gap-2 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/60 {isSelected ? 'bg-white/15 text-white shadow-md border border-white/20' : 'text-white/60 hover:text-white hover:bg-white/5'}"
+{#if tabs && tabs.length > 0}
+  <div class="w-full flex flex-col items-center {containerClassName}">
+    <!-- Barra de Abas na Parte Superior (WAI-ARIA Tablist) -->
+    <div class="w-full flex justify-center {tablistWrapperClassName}">
+      <div
+        role="tablist"
+        aria-label={ariaLabel}
+        aria-orientation="horizontal"
+        class="relative flex flex-row items-center justify-start sm:justify-center p-1.5 rounded-full bg-[var(--ink)]/80 backdrop-blur-md border border-white/10 shadow-[var(--shadow-glass)] overflow-x-auto no-visible-scrollbar max-w-full touch-pan-x gap-1 {tablistClassName}"
+        style="-webkit-tap-highlight-color: transparent;"
       >
-        <span>{tab.label}</span>
-        {#if tab.badge}
-          <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {isSelected ? 'bg-[var(--yellow)] text-brand-ink' : 'bg-white/10 text-white/70'}">
-            {tab.badge}
-          </span>
-        {/if}
-      </button>
-    {/each}
-  </div>
+        {#each tabs as tab, idx (tab.value)}
+          {@const isActive = tab.value === activeValue}
+          {@const tabId = `tab-${tab.value}`}
+          {@const panelId = `panel-${tab.value}`}
 
-  <div
-    id={`panel-${value}`}
-    role="tabpanel"
-    aria-labelledby={`tab-${value}`}
-    tabindex="0"
-    class="mt-4 focus-visible:outline-none"
-  >
-    {#if children}
-      {@render children(value)}
-    {/if}
+          <button
+            bind:this={tabButtons[idx]}
+            id={tabId}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={panelId}
+            tabindex={isActive ? 0 : -1}
+            onclick={() => selectTab(tab)}
+            onkeydown={(e) => handleKeyDown(e, idx)}
+            class="relative z-10 px-4 sm:px-5 py-2.5 min-h-[48px] rounded-full inline-flex items-center justify-center gap-2 font-sans text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 select-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ink)] touch-manipulation {
+              isActive
+                ? `text-white bg-[var(--blue)] shadow-lg shadow-[var(--blue)]/50 border border-white/20 ${activeTabClassName}`
+                : 'text-[var(--muted-on-dark)] hover:text-white'
+            } {tabClassName}"
+          >
+            <span class="relative z-10 whitespace-nowrap">{tab.title}</span>
+
+            {#if tab.badge}
+              <span
+                class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full {
+                  isActive
+                    ? 'bg-[var(--yellow)] text-[var(--ink)]'
+                    : 'bg-white/10 text-white/80'
+                }"
+              >
+                {tab.badge}
+              </span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Painéis com Isolamento de Foco e Acessibilidade WCAG -->
+    <div class="relative w-full mt-6 {contentClassName}">
+      {#if children}
+        {@render children({ activeValue })}
+      {:else}
+        {#each tabs as tab (tab.value)}
+          {@const isActive = tab.value === activeValue}
+          {@const tabId = `tab-${tab.value}`}
+          {@const panelId = `panel-${tab.value}`}
+
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={tabId}
+            tabindex="0"
+            hidden={!isActive}
+            class="w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--blue)] rounded-3xl transition-opacity duration-200 {isActive ? 'opacity-100' : 'hidden opacity-0'}"
+          >
+            {#if isActive && tab.content}
+              {#if typeof tab.content === "function"}
+                {@render tab.content()}
+              {:else}
+                <!-- Static or HTML snippet -->
+                {tab.content}
+              {/if}
+            {/if}
+          </div>
+        {/each}
+      {/if}
+    </div>
   </div>
-</div>
+{/if}

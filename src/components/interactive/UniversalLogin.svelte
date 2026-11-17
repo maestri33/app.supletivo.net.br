@@ -74,6 +74,13 @@
     }
   }
 
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === "Enter" && isPhoneComplete && !busy) {
+      e.preventDefault();
+      triggerAutoSubmit(phoneDigits);
+    }
+  }
+
   async function triggerAutoSubmit(digits: string) {
     busy = true;
     errorMessage = null;
@@ -200,6 +207,7 @@
           placeholder="(11) 90000-0000"
           value={phone}
           oninput={onInput}
+          onkeydown={handleKeyDown}
           disabled={busy}
           class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/40 transition-colors duration-200 disabled:opacity-50"
         />

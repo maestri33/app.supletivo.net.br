@@ -1,5 +1,6 @@
 export * from "./types";
-export * from "./useDockSync";
-export * from "./studentDockAdapter";
-export * from "./promoterDockAdapter";
-export * from "./poloDockAdapter";
+export {
+  setLeadCheckoutReadyState,
+  getLeadCheckoutReadyState,
+  dockState,
+} from "@/lib/dockState.svelte";

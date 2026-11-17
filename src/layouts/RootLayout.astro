@@ -1,7 +1,7 @@
 ---
 import AppHeader from '../components/layout/AppHeader.astro';
 import SiteFooter from '../components/layout/SiteFooter.astro';
-import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock';
+import RoleAdaptiveNavDock from '../components/interactive/RoleAdaptiveNavDock.svelte';
 import RoleRouteGuard from '../components/interactive/RoleRouteGuard.svelte';
 import Toaster from '../components/ui/Toaster.svelte';
 import '../styles/global.css';
@@ -73,20 +73,6 @@ const authRedirectTarget = initialRole === "promoter"
     <link rel="icon" href="/favicon.ico" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <style is:inline>
-      html[data-role-access="pending"] #conteudo,
-      html[data-role-access="pending"] nav[aria-label^="Navegação principal"] { display: none !important; }
-    </style>
-    {shouldGuardRole && (
-      <script is:inline>
-        document.documentElement.dataset.roleAccess = 'pending';
-        setTimeout(function() {
-          if (document.documentElement.dataset.roleAccess === 'pending') {
-            delete document.documentElement.dataset.roleAccess;
-          }
-        }, 4000);
-      </script>
-    )}
     {shouldGuardAuth && (
       <script is:inline define:vars={{ authRedirectTarget }}>
         try {
@@ -136,9 +122,9 @@ const authRedirectTarget = initialRole === "promoter"
       <slot />
     </main>
 
-    <!-- Navegação Adaptativa Global (Dock Flutuante) -->
+    <!-- Navegação Adaptativa Global (Dock Flutuante em Svelte 5 Puro) -->
     {shouldRenderDock && (
-      <RoleAdaptiveNavDock client:only="react" initialRole={initialRole} currentPath={pathname} />
+      <RoleAdaptiveNavDock client:load initialRole={initialRole} currentPath={pathname} />
     )}
 
     <!-- Rodapé institucional Zero-JS (suprimido quando há dock ativo para evitar colisão) -->
@@ -148,8 +134,3 @@ const authRedirectTarget = initialRole === "promoter"
     <Toaster client:load />
   </body>
 </html>
-
-<style is:global>
-  html[data-role-access="pending"] #conteudo,
-  html[data-role-access="pending"] nav[aria-label^="Navegação principal"] { display: none; }
-</style>
