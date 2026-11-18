@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { triageDocument } from '../src/lib/typesafe.ts';
+import { triageDocument } from '../../src/lib/typesafe.ts';
 
 test('TypeSafe Enrollment: Document Triage never approves without the official analyzer', async () => {
   const result = await triageDocument({
@@ -50,7 +50,7 @@ test('TypeSafe Enrollment: Document Triage - Rejects Underage Candidate (<18 for
 });
 
 test('TypeSafe Enrollment: API Endpoint POST /api/v1/academic/documents/triage', async () => {
-  const { POST } = await import('../src/pages/api/v1/academic/documents/triage.ts');
+  const { POST } = await import('../../src/pages/api/v1/academic/documents/triage.ts');
   const req = new Request('http://localhost/api/v1/academic/documents/triage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

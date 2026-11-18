@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { commissionTotal } from '../src/lib/promoter.ts';
+import { commissionTotal } from '../../src/lib/promoter.ts';
 
 test('outstanding amounts exclude cancelled and failed commissions and preserve cents', () => {
   const ledger = [

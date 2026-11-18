@@ -42,6 +42,30 @@ export default defineConfig({
       status: 308,
       destination: '/student/enrollment',
     },
+    '/recuperar-numero': {
+      status: 308,
+      destination: '/autenticacao/recuperar-numero',
+    },
+    '/checkout': {
+      status: 308,
+      destination: 'https://supletivo.net.br',
+    },
+    '/planos': {
+      status: 308,
+      destination: 'https://supletivo.net.br/#planos',
+    },
+    '/register': {
+      status: 308,
+      destination: 'https://supletivo.net.br',
+    },
+    '/email': {
+      status: 308,
+      destination: 'https://supletivo.net.br',
+    },
+    '/cpf': {
+      status: 308,
+      destination: 'https://supletivo.net.br',
+    },
     '/promotor': {
       status: 308,
       destination: '/promoter',

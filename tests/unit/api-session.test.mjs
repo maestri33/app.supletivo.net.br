@@ -5,10 +5,13 @@ import ts from 'typescript';
 
 const moduleUrl = (source) => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const transpile = (source) => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext } }).outputText;
-const sessionUrl = moduleUrl(transpile(fs.readFileSync(new URL('../src/lib/session.ts', import.meta.url), 'utf8')));
+const sessionUrl = moduleUrl(transpile(fs.readFileSync(new URL('../../src/lib/session.ts', import.meta.url), 'utf8')));
+const deadlineUrl = moduleUrl(transpile(fs.readFileSync(new URL('../../src/lib/deadline.ts', import.meta.url), 'utf8')));
 const configUrl = moduleUrl('export const API_BASE_URL=""; export const API_TIMEOUT_MS=1000;');
-const apiSource = fs.readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8')
-  .replace('"@/lib/config"', JSON.stringify(configUrl)).replace('"@/lib/session"', JSON.stringify(sessionUrl));
+const apiSource = fs.readFileSync(new URL('../../src/lib/api.ts', import.meta.url), 'utf8')
+  .replace('"@/lib/config"', JSON.stringify(configUrl))
+  .replace('"@/lib/session"', JSON.stringify(sessionUrl))
+  .replace('"./deadline"', JSON.stringify(deadlineUrl));
 const session = await import(sessionUrl);
 const api = await import(moduleUrl(transpile(apiSource)));
 const originalFetch = globalThis.fetch;
