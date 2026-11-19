@@ -3,9 +3,6 @@
   import {
     loginOtp,
     checkPhone,
-    checkCollaboratorPhone,
-    loginCollaboratorOtp,
-    joinCollaboratorOtp,
     whoami,
     getLeadMe,
     getErrorMessage,
@@ -38,8 +35,6 @@
   let recoveryCpf = $state("");
   let recoveryNewPhone = $state("");
   let mounted = $state(false);
-
-  let isPromoter = $derived(role === "promotor" || role === "promoter");
 
   let isComplete = $derived(code.length === 6);
 
@@ -157,39 +152,7 @@
     errorMessage = null;
 
     try {
-      let tokens;
-      if (isPromoter) {
-        try {
-          tokens = await loginCollaboratorOtp(externalId, code, phone);
-        } catch (collabErr: any) {
-          // Fallback para /join se usuário já existe com outra role (ex: student)
-          if (
-            collabErr?.status === 403 ||
-            collabErr?.code === "NOT_IN_FUNNEL" ||
-            collabErr?.message?.includes("funil")
-          ) {
-            tokens = await joinCollaboratorOtp(externalId, code);
-          } else {
-            throw collabErr;
-          }
-        }
-      } else {
-        try {
-          tokens = await loginOtp(externalId, code, phone);
-        } catch (clientErr: any) {
-          // Fallback transparente se o usuário for colaborador puro (promoter/candidate/coordinator) entrando via login universal
-          if (
-            clientErr?.status === 403 ||
-            clientErr?.code === "NOT_IN_FUNNEL" ||
-            clientErr?.message?.includes("funil")
-          ) {
-            tokens = await loginCollaboratorOtp(externalId, code, phone);
-          } else {
-            throw clientErr;
-          }
-        }
-      }
-
+      const tokens = await loginOtp(externalId, code, phone);
       saveLogin(tokens);
 
       try {
@@ -202,6 +165,7 @@
         });
         const target = getRoleDestination(who);
         if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
+        const urlParams = new URLSearchParams(window.location.search);
         const returnTo = urlParams.get("return_to");
         const safeReturnTo = (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) ? returnTo : null;
         window.location.href = safeReturnTo || target;
@@ -227,14 +191,7 @@
 
     try {
       const saved = getSession();
-      const res = isPromoter
-        ? await checkCollaboratorPhone(phone, {
-            cpf: saved?.cpf,
-            hub: saved?.hub || saved?.ref,
-            ref: saved?.ref,
-            email: saved?.email,
-          })
-        : await checkPhone(phone, saved?.ref || undefined);
+      const res = await checkPhone(phone, saved?.ref || undefined);
 
       if (res.external_id) {
         externalId = res.external_id;

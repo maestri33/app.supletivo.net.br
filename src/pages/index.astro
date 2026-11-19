@@ -6,21 +6,14 @@ export const prerender = false;
 
 const searchParams = Astro.url.searchParams;
 
-// Issue #8: Se contiver role=promotor/promoter ou rota explícita de promotor, rota de promotor
-const roleVal = (searchParams.get("role") ?? "").toLowerCase();
-const isPromoterContext = ["promotor", "promoter"].includes(roleVal) || searchParams.has("promotor") || searchParams.has("promoter");
-
-// Se já possui sessão ativa (cookie supletivo.auth), redireciona SSR direto para o portal correto sem flash de login
+// Se já possui sessão ativa (cookie supletivo.auth), redireciona SSR direto para o portal do aluno sem flash de login
 // Respeita requisições explícitas de troca de telefone ou logout
 const isExplicitSwitch = searchParams.has("trocar") || searchParams.has("switch") || searchParams.has("tel") || searchParams.has("logout");
 const authCookie = Astro.cookies.get("supletivo.auth")?.value;
 if (isExplicitSwitch) {
   Astro.cookies.delete("supletivo.auth", { path: "/" });
 } else if (authCookie) {
-  return Astro.redirect(
-    (isPromoterContext || authCookie === 'promoter' || authCookie === 'candidate') ? '/promoter' : '/student',
-    302
-  );
+  return Astro.redirect('/student', 302);
 }
 ---
 
