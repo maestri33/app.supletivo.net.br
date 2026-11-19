@@ -43,24 +43,16 @@ export interface TierPricing {
 }
 
 /**
- * Retorna as condições de preço conforme a presença de indicação de consultor (Issue #3).
- * Com ref: Lote 01 Promocional (12x R$ 99 / R$ 999 no Pix, economia de R$ 616,00).
- * Sem ref: Tabela oficial (12x R$ 161 / R$ 1.615 no Pix).
+ * Retorna a oferta canônica universal: 12x R$ 99 / R$ 999 no Pix (Economia de R$ 616,00 sobre a âncora R$ 1.615).
+ * Universalizada para todo o tráfego (modelo de promotor descontinuado).
  */
-export function getConsultantPricing(hasRef: boolean): TierPricing {
-  if (hasRef) {
-    return {
-      hasRef: true,
-      pix: "999.00",
-      card: { installments: 12, installment: "99.00", total: "1188.00" },
-      economyBrl: "616,00",
-      label: "Desconto aplicado via Consultor Autorizado",
-    };
-  }
+export function getConsultantPricing(_hasRef?: boolean): TierPricing {
   return {
-    hasRef: false,
-    pix: "1615.00",
-    card: { installments: 12, installment: "161.00", total: "1932.00" },
+    hasRef: true,
+    pix: "999.00",
+    card: { installments: 12, installment: "99.00", total: "1188.00" },
+    economyBrl: "616,00",
+    label: "Condição Especial de Matrícula (Desconto de R$ 616)",
   };
 }
 
