@@ -1,10 +1,9 @@
 /**
- * API base URL for the browser. Empty = same-origin: requests hit /api/* on the
- * Next server, which proxies to the Django Ninja upstream (see next.config.ts rewrites).
- * This avoids CORS and mixed-content. Override only for special setups.
+ * API base URL for client requests. Empty string = same-origin (`/api/*`),
+ * which is handled by Astro SSR and Cloudflare Worker proxying to backend services.
  */
 export const API_BASE_URL =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
+  (typeof process !== "undefined" && (process.env?.PUBLIC_API_BASE_URL || process.env?.NEXT_PUBLIC_API_BASE_URL)) ||
   (import.meta.env && (import.meta.env.PUBLIC_API_BASE_URL || import.meta.env.NEXT_PUBLIC_API_BASE_URL)) ||
   "";
 

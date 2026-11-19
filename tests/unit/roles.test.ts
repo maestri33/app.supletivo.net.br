@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as roles from '../src/lib/roles.ts';
+import * as roles from '../../src/lib/roles.ts';
 
 test('an administrator or unknown identity never acquires a student environment', () => {
   assert.deepEqual(roles.normalizeUserRoles(['admin', 'staff']), []);

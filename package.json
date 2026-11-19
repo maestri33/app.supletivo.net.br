@@ -12,7 +12,7 @@
     "sync": "astro sync",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test test/typesafe-test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts tests/unit/camera-session.test.ts tests/unit/promoter-weekly-commissions.test.ts tests/unit/otp-input.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/unit/typesafe.test.ts tests/unit/roles.test.ts tests/unit/promoter.test.ts tests/unit/promoter-education.test.ts tests/unit/contact-recovery.test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts tests/unit/camera-session.test.ts tests/unit/promoter-weekly-commissions.test.ts tests/unit/otp-input.test.ts tests/unit/deadline.test.ts tests/unit/api-session.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:cli": "playwright-cli",
@@ -28,7 +28,6 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.4.2",
     "clsx": "^2.1.1",
-    "postgres": "^3.4.9",
     "svelte": "^5.57.2",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
