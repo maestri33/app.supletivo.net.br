@@ -45,6 +45,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.165.0'
 
       - name: Acionar Oráculo Central de Versão
         if: ${{ success() && env.CLOUDFLARE_API_TOKEN != '' }}
