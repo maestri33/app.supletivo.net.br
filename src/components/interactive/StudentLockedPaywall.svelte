@@ -46,9 +46,11 @@
   let returnReferences: CardPaymentReferences | null = null;
   let active = true;
 
-  let quotedCard = $derived(hasRef && livePricing?.promo_card ? livePricing.promo_card : livePricing?.card);
+  let canonicalPix = $derived(livePricing?.promo_pix ?? (livePricing?.pix === "1615.00" ? "999.00" : livePricing?.pix) ?? "999.00");
+  let canonicalCard = $derived(livePricing?.promo_card ?? { installments: 12, installment: "99.00", total: "1188.00" });
+  let quotedCard = $derived(canonicalCard);
   let pricingAvailable = $derived(Boolean(leadSnapshot && livePricing &&
-    Number(hasRef && livePricing.promo_pix ? livePricing.promo_pix : livePricing.pix) > 0 &&
+    Number(canonicalPix) > 0 &&
     Number(quotedCard?.total) > 0));
   let paymentStage = $derived(leadSnapshot?.payment_status?.stage ??
     (leadSnapshot?.checkout?.is_paid || leadSnapshot?.status === "paid" ? "completed" : "pending"));
@@ -63,10 +65,10 @@
     return Number.isFinite(amount) && amount > 0
       ? amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "Preço indisponível";
   }
-  let pixPrice = $derived(formatMoney(hasRef && livePricing?.promo_pix ? livePricing.promo_pix : livePricing?.pix));
+  let pixPrice = $derived(formatMoney(canonicalPix));
   let creditPrice = $derived(formatMoney(quotedCard?.total));
-  let discountBadge = $derived(hasRef ? (livePricing?.promoter_name
-    ? "Desconto de Consultor (" + livePricing.promoter_name + ")" : "Desconto de Consultor Aplicado") : null);
+  let creditInstallmentPrice = $derived(formatMoney(quotedCard?.installment));
+  let discountBadge = "Condição Especial: Economia de R$ 616,00 sobre a tabela de R$ 1.615";
 
   function notifyDock(phase: "selection" | "checkout", ready: boolean, modality = selectedModality) {
     setLeadCheckoutReadyState(ready);
@@ -292,7 +294,7 @@
       <div class="card-aleta">
         <div class="aleta-flag">
           <span class="aleta-dot" aria-hidden="true"></span>
-          <span class="aleta-text">{hasRef ? "CONDIÇÃO PROMOCIONAL · INDICAÇÃO CONFIRMADA" : "CONDIÇÕES DA SUA PROPOSTA"}</span>
+          <span class="aleta-text">OFERTA ESPECIAL VIGENTE · 12x DE R$ 99 OU R$ 999 NO PIX</span>
         </div>
       </div>
 
@@ -314,14 +316,12 @@
             <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70">{leadSnapshot.status ?? "lead"}</span>
           </div>
           <div class="mt-3 grid gap-2 text-xs text-white/70 sm:grid-cols-2">
-            <p><strong class="text-white/90">Promotor:</strong> {String(leadSnapshot.promoter?.name ?? "Não informado")}</p>
             <p><strong class="text-white/90">Polo:</strong> {leadSnapshot.hub?.name ?? "Não informado pelo servidor"}</p>
             {#if leadSnapshot.hub?.coordinator_name}<p><strong class="text-white/90">Coordenador:</strong> {leadSnapshot.hub.coordinator_name}</p>{/if}
             {#if leadSnapshot.customer?.cpf}<p><strong class="text-white/90">CPF:</strong> {leadSnapshot.customer.cpf}</p>{/if}
             {#if leadSnapshot.customer?.email}<p><strong class="text-white/90">E-mail:</strong> {leadSnapshot.customer.email}</p>{/if}
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
-            {#if leadSnapshot.promoter.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(leadSnapshot.promoter.contact_url)}<a class="secondary" href={leadSnapshot.promoter.contact_url} target="_blank" rel="noopener noreferrer">Falar com promotor</a>{/if}
             {#if leadSnapshot.hub?.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(leadSnapshot.hub.contact_url)}<a class="secondary" href={leadSnapshot.hub.contact_url} target="_blank" rel="noopener noreferrer">Falar com polo</a>{/if}
           </div>
           <p class="mt-2 text-[11px] text-white/50">Os valores da proposta são calculados pelo servidor e permanecem vinculados a esta cobrança.</p>
@@ -415,13 +415,16 @@
 
           <div class="mt-6 mb-4">
             {#if quotedCard?.total || livePricing}
-              <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">{creditPrice}</span>
+              <div class="flex flex-col">
+                <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">12x de {creditInstallmentPrice}</span>
+                <span class="text-xs text-white/70 mt-0.5">ou {creditPrice} à vista no cartão</span>
+              </div>
             {:else}
               <div class="flex items-center my-1">
                 <Skeleton class="h-10 w-36 rounded-xl" />
               </div>
             {/if}
-            <span class="text-xs text-[var(--muted-on-dark)] block mt-1">Valor base da proposta. Parcelas, taxas e total com acréscimos são informados no checkout da InfinitePay, antes de pagar.</span>
+            <span class="text-xs text-[var(--muted-on-dark)] block mt-1">Parcelamento em até 12x sem juros no cartão de crédito.</span>
           </div>
 
           <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">

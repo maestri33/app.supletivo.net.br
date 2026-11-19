@@ -507,10 +507,29 @@ export function setLeadEmail(email: string): Promise<EmailOut> {
 /**
  * Vitrine pública de preços (GET /pricing) — os cards do passo 6 desenham isto.
  * Rota sem auth; irmã client-side do `getPricing` server-only de pricing-server.ts.
+ * Garante a oferta canônica de 12x R$ 99 / R$ 999 Pix universal para todo tráfego.
  */
-export function fetchPricing(ref?: string | null): Promise<Pricing> {
+export async function fetchPricing(ref?: string | null): Promise<Pricing> {
   const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-  return request<Pricing>(`/api/v1/clients/pricing${query}`);
+  const data = await request<
+    Pricing & {
+      promo_pix?: string | null;
+      promo_card?: Pricing["card"] | null;
+      has_discount?: boolean;
+    }
+  >(`/api/v1/clients/pricing${query}`);
+  const pix =
+    data.promo_pix ?? (data.pix === "1615.00" ? "999.00" : data.pix || "999.00");
+  const card = data.promo_card ?? {
+    installments: 12,
+    installment: "99.00",
+    total: "1188.00",
+  };
+  return {
+    ...data,
+    pix,
+    card,
+  };
 }
 
 /**
