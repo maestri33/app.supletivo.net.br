@@ -1,8 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "app-supletivo-net-br",
+  "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-09-16",
   "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
   "workers_dev": true,
   "vars": {
     "URL_BACKEND": "https://backend.supletivo.net.br"
