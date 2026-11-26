@@ -645,4 +645,387 @@ test.describe("Fluxos Críticos e Edge Cases Issue #29", () => {
     await expect(page.getByText("Falta enviar o verso do RG.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Avançar para comprovante de endereço" })).toHaveCount(0);
   });
+
+  test("OtpVerification: erro OTP_INVALID e clique em 'Digitar Novamente' limpa dígitos e foca sem TypeError", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
+    await page.route("**/api/v1/auth/otp/verify", (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: "Código incorreto", code: "OTP_INVALID" },
+      }),
+    );
+
+    await page.goto("/autenticacao/otp?id=u-otp-invalid&tel=11987654321");
+    await expect(page.locator("#otp-0")).toHaveAttribute("data-hydrated", "true");
+    await expect(page.getByTestId("contact-recovery-trigger")).toHaveAttribute("data-hydrated", "true");
+    for (let i = 0; i < 6; i += 1) {
+      await page.locator(`#otp-${i}`).fill(String(i + 1));
+    }
+
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Código Incorreto");
+
+    await dialog.getByRole("button", { name: "Digitar Novamente" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    for (let i = 0; i < 6; i += 1) {
+      await expect(page.locator(`#otp-${i}`)).toHaveValue("");
+    }
+    await expect(page.locator("#otp-0")).toBeFocused();
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("StudentActiveView: /student/active/dashboard preserva phone/externalId em supletivo.session e atualiza status/substatus em supletivo.login", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "supletivo.session",
+        JSON.stringify({ phone: "5543996648750", externalId: "ext-keep-0028", cpf: "11144477735" }),
+      );
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "student-jwt-fixture",
+          refresh_token: "student-refresh-fixture",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "lead",
+          substatus: "stale_substatus",
+        }),
+      );
+    });
+
+    await page.route("**/api/v1/catalog/contact", (route) =>
+      route.fulfill({ json: { email: "contato@supletivo.net.br", whatsapp_number: null } }),
+    );
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "ext-keep-0028",
+          external_id: "ext-keep-0028",
+          phone: "5543996648750",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "enrolled",
+          substatus: "siga_active",
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/me", (route) =>
+      route.fulfill({
+        json: {
+          user: { id: "ext-keep-0028", phone: "5543996648750", cpf: "11144477735", name: "Mariana", full_name: "Mariana Lima", gender: "F", blood_type: "A+" },
+          role: { id: "r-act-1", role: "client", status: "enrolled", substatus: "siga_active", paid_at: Date.now() },
+          siga_credentials: { username: "mariana.siga", password: null, url: "https://siga.example.test" },
+          document_progress: { blood_type_registered: true, military_exempt: true, academic_documents_ready: true, checklist: {} },
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/documents", (route) =>
+      route.fulfill({ json: { documents: [], pending_requirements: [] } }),
+    );
+    await page.route("**/api/v1/student/exams", (route) =>
+      route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+    );
+
+    await page.goto("/student/active/dashboard");
+    await expect(page.getByRole("heading", { name: /Painel do aluno — Mariana/i })).toBeVisible();
+    await expect(page.getByText("Usuário: mariana.siga")).toBeVisible();
+
+    const stored = await page.evaluate(() => ({
+      session: JSON.parse(localStorage.getItem("supletivo.session") || "null"),
+      login: JSON.parse(localStorage.getItem("supletivo.login") || "null"),
+    }));
+
+    expect(stored.session).toMatchObject({
+      phone: "5543996648750",
+      externalId: "ext-keep-0028",
+    });
+    expect(stored.login).toMatchObject({
+      status: "enrolled",
+      substatus: "siga_active",
+    });
+  });
+
+  test("StudentLockedPaywall: abertura com ?from=infinitepay&order_nsu=... sem transaction_nsu/slug dispara polling automático", async ({ page }) => {
+    await signInStudent(page, "lead", "checkout_created");
+    let confirmed = false;
+    let pollCalls = 0;
+
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "u-auto-poll",
+          external_id: "u-auto-poll",
+          phone: "5543999991122",
+          cpf: "09126367939",
+          email: "poll@example.test",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: confirmed ? "pre_enrolled" : "lead" },
+          status: confirmed ? "pre_enrolled" : "lead",
+          substatus: confirmed ? "rg_pending" : "checkout_created",
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/payment/current", (route) =>
+      route.fulfill({
+        json: {
+          payment_attempt_id: "pay-auto-poll-1",
+          status: "pending",
+          checkout_url: "https://pay.infinitepay.io/auto-poll-1",
+        },
+      }),
+    );
+    await page.route("**/api/v1/checkout/status/pay-auto-poll-1", (route) => {
+      pollCalls += 1;
+      if (pollCalls >= 2) {
+        confirmed = true;
+        return route.fulfill({ json: { payment_id: "pay-auto-poll-1", paid: true, status: "paid" } });
+      }
+      return route.fulfill({ json: { payment_id: "pay-auto-poll-1", paid: false, status: "pending" } });
+    });
+    await page.route("**/api/v1/enrollment/status", (route) =>
+      route.fulfill({
+        json: {
+          student_role_id: "r-auto",
+          current_status: "pre_enrolled",
+          substatus: "rg_pending",
+          step: 1,
+          all_basic_docs_ready: false,
+          checklist: { rg: { submitted: false, status: null } },
+        },
+      }),
+    );
+    await page.route("**/api/v1/enrollment/documents/rg", (route) =>
+      route.fulfill({ json: { submitted: false, document: null, rg_section: {} } }),
+    );
+
+    await page.goto("/student/lead/checkout?from=infinitepay&order_nsu=ord-auto-1");
+    await expect(page.getByText("Verificando confirmação do seu pagamento na InfinitePay...")).toBeVisible();
+    await expect.poll(() => pollCalls, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+    await page.waitForURL(/\/student\/enrollment\/rg$/);
+  });
+
+  test("Contraste dark-glass em runtime: títulos, parágrafos e labels sobre .aurora-wrap / Card não ficam escuros sobre fundo escuro", async ({ page }) => {
+    const assertDarkGlassContrast = async (routeLabel: string) => {
+      const violations = await page.evaluate((label) => {
+        const parseRgba = (raw: string): [number, number, number, number] | null => {
+          const m = raw.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/i);
+          if (!m) return null;
+          return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] !== undefined ? Number(m[4]) : 1];
+        };
+        const luminance = (r: number, g: number, b: number) => {
+          const toLin = (c: number) => {
+            const s = c / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
+        };
+
+        const issues: string[] = [];
+        const nodes = Array.from(document.querySelectorAll("main h1, main h2, main h3, main p, main label"));
+        for (const el of nodes) {
+          const style = getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width <= 1 || rect.height <= 1) continue;
+          if (el.classList.contains("sr-only")) continue;
+
+          let bgRgba: [number, number, number, number] = [6, 22, 58, 1]; // .aurora-wrap dark base
+          let curr: HTMLElement | null = el as HTMLElement;
+          while (curr && curr !== document.body) {
+            const parsed = parseRgba(getComputedStyle(curr).backgroundColor);
+            if (parsed && parsed[3] > 0.15) {
+              bgRgba = parsed;
+              break;
+            }
+            curr = curr.parentElement;
+          }
+
+          const bgLum = luminance(bgRgba[0], bgRgba[1], bgRgba[2]);
+          const fg = parseRgba(style.color);
+          if (!fg) continue;
+          const fgLum = luminance(fg[0], fg[1], fg[2]);
+
+          // Sobre fundo escuro (aurora / dark-glass Card), texto não pode ser rgb(11, 18, 32) nem escuro
+          if (bgLum < 0.25 && (style.color === "rgb(11, 18, 32)" || fgLum < 0.18)) {
+            issues.push(
+              `[${label}] <${el.tagName.toLowerCase()}> "${(el.textContent || "").trim().slice(0, 40)}" color=${style.color} (lum=${fgLum.toFixed(3)}) over bg=rgba(${bgRgba.join(",")})`,
+            );
+          }
+        }
+        return issues;
+      }, routeLabel);
+
+      expect(violations, `Contraste inválido em ${routeLabel}`).toEqual([]);
+    };
+
+    // 1. Login raiz /
+    await page.goto("/");
+    await expect(page.locator("h1")).toHaveText("Acesse sua conta");
+    await assertDarkGlassContrast("/");
+
+    // 2. OTP
+    await page.goto("/autenticacao/otp?id=u-contrast&tel=11987654321");
+    await expect(page.locator("h1")).toHaveText("Digite seu código");
+    await assertDarkGlassContrast("/autenticacao/otp");
+
+    // 3. Checkout
+    await page.route("**/api/v1/catalog/contact", (route) =>
+      route.fulfill({ json: { email: "contato@supletivo.net.br", whatsapp_number: null } }),
+    );
+    await page.route("**/api/v1/catalog/pricing", (route) =>
+      route.fulfill({ json: { pix: "999.00", promo_pix: "999.00", card: null, promo_card: null, anchor_full: "1615.00" } }),
+    );
+    await page.evaluate(() => {
+      (window as unknown as { __TEST_TURNSTILE_TOKEN__?: string }).__TEST_TURNSTILE_TOKEN__ = "e2e-turnstile-ok";
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "student-jwt-fixture",
+          refresh_token: "student-refresh-fixture",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "lead" },
+          status: "lead",
+          substatus: "awaiting_cpf",
+        }),
+      );
+    });
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "u-contrast-lead",
+          external_id: "u-contrast-lead",
+          phone: "5543999991100",
+          cpf: "09126367939",
+          email: "contrast@example.test",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "lead" },
+          status: "lead",
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/payment/current", (route) =>
+      route.fulfill({ status: 404, json: { error: "none" } }),
+    );
+    await page.goto("/student/lead/checkout");
+    await expect(page.getByRole("heading", { name: "Finalize sua matrícula na EJA" })).toBeVisible();
+    await assertDarkGlassContrast("/student/lead/checkout");
+
+    // 4. Student Active Dashboard
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "student-jwt-fixture",
+          refresh_token: "student-refresh-fixture",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "enrolled",
+          substatus: "siga_active",
+        }),
+      );
+    });
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "u-contrast-act",
+          external_id: "u-contrast-act",
+          phone: "5543999991101",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "enrolled",
+          substatus: "siga_active",
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/me", (route) =>
+      route.fulfill({
+        json: {
+          user: { id: "u-contrast-act", phone: "5543999991101", cpf: "11144477735", name: "Lucas", full_name: "Lucas Alves", gender: "M", blood_type: "O+" },
+          role: { id: "r-act", role: "client", status: "enrolled", substatus: "siga_active", paid_at: Date.now() },
+          siga_credentials: null,
+          document_progress: { blood_type_registered: true, military_exempt: true, academic_documents_ready: true, checklist: {} },
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/documents", (route) =>
+      route.fulfill({ json: { documents: [], pending_requirements: [] } }),
+    );
+    await page.route("**/api/v1/student/exams", (route) =>
+      route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+    );
+    await page.goto("/student/active/dashboard");
+    await expect(page.getByRole("heading", { name: /Painel do aluno — Lucas/i })).toBeVisible();
+    await expect(page.getByText("Documentação completa")).toBeVisible();
+    await assertDarkGlassContrast("/student/active/dashboard");
+
+    // 5. Admin Dashboard
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "admin-jwt-fixture",
+          refresh_token: "admin-refresh-fixture",
+          roles: ["admin"],
+          active_role: "admin",
+          role_statuses: { admin: "active" },
+          status: "active",
+        }),
+      );
+    });
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "adm-contrast",
+          external_id: "adm-contrast",
+          phone: "5543996648750",
+          roles: ["admin"],
+          active_role: "admin",
+          role_statuses: { admin: "active" },
+          status: "active",
+        },
+      }),
+    );
+    await page.route("**/api/v1/admin/**", (route) =>
+      route.fulfill({
+        json: {
+          items: [],
+          students: [],
+          total: 0,
+          page: 1,
+          limit: 15,
+          total_pages: 1,
+          metrics: {
+            total_revenue_cents: 0,
+            total_revenue: "R$ 0,00",
+            total_paid_count: 0,
+            total_pending_count: 0,
+            total_failed_count: 0,
+            total_refunded_count: 0,
+            total_refunded_cents: 0,
+            total_refunded_amount: "R$ 0,00",
+          },
+        },
+      }),
+    );
+    await page.goto("/admin/dashboard");
+    await expect(page.getByRole("heading", { name: "Painel Administrativo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Resumo Financeiro (InfinitePay)" })).toBeVisible();
+    await assertDarkGlassContrast("/admin/dashboard");
+  });
 });
