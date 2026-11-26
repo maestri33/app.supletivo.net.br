@@ -1,6 +1,6 @@
-import type { AppEnvironment, StudentStatus, CandidateStatus, PromoterStatus, EnrollmentStatus } from "../../../lib/roles";
+import type { CanonicalEnvironment, StudentStatus, StudentSubstatus } from "../../../lib/roles";
 
-export type UserRole = AppEnvironment;
+export type UserRole = CanonicalEnvironment;
 
 export interface AdapterContext {
   currentPath: string;
@@ -11,14 +11,12 @@ export interface AdapterContext {
 export type ItemHealthStatus = "pending" | "under_review" | "approved" | "rejected";
 
 export interface StudentDockState {
-  status: StudentStatus | EnrollmentStatus | string | null;
+  status: StudentStatus | string | null;
+  substatus?: StudentSubstatus | null;
   pendingDocsCount?: number;
   hasPartnerUrl?: boolean;
-  enrollmentStep?: EnrollmentStatus;
-  isLocked?: boolean;
-  leadPhase?: "selection" | "checkout";
+  enrollmentStep?: string;
   isCheckoutReady?: boolean;
-  selectedModality?: "pix" | "credit_card" | null;
   rgStatus?: ItemHealthStatus;
   addressStatus?: ItemHealthStatus;
   educationStatus?: ItemHealthStatus;
@@ -27,30 +25,9 @@ export interface StudentDockState {
   diplomaStatus?: ItemHealthStatus;
 }
 
-export interface PromoterDockState {
-  status?: PromoterStatus | CandidateStatus | string;
-  newLeadsCount?: number;
-  isTrainingBlocked?: boolean;
-  pendingMaterialsCount?: number;
-  isCandidate?: boolean;
-  onboardingStatus?: ItemHealthStatus;
-  pixStatus?: ItemHealthStatus;
-  termsStatus?: ItemHealthStatus;
-  registrationStep?: "documents" | "address" | "pix" | "education" | "selfie" | "review";
-  selectedSection?: string;
-  documentStatus?: ItemHealthStatus;
-  addressStatus?: ItemHealthStatus;
-  educationStatus?: ItemHealthStatus;
-  selfieStatus?: ItemHealthStatus;
-  documentReady?: boolean;
-  addressReady?: boolean;
-  educationReady?: boolean;
-}
-
-export interface PoloDockState {
-  status?: string;
-  pendingValidationCount?: number;
+export interface AdminDockState {
+  pendingDocsCount?: number;
+  pendingSigaCount?: number;
   pendingExamsCount?: number;
-  readyDiplomasCount?: number;
+  pendingDiplomasCount?: number;
 }
-

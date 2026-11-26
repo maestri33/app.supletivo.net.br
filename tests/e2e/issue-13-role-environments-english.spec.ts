@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Ambientes e Sub-rotas Canônicas em Inglês", () => {
+test.describe("Ambientes e Sub-rotas Canônicas v2 (student + admin)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
     await page.addInitScript(() => {
@@ -23,126 +23,93 @@ test.describe("Ambientes e Sub-rotas Canônicas em Inglês", () => {
     expect(new URL(page.url()).pathname).toBe("/");
   });
 
-  test("acesso não autenticado a /promoter/candidate deve redirecionar para a raiz", async ({ page }) => {
-    await page.goto("/promoter/candidate");
+  test("acesso não autenticado a /admin/dashboard e /admin/documentos deve redirecionar para /", async ({ page }) => {
+    await page.goto("/admin/dashboard");
     await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
     expect(new URL(page.url()).pathname).toBe("/");
-  });
 
-  test("acesso não autenticado a /promoter/training deve redirecionar para a raiz", async ({ page }) => {
-    await page.goto("/promoter/training");
-    await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
-    expect(new URL(page.url()).pathname).toBe("/");
-  });
-
-  test("acesso não autenticado a /promoter/active deve redirecionar para a raiz", async ({ page }) => {
-    await page.goto("/promoter/active");
-    await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
-    expect(new URL(page.url()).pathname).toBe("/");
-  });
-
-  test("acesso não autenticado a /hub/active deve redirecionar para a raiz /", async ({ page }) => {
-    await page.goto("/hub/active");
-    await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
-    expect(new URL(page.url()).pathname).toBe("/");
-  });
-
-  test("acesso não autenticado a /hub/review deve redirecionar para a raiz /", async ({ page }) => {
-    await page.goto("/hub/review");
+    await page.goto("/admin/documentos");
     await page.waitForURL((url) => url.pathname === "/" || url.pathname === "");
     expect(new URL(page.url()).pathname).toBe("/");
   });
 
   test("usuário autenticado como aluno renderiza /student/lead com sucesso", async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-student-token",
-        roles: ["lead", "student"]
-      }));
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "mock-student-token",
+          roles: ["client"],
+          role_statuses: { client: "lead" },
+        }),
+      );
     });
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "u1",
+          external_id: "u1",
+          phone: "5511999999999",
+          cpf: "11144477735",
+          email: "a@b.com",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "lead" },
+          status: "lead",
+        },
+      }),
+    );
+    await page.route("**/api/v1/catalog/**", (route) =>
+      route.fulfill({ json: { pix: "999.00", promo_pix: "999.00", card: null, promo_card: null } }),
+    );
+    await page.route("**/api/v1/student/payment/current", (route) => route.fulfill({ status: 404, json: { error: "none" } }));
 
     await page.goto("/student/lead");
     await expect(page.locator("h1").first()).toBeVisible();
     expect(page.url()).toContain("/student/lead");
   });
 
-  test("usuário autenticado como aluno renderiza /student/enrollment com sucesso", async ({ page }) => {
+  test("usuário autenticado como administrador renderiza /admin/dashboard e /admin/documentos", async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-student-token",
-        roles: ["enrollment", "student"]
-      }));
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "mock-admin-token",
+          roles: ["admin"],
+          role_statuses: { admin: "active" },
+        }),
+      );
     });
+    await page.route("**/api/v1/admin/**", (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          total: 0,
+          page: 1,
+          limit: 15,
+          total_pages: 1,
+          items: [],
+          documents: [],
+          students: [],
+          metrics: {
+            total_revenue_cents: 0,
+            total_revenue: "R$ 0,00",
+            total_paid_count: 0,
+            total_pending_count: 0,
+            total_failed_count: 0,
+            total_refunded_count: 0,
+            total_refunded_cents: 0,
+            total_refunded_amount: "R$ 0,00",
+          },
+        },
+      }),
+    );
 
-    await page.goto("/student/enrollment");
-    await expect(page.locator("h1")).toContainText("Documentação");
-    expect(page.url()).toContain("/student/enrollment");
-  });
+    await page.goto("/admin/dashboard");
+    await expect(page.getByRole("heading", { name: "Painel Administrativo" })).toBeVisible();
 
-  test("usuário autenticado como candidato a promotor renderiza /promoter/candidate com sucesso", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-candidate-token",
-        roles: ["candidate", "promoter"]
-      }));
-    });
-
-    await page.goto("/promoter/candidate");
-    await expect(page.locator("h1")).toContainText("Credenciamento de Promotor");
-    expect(page.url()).toContain("/promoter/candidate");
-  });
-
-  test("usuário autenticado como promotor renderiza /promoter/active com sucesso", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-promoter-token",
-        roles: ["promoter"]
-      }));
-    });
-
-    await page.goto("/promoter/active");
-    await expect(page.locator("h1")).toContainText("Painel do Promotor");
-    expect(page.url()).toContain("/promoter/active");
-  });
-
-  test("usuário autenticado como promotor renderiza /promoter/training com status de atenção", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-training-token",
-        roles: ["promoter", "training"]
-      }));
-    });
-
-    await page.goto("/promoter/training");
-    await expect(page.locator("h1")).toContainText("Treinamento Obrigatório Pendente");
-    expect(page.url()).toContain("/promoter/training");
-  });
-
-  test("usuário autenticado como coordenador de hub renderiza /hub/active com sucesso", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-hub-token",
-        roles: ["coordinator", "hub"]
-      }));
-    });
-
-    await page.goto("/hub/active");
-    await expect(page.locator("h1")).toContainText("Secretaria de Polo (Hub)");
-    expect(page.url()).toContain("/hub/active");
-  });
-
-  test("usuário autenticado como coordenador de hub renderiza /hub/review com sucesso", async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("supletivo.login", JSON.stringify({
-        access_token: "mock-hub-token",
-        roles: ["coordinator", "hub"]
-      }));
-    });
-
-    await page.goto("/hub/review");
-    await expect(page.locator("h1")).toContainText("Central de Análises do Polo");
-    expect(page.url()).toContain("/hub/review");
+    await page.goto("/admin/documentos");
+    await expect(page.getByRole("heading", { name: "Mesa de Revisão de Documentos" })).toBeVisible();
   });
 });
-
-

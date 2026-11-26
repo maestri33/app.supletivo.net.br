@@ -3,8 +3,8 @@
   import { checkPhone, whoami, ApiError, getErrorMessage } from "@/lib/api";
   import { getAccessToken, saveSession, clearSession } from "@/lib/session";
   import { isValidBrMobile } from "@/lib/phone";
-  import { getRoleDestination, normalizeUserRoles } from "@/lib/roles";
-  import UnregisteredRoleModal from "@/components/interactive/UnregisteredRoleModal.svelte";
+  import { getRoleDestination } from "@/lib/roles";
+  import { safeReturnTo } from "@/components/interactive/student/workflow";
   import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   let phone = $state("");
@@ -12,8 +12,6 @@
   let errorMessage = $state<string | null>(null);
   let isErrorDialogOpen = $state(false);
   let notFound = $state(false);
-  let isRoleModalOpen = $state(false);
-  let isRoleSubmitting = $state(false);
 
   let phoneDigits = $derived(phone.replace(/\D/g, ""));
   let isPhoneComplete = $derived(isValidBrMobile(phoneDigits));
@@ -37,14 +35,14 @@
       try {
         const who = await whoami();
         const target = getRoleDestination(who);
-        if (!target) throw new Error('Não foi possível identificar a etapa da sua conta. Tente novamente.');
-        const returnTo = urlParams.get("return_to");
-        const safeReturnTo = (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) ? returnTo : null;
-        window.location.replace(safeReturnTo || target);
+        if (!target) throw new Error("Não foi possível identificar a etapa da sua conta. Tente novamente.");
+        const safeReturn = safeReturnTo(urlParams.get("return_to"));
+        window.location.replace(safeReturn || target);
       } catch (failure) {
         if (failure instanceof ApiError && failure.status === 401) clearSession();
         else {
-          errorMessage = failure instanceof Error ? failure.message : 'Não foi possível consultar sua conta.';
+          errorMessage =
+            failure instanceof Error ? failure.message : "Não foi possível consultar sua conta.";
           isErrorDialogOpen = true;
         }
         checkingSession = false;
@@ -65,10 +63,8 @@
     target.value = phone;
     errorMessage = null;
     notFound = false;
-    isRoleModalOpen = false;
 
     const digits = phone.replace(/\D/g, "");
-    // Trigger Zero-Button: ao atingir 11 dígitos válidos, dispara automaticamente
     if (isValidBrMobile(digits) && !busy) {
       triggerAutoSubmit(digits);
     }
@@ -85,62 +81,37 @@
     busy = true;
     errorMessage = null;
     notFound = false;
-    isRoleModalOpen = false;
 
     try {
       const res = await checkPhone(digits);
-      if (res.roles && normalizeUserRoles(res.roles).length === 0 && res.roles.some((r) => ['admin', 'staff', 'superuser'].includes(r))) {
-        window.location.href = 'https://admin.supletivo.net.br/login';
-        return;
-      }
 
       if (res.whatsapp === false) {
-        errorMessage = "Este número não possui WhatsApp ativo. O código é enviado exclusivamente por WhatsApp.";
+        errorMessage =
+          "Este número não possui WhatsApp ativo. O código é enviado exclusivamente por WhatsApp.";
         isErrorDialogOpen = true;
         busy = false;
         return;
       }
 
-      // Se o número existe no WhatsApp mas NÃO possui cadastro no banco:
-      // Exibe modal com 2 cards para escolha: Quero ser Aluno ou Quero ser Promotor
-      if (res.found === false && !res.created && !res.external_id) {
+      const hasAllowedRole = Boolean(
+        res.roles?.some((r) => ["client", "admin", "student"].includes(r))
+      );
+
+      if (!hasAllowedRole && !res.found && !res.created && !res.external_id) {
+        notFound = true;
         busy = false;
-        notFound = false;
-        isRoleModalOpen = true;
         return;
       }
 
-      const returnTo = new URLSearchParams(window.location.search).get("return_to");
-      const returnQuery = returnTo ? `&return_to=${encodeURIComponent(returnTo)}` : "";
-      if (res.external_id) {
-        saveSession({ phone: digits, externalId: res.external_id });
-        window.location.href = `/autenticacao/otp?id=${encodeURIComponent(res.external_id)}&tel=${encodeURIComponent(digits)}${returnQuery}`;
-      } else {
-        window.location.href = `/autenticacao/otp?tel=${encodeURIComponent(digits)}${returnQuery}`;
-      }
-    } catch (err: any) {
+      const safeReturn = safeReturnTo(new URLSearchParams(window.location.search).get("return_to"));
+      const returnQuery = safeReturn ? `&return_to=${encodeURIComponent(safeReturn)}` : "";
+      saveSession({ phone: digits, externalId: res.external_id || null });
+      const idParam = res.external_id ? `id=${encodeURIComponent(res.external_id)}&` : "";
+      window.location.href = `/autenticacao/otp?${idParam}tel=${encodeURIComponent(digits)}${returnQuery}`;
+    } catch (err: unknown) {
       errorMessage = getErrorMessage(err);
       isErrorDialogOpen = true;
       busy = false;
-    }
-  }
-
-  function onRoleSelect(role: "aluno" | "promotor") {
-    isRoleSubmitting = true;
-    const digits = phone.replace(/\D/g, "");
-
-    if (role === "promotor") {
-      saveSession({ phone: digits, role: "promotor" });
-      const target = digits
-        ? `https://promotor.supletivo.net.br?tel=${encodeURIComponent(digits)}&modal=cadastro`
-        : "https://promotor.supletivo.net.br";
-      window.location.href = target;
-    } else {
-      saveSession({ phone: digits, role: "aluno" });
-      const target = digits
-        ? `https://supletivo.net.br?tel=${encodeURIComponent(digits)}&modal=cadastro`
-        : "https://supletivo.net.br";
-      window.location.href = target;
     }
   }
 </script>
@@ -162,7 +133,6 @@
     </p>
   </div>
 
-  <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
   <ErrorDialog
     isOpen={isErrorDialogOpen}
     error={errorMessage}
@@ -177,7 +147,7 @@
     <div class="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 text-center">
       Não encontramos um cadastro vinculado a este número.
       <a href="https://supletivo.net.br" class="underline font-bold text-white block mt-1">
-        Conheça os cursos e inicie sua inscrição →
+        Conheça o curso e inicie sua inscrição →
       </a>
     </div>
   {/if}
@@ -189,64 +159,56 @@
       <p class="text-xs text-white/60 mt-1">Sessão encontrada. Redirecionando...</p>
     </div>
   {:else}
-  <div class="space-y-4">
-    <div>
-      <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-white/80 mb-2">
-        Seu WhatsApp:
-      </label>
-      <div class="relative">
-        <svg class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-emerald-400 opacity-90 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <input
-          id="phone"
-          data-hydrated={mounted}
-          type="tel"
-          inputmode="numeric"
-          autocomplete="tel"
-          placeholder="(11) 90000-0000"
-          value={phone}
-          oninput={onInput}
-          onkeydown={handleKeyDown}
-          disabled={busy}
-          class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/40 transition-colors duration-200 disabled:opacity-50"
-        />
+    <div class="space-y-4">
+      <div>
+        <label for="phone" class="block text-xs font-semibold uppercase tracking-wider text-white/80 mb-2">
+          Seu WhatsApp:
+        </label>
+        <div class="relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-emerald-400 opacity-90 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          <input
+            id="phone"
+            data-hydrated={mounted}
+            type="tel"
+            inputmode="numeric"
+            autocomplete="tel"
+            placeholder="(11) 90000-0000"
+            value={phone}
+            oninput={onInput}
+            onkeydown={handleKeyDown}
+            disabled={busy}
+            class="w-full h-12 pl-12 pr-12 rounded-xl bg-white/5 border border-white/20 text-white placeholder-white/40 text-base font-medium focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/40 transition-colors duration-200 disabled:opacity-50"
+          />
+          {#if busy}
+            <div class="absolute right-4 top-1/2 -translate-y-1/2">
+              <span class="inline-block size-5 border-2 border-white/30 border-t-[var(--yellow)] rounded-full animate-spin"></span>
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <div class="pt-2 text-center">
         {#if busy}
-          <div class="absolute right-4 top-1/2 -translate-y-1/2">
-            <span class="inline-block size-5 border-2 border-white/30 border-t-[var(--yellow)] rounded-full animate-spin"></span>
+          <div class="inline-flex items-center gap-2 text-xs text-[var(--yellow)] font-medium">
+            <span class="size-1.5 rounded-full bg-[var(--yellow)] animate-ping"></span>
+            Validando número e gerando acesso...
+          </div>
+        {:else if isPhoneComplete}
+          <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
+            Número completo
+          </div>
+        {:else}
+          <div class="text-[11px] text-white/50">
+            Avanço automático ao completar 11 dígitos
           </div>
         {/if}
       </div>
     </div>
 
-    <div class="pt-2 text-center">
-      {#if busy}
-        <div class="inline-flex items-center gap-2 text-xs text-[var(--yellow)] font-medium">
-          <span class="size-1.5 rounded-full bg-[var(--yellow)] animate-ping"></span>
-          Validando número e gerando acesso...
-        </div>
-      {:else if isPhoneComplete}
-        <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
-          Número completo
-        </div>
-      {:else}
-        <div class="text-[11px] text-white/50">
-          Avanço automático ao completar 11 dígitos
-        </div>
-      {/if}
+    <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
+      Ainda não possui cadastro? Basta digitar seu WhatsApp acima para iniciar sua matrícula.
     </div>
-  </div>
-
-  <div class="mt-6 pt-6 border-t border-white/10 text-center text-xs text-white/60">
-    Ainda não possui cadastro? Basta digitar seu WhatsApp acima para conhecer as opções de acesso.
-  </div>
   {/if}
 </div>
-
-<UnregisteredRoleModal
-  isOpen={isRoleModalOpen}
-  phone={phone}
-  isSubmitting={isRoleSubmitting}
-  onClose={() => { isRoleModalOpen = false; }}
-  onSelectRole={onRoleSelect}
-/>

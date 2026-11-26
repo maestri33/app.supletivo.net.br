@@ -1,165 +1,86 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Navegação Global e Adaptativa (RoleAdaptiveNavDock)", () => {
-  test("não deve renderizar a dock flutuante em rotas públicas de autenticação", async ({ page }) => {
-    await page.goto("/autenticacao/login");
+test.describe("Navegação Global e Adaptativa v2 (RoleAdaptiveNavDock)", () => {
+  test("não deve renderizar a dock flutuante na rota pública de login", async ({ page }) => {
+    await page.goto("/");
     const dock = page.getByTestId("role-adaptive-dock");
     await expect(dock).toHaveCount(0);
   });
 
-  test("deve exibir a dock adaptativa globalmente no painel quando autenticado", async ({ page }) => {
+  test("deve exibir a dock adaptativa globalmente no painel do aluno matriculado", async ({ page }) => {
     const externalId = "22222222-2222-4222-8222-222222222222";
 
-    // Simula sessão de login autenticado
-    await page.addInitScript(() => {
+    await page.addInitScript((id) => {
       window.localStorage.setItem(
         "supletivo.login",
         JSON.stringify({
           access_token: "mock-access-token",
           refresh_token: "mock-refresh-token",
           token_type: "bearer",
-          roles: ["aluno"],
-          role_statuses: { student: "active" },
-          user: {
-            external_id: "22222222-2222-4222-8222-222222222222",
-            roles: ["aluno"],
-            role_statuses: { student: "active" },
-          },
+          roles: ["client"],
+          role_statuses: { client: "enrolled" },
+          user: { external_id: id },
           savedAt: Date.now(),
-        })
+        }),
       );
-    });
+    }, externalId);
 
-    await page.route("**/api/v1/clients/whoami", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: externalId,
           external_id: externalId,
-          roles: ["aluno"],
-          role_statuses: { student: "active" },
-          name: "Maria Silva",
-        }),
-      });
-    });
-
-    await page.route("**/api/v1/clients/lead/me", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          external_id: externalId,
-          status: "active",
-          checkout: { is_paid: true },
-        }),
-      });
-    });
-
-    await page.route("**/api/v1/clients/student/me", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          external_id: externalId,
-          status: "active",
-          pendencies: [{ id: "doc-1", type: "id_card" }],
-          platform: { url: "https://ava.parceiro.com.br" },
-        }),
-      });
-    });
+          phone: "5511999999999",
+          name: "Estudante Teste",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "enrolled",
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/me", (route) =>
+      route.fulfill({
+        json: {
+          user: { id: externalId, phone: "5511999999999", name: "Estudante Teste", full_name: "Estudante Teste", cpf: "11144477735", gender: "M", blood_type: "O+" },
+          role: { id: "r1", role: "client", status: "enrolled", substatus: "pending_post_siga_docs", paid_at: Date.now() },
+          siga_credentials: { username: "11144477735", url: "https://siga.supletivo.net.br" },
+          document_progress: { blood_type_registered: true, military_exempt: false, academic_documents_ready: false, checklist: {} },
+        },
+      }),
+    );
+    await page.route("**/api/v1/student/documents", (route) =>
+      route.fulfill({ json: { documents: [], pending_requirements: ["school_records"] } }),
+    );
+    await page.route("**/api/v1/student/exams", (route) =>
+      route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+    );
+    await page.route("**/api/v1/catalog/contact", (route) =>
+      route.fulfill({ json: { email: "contato@supletivo.net.br", whatsapp_number: null } }),
+    );
 
     await page.goto("/student/active/dashboard");
 
-    // Permanece no dock globalmente
-    const homeItem = page.locator("a[href='/student/active/dashboard']").first();
-    await expect(homeItem).toBeVisible({ timeout: 10000 });
-
-    const docItem = page.locator("a[href='/student/active/documents']").first();
-    await expect(docItem).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("a[href='/student/active/dashboard']").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("a[href='/student/active/documents']").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("a[href='/student/active/access']").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("a[href='/student/active/assessments']").first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("deve transmutar itens do dock ao alternar tabs em usuário multi-role", async ({ page }) => {
-    const externalId = "33333333-3333-4333-8333-333333333333";
-
-    await page.addInitScript(() => {
-      window.localStorage.setItem(
-        "supletivo.login",
-        JSON.stringify({
-          access_token: "mock-multi-role-token",
-          refresh_token: "mock-refresh-token",
-          token_type: "bearer",
-          roles: ["aluno", "promotor"],
-          role_statuses: { student: "enrollment", promoter: "candidate" },
-          user: {
-            external_id: "33333333-3333-4333-8333-333333333333",
-            roles: ["aluno", "promotor"],
-            role_statuses: { student: "enrollment", promoter: "candidate" },
-          },
-          savedAt: Date.now(),
-        })
-      );
-    });
-
-    await page.route("**/api/v1/clients/whoami", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          external_id: externalId,
-          roles: ["aluno", "promotor"],
-          role_statuses: { student: "enrollment", promoter: "candidate" },
-          name: "Carlos Consultor",
-        }),
-      });
-    });
-
-    await page.route("**/api/v1/clients/lead/me", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          external_id: externalId,
-          status: "active",
-          checkout: { is_paid: true },
-        }),
-      });
-    });
-
-    await page.route("**/api/v1/clients/student/me", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          external_id: externalId,
-          status: "exam_released",
-          pendencies: [],
-        }),
-      });
-    });
-
+  test("deve transmutar itens do dock ao alternar entre Aluno e Admin em /tabs-status", async ({ page }) => {
     await page.goto("/tabs-status");
-
-    // As duas tabs superiores devem ser exibidas
     const root = page.getByTestId("role-status-tabs-root");
-    const tabAluno = root.getByRole("button", { name: "🎓 Aluno" });
-    const tabPromotor = root.getByRole("button", { name: "💼 Promotor" });
-    await expect(tabAluno).toBeVisible({ timeout: 10000 });
-    await expect(tabPromotor).toBeVisible();
+    await expect(root).toHaveAttribute("data-hydrated", "true", { timeout: 10000 });
 
-    // Inicialmente dock do aluno no status awaiting_documents tem itens de documentação
     await expect(page.locator("a[href='/student/enrollment/rg']").first()).toBeVisible();
 
-    // Clica na tab Promotor
-    await tabPromotor.click();
+    await page.getByRole("tab", { name: /1\. Pagamento/i }).click();
+    await expect(page.locator("a[href='/student/lead/payment']").first()).toBeVisible();
 
-    // O dock deve transmutar para os itens de credenciamento do candidato (#documents, #pix, etc.)
-    await expect(page.locator("a[href='#pix']").first()).toBeVisible();
-
-    // Alterna para o status de Promotor Ativo
-    await page.locator("button[role='tab']:has-text('Promotor Ativo')").click();
-
-    // O dock deve transmutar para os itens do Promotor Ativo (/promoter/active/dashboard e /promoter/active/leads)
-    await expect(page.locator("a[href='/promoter/active/dashboard']").first()).toBeVisible();
-    await expect(page.locator("a[href='/promoter/active/leads']").first()).toBeVisible();
+    await root.getByRole("button", { name: /Admin/i }).click();
+    await expect(page.locator("a[href='/admin/dashboard']").first()).toBeVisible();
+    await expect(page.locator("a[href='/admin/documentos']").first()).toBeVisible();
+    await expect(page.locator("a[href='/admin/credenciais-siga']").first()).toBeVisible();
   });
 });

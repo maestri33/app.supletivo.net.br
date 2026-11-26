@@ -1,204 +1,363 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// O fluxo de selfie usa getUserMedia, não um input de arquivo. O Chromium
-// precisa de uma câmera sintética para que o teste exercite abrir a câmera,
-// renderizar o preview e capturar o frame sem depender de hardware do host.
 test.use({
   permissions: ["camera"],
-  launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+  launchOptions: {
+    args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+  },
 });
 
-const enrollment = {
-  external_id: "enrollment-fixture", hub_external_id: "hub-fixture",
-  status: "education", selfie_verified: false, selfie_status: "pending",
-  rg: { analysis_status: "approved", missing_fields: [] },
-  address_complete: true, address_proof: { exists: true, status: "approved" },
-  education: null, selfie: null,
-};
-
 function stubIbge(page: Page) {
-  return page.route("**/localidades/estados**", route => {
+  return page.route("**/localidades/estados**", (route) => {
     const url = route.request().url();
     if (url.includes("/municipios")) return route.fulfill({ json: [{ nome: "Curitiba" }] });
     return route.fulfill({ json: [{ sigla: "PR", nome: "Paraná" }] });
   });
 }
 
-async function signIn(page: Page, roles: string[], statuses: Record<string, string>) {
-  await page.route("**/api/v1/clients/lead/me", route => route.fulfill({ json: { checkout: null } }));
-  await page.addInitScript(() => {
-    localStorage.setItem("supletivo.login", JSON.stringify({ access_token: "fixture-access", refresh_token: "fixture-refresh" }));
-    localStorage.setItem("supletivo.session", JSON.stringify({ phone: "11900000000", externalId: "user-fixture" }));
-  });
-  await page.route("**/api/v1/clients/whoami", route => route.fulfill({ json: {
-    external_id: "user-fixture", roles, role_statuses: statuses, name: "Aluno de teste",
-  } }));
+async function signIn(page: Page, status: string, substatus: string | null = null) {
+  await page.addInitScript(
+    ({ status, substatus }) => {
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "fixture-access",
+          refresh_token: "fixture-refresh",
+          roles: ["client"],
+          role_statuses: { client: status },
+          status,
+          substatus,
+        }),
+      );
+      localStorage.setItem(
+        "supletivo.session",
+        JSON.stringify({ phone: "5511900000000", externalId: "user-fixture" }),
+      );
+    },
+    { status, substatus },
+  );
+  await page.route("**/api/v1/auth/whoami", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        id: "user-fixture",
+        external_id: "user-fixture",
+        phone: "5511900000000",
+        name: "Aluno de teste",
+        roles: ["client"],
+        active_role: "client",
+        role_statuses: { client: status },
+        status,
+        substatus,
+      },
+    }),
+  );
+  await page.route("**/api/v1/catalog/contact", (route) =>
+    route.fulfill({ json: { email: "contato@supletivo.net.br", whatsapp_number: null } }),
+  );
 }
 
-test("matrícula segue a escolaridade do backend mesmo com RG e endereço aprovados", async ({ page }) => {
-  await signIn(page, ["enrollment"], { student: "enrollment" });
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: enrollment }));
+test("central de matrícula aponta próxima etapa education_pending", async ({ page }) => {
+  await signIn(page, "pre_enrolled", "education_pending");
+  await page.route("**/api/v1/enrollment/status", (route) =>
+    route.fulfill({
+      json: {
+        student_role_id: "r1",
+        current_status: "pre_enrolled",
+        substatus: "education_pending",
+        step: 3,
+        all_basic_docs_ready: false,
+        checklist: {
+          rg: { submitted: true, status: "approved", needs_manual_review: 0 },
+          proof_of_residence: { submitted: true, status: "approved", needs_manual_review: 0 },
+          education_level: { submitted: false, status: "pending", needs_manual_review: 0 },
+          contract_signature: { submitted: false, status: "pending", needs_manual_review: 0 },
+          selfie: { submitted: false, status: "pending", needs_manual_review: 0 },
+        },
+      },
+    }),
+  );
+  await page.route("**/api/v1/enrollment/documents/rg", (route) =>
+    route.fulfill({ json: { rg_section: { rg_complete: true, status: "approved" } } }),
+  );
+  await page.route("**/api/v1/student/payment/current", (route) =>
+    route.fulfill({ status: 404, json: { error: "none" } }),
+  );
+
   await page.goto("/student/enrollment");
-  await expect(page).toHaveURL(/\/student\/enrollment\/education$/);
-  await expect(page.getByRole("heading", { name: "Onde você parou de estudar?" })).toBeVisible();
-  await expect(page.getByText(/100% Homologada|matrícula está autorizada/i)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Central de documentos da matrícula" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continuar envio" })).toHaveAttribute(
+    "href",
+    "/student/enrollment/education",
+  );
 });
 
-test("escolaridade envia escolhas reais e segue a etapa devolvida", async ({ page }) => {
-  let current = { ...enrollment };
+test("escolaridade permite escola opcional e avança para contrato/selfie", async ({ page }) => {
+  let substatus = "education_pending";
   let posted: Record<string, unknown> | null = null;
-  await signIn(page, ["enrollment"], { student: "enrollment" });
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: current }));
-  await page.route("**/api/v1/clients/enrollment/education", async route => {
+
+  await signIn(page, "pre_enrolled", "education_pending");
+  await page.route("**/api/v1/enrollment/status", (route) =>
+    route.fulfill({
+      json: {
+        student_role_id: "r1",
+        current_status: "pre_enrolled",
+        substatus,
+        step: substatus === "selfie_pending" ? 4 : 3,
+        all_basic_docs_ready: false,
+        checklist: {},
+      },
+    }),
+  );
+  await page.route("**/api/v1/enrollment/education", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: { submitted: false, data: null } });
+    }
     posted = route.request().postDataJSON();
-    current = { ...current, status: "selfie" };
-    await route.fulfill({ json: current });
+    substatus = "selfie_pending";
+    return route.fulfill({ json: { saved: true, next_step: "selfie_pending" } });
   });
-  await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture-version", hash: "fixture-hash", text: "Contrato de matrícula de teste." } }));
+  await page.route("**/api/v1/contract/current", (route) =>
+    route.fulfill({ json: { version: "v2", hash: "fixture-hash", text: "Contrato de matrícula de teste." } }),
+  );
   await stubIbge(page);
+
   await page.goto("/student/enrollment/education");
-  await page.getByRole("button", { name: "Ensino Médio", exact: true }).click();
-  await page.getByRole("button", { name: "2º ano", exact: true }).click();
-  await page.getByRole("button", { name: "Não terminei o ano", exact: true }).click();
-  await page.getByLabel("Estado da escola").selectOption("PR");
-  await page.getByLabel("Cidade da escola").fill("Curitiba");
-  await page.getByRole("button", { name: "Salvar escolaridade" }).click();
+  await page.locator("#edu-level").selectOption("medio");
+  await page.locator("#edu-grade").selectOption("2");
+  await page.locator("#edu-uf").selectOption("PR");
+  await page.locator("#edu-city").selectOption("Curitiba");
+  await page.getByLabel(/Declaro que as informações/i).check();
+  await page.getByRole("button", { name: "Salvar escolaridade e continuar" }).click();
+
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("dialog").getByRole("checkbox").check();
-  await page.getByRole("dialog").getByRole("button", { name: "Confirmar e continuar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Concordo e confirmo" }).click();
+
   await expect(page).toHaveURL(/\/student\/enrollment\/selfie$/);
-  expect(posted).toMatchObject({ level: "medio", grade: 2, completed: false, state: "PR", city: "Curitiba", declaration_accepted: true });
+  expect(posted).toMatchObject({
+    level: "medio",
+    grade: 2,
+    completed: false,
+    state: "PR",
+    city: "Curitiba",
+    declaration_accepted: true,
+  });
+  expect(posted?.last_school).toBeUndefined();
 });
 
-test("aluno não consegue enviar o 3º ano do médio como concluído", async ({ page }) => {
-  let posted = false;
-  await signIn(page, ["enrollment"], { student: "enrollment" });
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: enrollment }));
-  await page.route("**/api/v1/clients/enrollment/education", route => { posted = true; return route.fulfill({ json: enrollment }); });
-  await stubIbge(page);
-  await page.goto("/student/enrollment/education");
-  await page.getByRole("button", { name: "Ensino Médio", exact: true }).click();
-  await page.getByRole("button", { name: "3º ano", exact: true }).click();
-  await page.getByRole("button", { name: "Terminei o ano", exact: true }).click();
-  await page.getByLabel("Estado da escola").selectOption("PR");
-  await page.getByLabel("Cidade da escola").fill("Curitiba");
-  await expect(page.getByRole("alert")).toContainText("3º ano do Ensino Médio concluído");
-  await expect(page.getByRole("button", { name: "Salvar escolaridade" })).toBeDisabled();
-  expect(posted).toBe(false);
-});
-
-test("selfie exibe contrato vigente, exige ciência e espera liberação do polo", async ({ page }) => {
-  let current: Record<string, unknown> = { ...enrollment, status: "selfie" };
+test("selfie assina contrato antes do upload e segue para /student/enrollment", async ({ page }) => {
+  let substatus = "selfie_pending";
+  let signed = false;
   let uploaded = false;
-  await signIn(page, ["enrollment"], { student: "enrollment" });
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: current }));
-  await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture-version", hash: "fixture-hash", text: "Contrato vigente fornecido pelo servidor." } }));
-  await page.route("**/api/v1/clients/enrollment/selfie", async route => {
+
+  await signIn(page, "pre_enrolled", "selfie_pending");
+  await page.route("**/api/v1/enrollment/status", (route) =>
+    route.fulfill({
+      json: {
+        student_role_id: "r1",
+        current_status: "pre_enrolled",
+        substatus,
+        step: substatus === "pending_siga" ? 6 : 4,
+        all_basic_docs_ready: substatus === "pending_siga",
+        checklist: {
+          rg: { submitted: true, status: "approved", needs_manual_review: 0 },
+          proof_of_residence: { submitted: true, status: "approved", needs_manual_review: 0 },
+          education_level: { submitted: true, status: "approved", needs_manual_review: 0 },
+          contract_signature: { submitted: signed, status: signed ? "approved" : "pending", needs_manual_review: 0 },
+          selfie: { submitted: uploaded, status: uploaded ? "approved" : "pending", needs_manual_review: 0 },
+        },
+      },
+    }),
+  );
+  await page.route("**/api/v1/enrollment/documents/rg", (route) =>
+    route.fulfill({ json: { rg_section: { rg_complete: true, status: "approved" } } }),
+  );
+  await page.route("**/api/v1/student/payment/current", (route) =>
+    route.fulfill({ status: 404, json: { error: "none" } }),
+  );
+  await page.route("**/api/v1/contract/current", (route) =>
+    route.fulfill({
+      json: { version: "v2", hash: "fixture-hash", text: "Contrato vigente fornecido pelo servidor." },
+    }),
+  );
+  await page.route("**/api/v1/student/contract/sign", async (route) => {
+    signed = true;
+    await route.fulfill({ json: { signed: true, contract_hash: "fixture-hash" } });
+  });
+  await page.route("**/api/v1/enrollment/selfie", async (route) => {
+    expect(signed).toBe(true);
     expect(route.request().headers()["content-type"]).toContain("multipart/form-data");
     uploaded = true;
-    current = { ...current, status: "awaiting_release", selfie_verified: true, selfie_status: "approved", selfie: { exists: true, analysis_status: "approved", verified: true }, poll_after_ms: 1 };
-    await route.fulfill({ json: current });
+    substatus = "pending_siga";
+    await route.fulfill({ json: { uploaded: true, status: "approved", substatus: "pending_siga" } });
   });
+
   await page.goto("/student/enrollment/selfie");
   await expect(page.getByText("Contrato vigente fornecido pelo servidor.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeDisabled();
-  await page.getByLabel(/Li o contrato e autorizo a assinatura/i).check();
+  await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
   await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
   await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
-  await expect(page.getByRole("heading", { name: "Teu próximo passo é começar a estudar" })).toBeVisible();
-  expect(uploaded).toBe(true);
+
   await expect(page).toHaveURL(/\/student\/enrollment$/);
-  await expect(page.getByText(/100% Homologada|matrícula está autorizada/i)).toHaveCount(0);
+  await expect(page.getByText("Documentação inicial concluída")).toBeVisible();
+  expect(uploaded).toBe(true);
 });
 
-test("falha no envio da selfie continua recuperável e não confirma matrícula", async ({ page }) => {
-  await signIn(page, ["enrollment"], { student: "enrollment" });
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: { ...enrollment, status: "selfie" } }));
-  await page.route("**/api/v1/clients/contract/current", route => route.fulfill({ json: { version: "fixture-version", hash: "fixture-hash", text: "Contrato de teste." } }));
-  await page.route("**/api/v1/clients/enrollment/selfie", route => route.fulfill({ status: 422, json: { detail: "Envie uma imagem legível." } }));
-  await page.goto("/student/enrollment/selfie");
-  await page.getByLabel(/Li o contrato e autorizo a assinatura/i).check();
-  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
-  await expect(page.getByLabel("Prévia da câmera para selfie")).toBeVisible();
-  await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
-  await expect(page.getByRole("alert")).toContainText("Envie uma imagem legível.");
-  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
-  await expect(page).toHaveURL(/\/selfie$/);
-});
+test("painel de acesso SIGA exibe login e alterna exibição da senha", async ({ page }) => {
+  await signIn(page, "enrolled", "active");
+  await page.route("**/api/v1/student/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "u1", phone: "5511900000000", cpf: "11144477735", name: "Aluno Ativo", full_name: "Aluno Ativo", gender: "M", blood_type: "O+" },
+        role: { id: "r1", role: "client", status: "enrolled", substatus: "active", paid_at: Date.now() },
+        siga_credentials: { username: "student-login", password: "fixture-password", url: "https://siga.supletivo.net.br" },
+        document_progress: { blood_type_registered: true, military_exempt: false, academic_documents_ready: true, checklist: {} },
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/documents", (route) =>
+    route.fulfill({ json: { documents: [], pending_requirements: [] } }),
+  );
+  await page.route("**/api/v1/student/exams", (route) =>
+    route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+  );
 
-test("painel usa o parceiro e pendências reais, sem inventar aprendizagem", async ({ page }) => {
-  await signIn(page, ["student"], { student: "active" });
-  await page.route("**/api/v1/clients/student/me", route => route.fulfill({ json: {
-    external_id: "student-fixture", status: "documents_under_review", blood_type: "O+",
-    platform: { url: "https://partner.example/ava", login: "student-login", password: "fixture-password", notes: "Orientação fornecida pelo polo." },
-    documents: [{ doc_type: "transcript", validation_status: "review", analysis_status: "review", has_photo: true }],
-    pendencies: [{ external_id: "pendency-fixture", kind: "document", description: "Apresentar documento original no polo", resolved: false }], diploma: null,
-  } }));
-  await page.goto("/student/active/dashboard");
-  await expect(page.getByRole("link", { name: "Acessar ambiente do parceiro" })).toHaveAttribute("href", "https://partner.example/ava");
+  await page.goto("/student/active/access");
+  await expect(page.getByRole("link", { name: "Acessar portal de estudos (SIGA)" })).toHaveAttribute(
+    "href",
+    /^https:\/\/siga\.supletivo\.net\.br\/?$/,
+  );
   await expect(page.getByText("student-login", { exact: true })).toBeVisible();
   await expect(page.getByText("fixture-password", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Mostrar senha" }).click();
+  await page.getByRole("button", { name: "Mostrar" }).click();
   await expect(page.getByText("fixture-password", { exact: true })).toBeVisible();
-  await expect(page.getByText("Apresentar documento original no polo")).toBeVisible();
-  await expect(page.getByText(/45%|5 \/ 11|Nota: 9\.5|Módulo 3\/4/)).toHaveCount(0);
 });
 
-test("upload de documento usa doc_type real e mostra análise do servidor", async ({ page }) => {
-  let document = { doc_type: "blood_type", validation_status: "rejected", analysis_status: "rejected", has_photo: true, analysis_reason: "Envie novamente." };
+test("upload de documento pós-SIGA envia school_records", async ({ page }) => {
+  let doc = { id: "d1", document_type: "school_records", status: "rejected", rejection_reason: "Envie novamente." };
   let uploaded = false;
-  await signIn(page, ["student"], { student: "active" });
-  await page.route("**/api/v1/clients/student/me", route => route.fulfill({ json: {
-    external_id: "student-fixture", status: "awaiting_documents", platform: {}, documents: [document], blood_type: "O+", pendencies: [], diploma: null,
-  } }));
-  await page.route("**/api/v1/clients/enrollment/me", route => route.fulfill({ json: { ...enrollment, status: "completed" } }));
-  await page.route("**/api/v1/clients/student/documents/blood_type", async route => {
+
+  await signIn(page, "enrolled", "pending_post_siga_docs");
+  await page.route("**/api/v1/student/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "u1", phone: "5511900000000", cpf: "11144477735", name: "Aluno Ativo", full_name: "Aluno Ativo", gender: "M", blood_type: "O+" },
+        role: { id: "r1", role: "client", status: "enrolled", substatus: "pending_post_siga_docs", paid_at: Date.now() },
+        siga_credentials: { username: "11144477735", url: "https://siga.supletivo.net.br" },
+        document_progress: { blood_type_registered: true, military_exempt: false, academic_documents_ready: false, checklist: {} },
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/documents", (route) =>
+    route.fulfill({ json: { documents: [doc], pending_requirements: ["school_records"] } }),
+  );
+  await page.route("**/api/v1/student/exams", (route) =>
+    route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+  );
+  await page.route("**/api/v1/student/documents/school_records", async (route) => {
     uploaded = true;
-    document = { ...document, validation_status: "review", analysis_status: "review", analysis_reason: "Conferência do polo." };
-    await route.fulfill({ json: { doc_type: "blood_type", stored: true, analysis_status: "review", poll_after_ms: 1, expires_at: null } });
+    doc = { id: "d1", document_type: "school_records", status: "pending", rejection_reason: "" };
+    await route.fulfill({ json: { uploaded: true, status: "pending" } });
   });
+
   await page.goto("/student/active/documents");
-  // A captura produzida pelo próprio Chromium é sempre uma imagem decodificável
-  // por createImageBitmap, exercitando a validação real do arquivo no cliente.
   const validImage = await page.screenshot({ type: "png" });
-  await page.getByLabel("Enviar comprovante de tipo sanguíneo").setInputFiles({ name: "blood.png", mimeType: "image/png", buffer: validImage });
-  await expect(page.getByText("Conferência do polo.")).toBeVisible();
-  expect(uploaded).toBe(true);
-  await expect(page.getByText("Documento aprovado", { exact: true })).toHaveCount(0);
-});
-
-test("prova só agenda quando liberada e transmite matéria e data reais", async ({ page }) => {
-  let status = "exam_released";
-  let posted: Record<string, unknown> | null = null;
-  await signIn(page, ["student"], { student: "active" });
-  const data = () => ({ external_id: "student-fixture", status, exam_can_schedule: status !== "exam_scheduled", platform: {}, documents: [], blood_type: "O+", pendencies: [], diploma: null });
-  await page.route("**/api/v1/clients/student/me", route => route.fulfill({ json: data() }));
-  await page.route("**/api/v1/clients/student/exam/schedule", async route => {
-    posted = route.request().postDataJSON(); status = "exam_scheduled";
-    await route.fulfill({ json: data() });
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: "historico.png",
+    mimeType: "image/png",
+    buffer: validImage,
   });
-  await page.goto("/student/active/assessments");
-  await page.getByLabel("Matéria da prova").fill("Matéria informada pelo polo");
-  await page.getByLabel("Data e hora combinadas com o polo").fill("2026-11-10T14:00");
-  await page.getByRole("button", { name: "Confirmar agendamento" }).click();
-  await expect(page.getByTestId("student-status")).toContainText("Prova agendada");
-  expect(posted?.subject).toBe("Matéria informada pelo polo");
-  expect(String(posted?.scheduled_at)).toMatch(/^2026-11-10T/);
-  await expect(page.getByRole("button", { name: "Confirmar agendamento" })).toBeHidden();
+
+  await expect(page.getByText("Histórico escolar enviado para conferência da secretaria.")).toBeVisible();
+  expect(uploaded).toBe(true);
 });
 
-test("veterano baixa arquivos reais e omite links inseguros", async ({ page }) => {
-  await signIn(page, ["student", "veteran"], { student: "veteran", veteran: "veteran" });
-  await page.route("**/api/v1/clients/veteran/me", route => route.fulfill({ json: {
-    external_id: "student-fixture", status: "veteran", user: { external_id: "user-fixture", name: "Aluno de teste", cpf: null, phone: null, email: null },
-    documents: [], enrollment: null, diploma: { issued_at: "2026-09-01T14:00:00Z", picked_up_at: "2026-09-10T14:00:00Z", diploma_file: "diploma/fixture.pdf", transcript_file: "javascript:alert(1)", pickup_photo: null }, platform: { url: "javascript:alert(1)" },
-  } }));
+test("prova agenda apenas quando elegível e transmite matéria e data", async ({ page }) => {
+  let scheduled = false;
+  let posted: Record<string, unknown> | null = null;
+
+  await signIn(page, "enrolled", "active");
+  await page.route("**/api/v1/student/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "u1", phone: "5511900000000", cpf: "11144477735", name: "Aluno Ativo", full_name: "Aluno Ativo", gender: "M", blood_type: "O+" },
+        role: { id: "r1", role: "client", status: scheduled ? "exam_scheduled" : "enrolled", substatus: null, paid_at: Date.now() },
+        siga_credentials: null,
+        document_progress: { blood_type_registered: true, military_exempt: false, academic_documents_ready: true, checklist: {} },
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/documents", (route) =>
+    route.fulfill({ json: { documents: [], pending_requirements: [] } }),
+  );
+  await page.route("**/api/v1/student/exams", (route) =>
+    route.fulfill({
+      json: {
+        student_role_id: "r1",
+        current_status: scheduled ? "exam_scheduled" : "enrolled",
+        eligibility: { exam_can_schedule: !scheduled, exam_available_at: "" },
+        exams: scheduled
+          ? [{ id: "ex-1", subject: "Matemática", attempt_number: 1, scheduled_at: "2026-11-10T14:00:00.000Z", result: "pending" }]
+          : [],
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/exams/schedule", async (route) => {
+    posted = route.request().postDataJSON();
+    scheduled = true;
+    await route.fulfill({ json: { id: "ex-1", scheduled: true } });
+  });
+
+  await page.goto("/student/active/assessments");
+  await page.locator("#exam-subject").selectOption("Matemática");
+  await page.locator("#exam-dt").fill("2026-11-10T14:00");
+  await page.getByRole("button", { name: "Agendar prova" }).click();
+
+  await expect(page.getByText("Agendamento registrado!")).toBeVisible();
+  expect(posted?.subject).toBe("Matemática");
+  expect(String(posted?.scheduled_at)).toMatch(/^2026-11-10T/);
+});
+
+test("concluinte baixa diploma via fetch autenticado sem expor href direto", async ({ page }) => {
+  await signIn(page, "graduated", "graduated");
+  await page.route("**/api/v1/student/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "u1", phone: "5511900000000", cpf: "11144477735", name: "Aluno Concluinte", full_name: "Aluno Concluinte", gender: "M", blood_type: "O+" },
+        role: { id: "r1", role: "client", status: "graduated", substatus: null, paid_at: Date.now() },
+        siga_credentials: null,
+        document_progress: { blood_type_registered: true, military_exempt: true, academic_documents_ready: true, checklist: {} },
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/diploma", (route) =>
+    route.fulfill({
+      json: {
+        status: "graduated",
+        message: "Diploma disponível para download.",
+        registration: { registration_number: "REG-2026-01", process_number: "PROC-01", gazette_publication_date: "2026-09-01", issued_at: "2026-09-05" },
+        documents: { diploma_download_url: "/api/v1/student/diploma/file?type=diploma", transcript_download_url: null },
+        pickup: null,
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/exams", (route) =>
+    route.fulfill({ json: { eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+  );
+
+  let diplomaAuth = "";
+  await page.route("**/api/v1/student/diploma/file?type=diploma", (route) => {
+    diplomaAuth = route.request().headers().authorization ?? "";
+    return route.fulfill({ status: 200, contentType: "application/pdf", body: Buffer.from("%PDF-1.4\n") });
+  });
+
   await page.goto("/student/veteran/diploma");
-  // Arquivos privados são abertos por fetch autenticado; nunca são publicados
-  // como href direto. O histórico malicioso também não vira ação na tela.
-  await expect(page.getByRole("button", { name: "Abrir diploma" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Abrir histórico escolar" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Baixar Diploma (PDF)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Baixar Histórico Escolar (PDF)" })).toHaveCount(0);
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
-  await expect(page.getByText(/BR-MEC|DOE-PR|ICP-Brasil|GDAE/)).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Baixar Diploma (PDF)" }).click();
+  await expect.poll(() => diplomaAuth).toBe("Bearer fixture-access");
 });

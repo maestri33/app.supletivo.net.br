@@ -3,16 +3,20 @@
   import { whoami, ApiError, getErrorMessage } from '@/lib/api';
   import { getLogin, saveLogin, clearSession } from '@/lib/session';
   import { canVisitRolePath, getRoleDestination, type CanonicalEnvironment } from '@/lib/roles';
+
   let { pathname }: { pathname: string } = $props();
   let error = $state<string | null>(null);
+
   async function checkAccess() {
     error = null;
     try {
       const identity = await whoami();
       saveLogin({ ...getLogin(), ...identity });
       if (!canVisitRolePath(identity, pathname)) {
-        const role = pathname.split('/')[1] as CanonicalEnvironment;
-        const target = getRoleDestination(identity, role) ?? getRoleDestination(identity);
+        const segment = pathname.split('/')[1] as CanonicalEnvironment;
+        const target =
+          getRoleDestination(identity, segment === 'admin' ? 'admin' : 'student') ??
+          getRoleDestination(identity);
         if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
         window.location.replace(target);
         return;
@@ -31,8 +35,12 @@
       error = failure instanceof Error ? failure.message : getErrorMessage(failure);
     }
   }
-  onMount(() => { void checkAccess(); });
+
+  onMount(() => {
+    void checkAccess();
+  });
 </script>
+
 {#if error}
   <div role="alert" class="mx-auto max-w-lg p-6 text-center text-[var(--danger)]">
     <p>{error}</p>

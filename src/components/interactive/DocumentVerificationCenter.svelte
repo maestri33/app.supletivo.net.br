@@ -1,150 +1,217 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getEnrollmentMe, getLeadMe, getErrorMessage, whoami, type EnrollmentMe, type CheckoutOut } from "@/lib/api";
-  import { openPrivateMedia } from "@/lib/private-media";
-  import { safePartnerUrl } from "./student/workflow";
-  import DocumentStatusCard from "./documents/DocumentStatusCard.svelte";
-  import { expectedStatus, followEnrollmentStatus } from "./student/workflow";
-  
-  let enrollment = $state<EnrollmentMe | null>(null);
+  import {
+    fetchContact,
+    getCurrentPayment,
+    getEnrollmentRg,
+    getEnrollmentStatus,
+    getErrorMessage,
+    whoami,
+    type EnrollmentChecklistItem,
+    type EnrollmentStatusResponse,
+    type RgSection,
+    type StudentCurrentPayment,
+    type WhoAmI,
+  } from "@/lib/api";
+  import { resolveSupportHref, type InstitutionalContact } from "@/lib/config";
+  import { getLogin, saveLogin } from "@/lib/session";
+  import { dateTimeLabel, enrollmentPath, STUDENT_STATUS_LABELS } from "@/components/interactive/student/workflow";
+  import { Alert, Badge, Card } from "@/components/ui";
+
   let loading = $state(true);
   let error = $state("");
-  let refreshing = $state(false), updated = $state(false), opening = $state<string | null>(null);
-  let checkout = $state<CheckoutOut | null>(null), paymentError = $state("");
-  let active = true;
-  const release = $derived(enrollment?.release);
-  const labels: Record<string, string> = { approved: "Aprovado", pending: "Em análise", review: "Conferência do polo", rejected: "Precisa de novo envio", needs_kinship: "Vínculo com titular pendente" };
-  const documents = $derived(enrollment ? [
-    { name: "RG", status: enrollment.rg?.analysis_status ?? enrollment.rg?.validation_status, paths: [enrollment.rg?.full_photo || enrollment.rg?.front_photo, enrollment.rg?.back_photo].filter(Boolean) as string[] },
-    { name: "Comprovante de endereço", status: enrollment.address_proof?.status, paths: [enrollment.address_proof?.photo].filter(Boolean) as string[] },
-    { name: "Selfie e assinatura", status: enrollment.selfie?.analysis_status ?? enrollment.selfie_status, paths: [enrollment.selfie?.photo].filter(Boolean) as string[] },
-  ] : []);
-  async function openDocument(path: string) {
-    opening = path; error = "";
-    try { await openPrivateMedia(path); } catch (cause) { error = getErrorMessage(cause); }
-    finally { opening = null; }
-  }
 
-  async function refresh() {
-    if (refreshing) return;
-    refreshing = true; error = "";
-    try {
-      const identity = await whoami();
-      const studentStatus = identity.role_statuses?.student;
-      if (studentStatus === "veteran") { window.location.replace("/student/veteran/dashboard"); return; }
-      if (studentStatus === "active") { window.location.replace("/student/active/dashboard"); return; }
-      if (studentStatus === "lead") { window.location.replace("/student/lead/payment"); return; }
-      enrollment = await getEnrollmentMe();
-      if (!active) return;
-      followEnrollmentStatus(enrollment.status);
-      window.dispatchEvent(new CustomEvent("supletivo:enrollment-state", { detail: { status: enrollment.status } }));
-      updated = true;
-    } catch (cause) {
-      error = getErrorMessage(cause);
-      const status = expectedStatus(cause);
-      if (status) followEnrollmentStatus(status);
+  let me = $state<WhoAmI | null>(null);
+  let statusInfo = $state<EnrollmentStatusResponse | null>(null);
+  let rg = $state<RgSection | null>(null);
+  let payment = $state<StudentCurrentPayment | null>(null);
+  let contact = $state<InstitutionalContact | null>(null);
+
+  const supportHref = $derived(resolveSupportHref(contact));
+
+  const checklistSteps = $derived.by(() => {
+    const ch = statusInfo?.checklist;
+    const rows: Array<{
+      key: string;
+      title: string;
+      href: string;
+      item: EnrollmentChecklistItem | undefined;
+    }> = [
+      { key: "rg", title: "1. RG ou CIN (frente e verso)", href: "/student/enrollment/rg", item: ch?.rg },
+      {
+        key: "proof_of_residence",
+        title: "2. Comprovante de residência",
+        href: "/student/enrollment/address",
+        item: ch?.proof_of_residence,
+      },
+      {
+        key: "education_level",
+        title: "3. Escolaridade anterior",
+        href: "/student/enrollment/education",
+        item: ch?.education_level,
+      },
+      {
+        key: "contract_signature",
+        title: "4. Assinatura do contrato",
+        href: "/student/enrollment/selfie",
+        item: ch?.contract_signature,
+      },
+      {
+        key: "selfie",
+        title: "5. Selfie de verificação",
+        href: "/student/enrollment/selfie",
+        item: ch?.selfie,
+      },
+    ];
+    return rows;
+  });
+
+  const nextActionHref = $derived(
+    enrollmentPath(statusInfo?.substatus ?? statusInfo?.step) ?? "/student/enrollment/rg"
+  );
+
+  function statusBadge(item: EnrollmentChecklistItem | undefined): {
+    label: string;
+    variant: "success" | "warning" | "danger" | "info" | "neutral";
+  } {
+    if (!item || !item.submitted) return { label: "Pendente", variant: "warning" };
+    if (item.status === "approved") return { label: "Aprovado", variant: "success" };
+    if (item.status === "rejected") return { label: "Reprovado", variant: "danger" };
+    if (item.status === "review" || item.needs_manual_review) {
+      return { label: "Em revisão", variant: "info" };
     }
-    finally { if (active) { loading = false; refreshing = false; } }
+    return { label: "Recebido", variant: "info" };
   }
 
-  onMount(() => {
-    void refresh();
-    void getLeadMe().then(data => { if (active) checkout = data.checkout ?? null; }).catch(() => { if (active) paymentError = "Não foi possível consultar os dados do pagamento agora."; });
-    const onFocus = () => { if (document.visibilityState === "visible") void refresh(); };
-    window.addEventListener("focus", onFocus);
-    return () => { active = false; window.removeEventListener("focus", onFocus); };
+  onMount(async () => {
+    try {
+      const [userRes, statusRes, rgRes, payRes, contactRes] = await Promise.all([
+        whoami().catch(() => null),
+        getEnrollmentStatus(),
+        getEnrollmentRg().catch(() => null),
+        getCurrentPayment().catch(() => null),
+        fetchContact().catch(() => null),
+      ]);
+
+      me = userRes;
+      statusInfo = statusRes;
+      rg = rgRes;
+      payment = payRes;
+      contact = contactRes;
+
+      if (userRes) {
+        saveLogin({
+          ...getLogin(),
+          ...userRes,
+          status: statusRes.current_status || userRes.status,
+          substatus: statusRes.substatus ?? userRes.substatus ?? null,
+        });
+      }
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      loading = false;
+    }
   });
 </script>
 
-<section class="student-workflow release-view" aria-busy={loading || refreshing}>
-  {#if loading}
-    <h1>Consultando sua matrícula</h1>
-    <p class="muted" role="status">Buscando a etapa atual no polo…</p>
-  {:else if enrollment && ["awaiting_release", "fee_paid", "fee_scheduled"].includes(enrollment.status)}
-    <header id="tracking">
-      <div class="release-art" aria-hidden="true">
-        <svg viewBox="0 0 200 132" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="100" cy="66" r="55" class="orbit" />
-          <g class="document"><path d="M63 25h48l19 19v62H63z"/><path d="M111 25v20h19M77 56h37M77 67h25M77 78h19"/></g>
-          <g class="seal"><circle cx="124" cy="91" r="18"/><path d="m115 91 6 6 12-13"/></g>
-          <g class="key"><circle cx="151" cy="49" r="10"/><path d="m144 56-22 22m6-6 5 5m-10 0 5 5"/></g>
-          <path class="spark" d="M40 48v8m-4-4h8M157 95v8m-4-4h8"/>
-        </svg>
-      </div>
-      <p class="eyebrow">PREPARANDO ACESSO</p>
-      <h1>Teu próximo passo é começar a estudar</h1>
-      <p class="muted">Recebemos teu cadastro. Agora o polo prepara a matrícula na instituição parceira e disponibiliza teu acesso aos estudos.</p>
-    </header>
-    <section class="panel next-step" aria-labelledby="next-title">
-      <p class="eyebrow">PRÓXIMA ETAPA</p>
-      <h2 id="next-title">{release?.stage === "document_review" ? "Conferência da documentação" : release?.stage === "access_preparation" ? "Preparação do teu acesso" : "Matrícula na instituição parceira"}</h2>
-      <p>{release?.next_action ?? "O coordenador do polo precisa concluir tua matrícula na instituição parceira e registrar os dados de acesso."}</p>
-      {#if release?.action_required && release.action_route && /^\/student\/enrollment\/(rg|address|education|selfie)$/.test(release.action_route)}<a class="btn" href={release.action_route}>Resolver pendência</a>{/if}
-      <button type="button" class="secondary" onclick={refresh} disabled={refreshing}>{refreshing ? "Verificando…" : "Verificar atualização"}</button>
-      {#if updated}<p class="muted update-note" role="status">{refreshing ? "Consultando a situação atual…" : "Situação consultada nesta visita."}</p>{/if}
-      <p class="muted">Quando a liberação for concluída, esta página abrirá teu painel de aluno. O acesso também será enviado pelos canais cadastrados.</p>
-    </section>
-    <section id="documents" class="panel flex flex-col gap-4" aria-labelledby="documents-title">
-      <h2 id="documents-title">Meus documentos</h2>
-      <div class="flex flex-col gap-3">
-        {#each documents as item (item.name)}
-          <DocumentStatusCard
-            title={item.name}
-            status={item.status}
-            paths={item.paths}
-            openingPath={opening}
-            onOpen={openDocument}
-          />
-        {/each}
-      </div>
-      <p class="muted">Escolaridade: {enrollment.education ? "informações recebidas" : "informações ainda não disponíveis"}.</p>
-    </section>
-    <section id="payment" class="panel" aria-labelledby="payment-title">
-      <h2 id="payment-title">Pagamento da matrícula</h2>
-      {#if checkout}<p>{checkout.is_paid ? "Pagamento confirmado" : "Confirmação ainda não disponível"}{checkout.amount ? ` · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(checkout.amount))}` : ""}</p>
-        <p class="muted">Forma de pagamento: {checkout.payment_method === "PIX" || checkout.payment_method === "pix" ? "Pix" : "Cartão"}.</p>
-        {#if checkout.is_paid && safePartnerUrl(checkout.receipt_url)}<a class="secondary" href={safePartnerUrl(checkout.receipt_url)!} target="_blank" rel="noopener noreferrer">Ver comprovante</a>{/if}
-      {:else}<p class="muted">{paymentError || (release?.payment_confirmed ? "Pagamento confirmado. Consultando os detalhes do recebimento." : "Os dados do pagamento aparecerão após a consulta.")}</p>{/if}
-    </section>
-    <section id="contact" class="panel" aria-labelledby="contact-title">
-      <h2 id="contact-title">Falar com o polo</h2>
-      <p>{release?.hub_name ?? "Polo responsável"}</p>
-      {#if release?.coordinator_name}<p class="muted">Responsável: {release.coordinator_name}</p>{/if}
-      {#if release?.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(release.contact_url)}<a class="btn" href={release.contact_url} target="_blank" rel="noopener noreferrer">Conversar com o polo</a>
-      {:else}<p class="muted">O contato oficial do polo ainda não foi disponibilizado. As atualizações da matrícula serão enviadas pelos canais cadastrados.</p>{/if}
-    </section>
-  {:else}
-    <h1>Documentação da matrícula</h1>
-    <p class="muted">{enrollment ? "Consultando a próxima etapa da sua matrícula." : "A etapa atual será exibida após a consulta ao polo."}</p>
-    <button type="button" class="secondary" onclick={refresh}>Consultar novamente</button>
-  {/if}
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-</section>
+<section class="mx-auto max-w-3xl px-4 pb-28 pt-6 space-y-5">
+  <header class="space-y-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <Badge variant="info">
+        {STUDENT_STATUS_LABELS[statusInfo?.substatus ?? statusInfo?.current_status ?? "pre_enrolled"] ?? "Matrícula em andamento"}
+      </Badge>
+      {#if me?.name}
+        <span class="text-xs font-semibold text-white/75">{me.name}</span>
+      {/if}
+    </div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
+      Central de documentos da matrícula
+    </h1>
+    <p class="text-sm text-[var(--muted-on-dark)]">
+      {statusInfo?.message || "Envie os 5 itens abaixo para liberarmos seu acesso ao portal acadêmico."}
+    </p>
+  </header>
 
-<style>
-  .student-workflow { width: 100%; max-width: var(--container-narrow); margin-inline: auto; padding: 1.5rem var(--gutter) 2rem; color: var(--paper); display: grid; gap: 1.5rem; }
-  .panel { background: var(--glass-bg-dark); border: 1px solid var(--glass-border-dark); border-radius: var(--radius); padding: 1.25rem; backdrop-filter: var(--glass-blur); display: grid; gap: 1rem; overflow-wrap: anywhere; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: .75rem 1.25rem; font-weight: 700; border-radius: 0.75rem; background: var(--yellow); color: var(--ink); text-decoration: none; width: fit-content; }
-  .secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border: 1px solid var(--glass-border-dark); border-radius: 0.75rem; padding: .7rem 1rem; background: var(--ink-soft); color: var(--paper); text-decoration: none; cursor: pointer; }
-  .muted { color: var(--muted-on-dark); }
-  .error { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: 0.75rem; }
-  .release-view header { display: grid; gap: 1rem; }
-  .release-art { width: 200px; margin-inline: auto; color: var(--paper); }
-  .release-art svg { width: 100%; height: auto; }
-  .orbit { stroke: var(--glass-border-dark); stroke-dasharray: 3 8; }
-  .seal { color: var(--green); fill: var(--ink-soft); animation: seal-in 6s ease-in-out infinite; transform-origin: 124px 91px; }
-  .key { color: var(--yellow); animation: key-float 6s ease-in-out infinite; }
-  .spark { color: var(--muted-on-dark); }
-  .eyebrow { color: var(--yellow); font-size: .8rem; font-weight: 700; letter-spacing: .12em; }
-  .next-step { border-color: var(--yellow); }
-  .documents { list-style: none; padding: 0; display: grid; gap: 1rem; }
-  .documents li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-block: .5rem; border-bottom: 1px solid var(--glass-border-dark); }
-  .documents li > div { flex: 1; min-width: 10rem; }
-  .documents p { color: var(--muted-on-dark); font-size: .9rem; }
-  .documents .approved { color: var(--yellow-soft); }
-  .update-note { font-size: .85rem; }
-  #tracking, #documents, #payment, #contact { scroll-margin-top: 6rem; }
-  @keyframes seal-in { 0%, 100% { transform: scale(.94); } 30%, 70% { transform: scale(1); } }
-  @keyframes key-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-  @media (prefers-reduced-motion: reduce), (hover: none) { .seal, .key { animation: none; } }
-</style>
+  {#if loading}
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando seu checklist de matrícula...</p></Card>
+  {:else}
+    {#if error}
+      <Alert variant="danger" title="Erro ao carregar checklist">{error}</Alert>
+    {/if}
+
+    {#if statusInfo?.substatus === "pending_siga" || statusInfo?.all_basic_docs_ready}
+      <Alert variant="success" title="Documentação inicial concluída">
+        Seus documentos básicos já foram recebidos! A secretaria está preparando suas credenciais de acesso ao SIGA.
+      </Alert>
+    {:else}
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ffc400]/40 bg-[#ffc400]/15 p-4">
+        <div>
+          <p class="text-sm font-bold text-white">Próxima etapa pendente</p>
+          <p class="text-xs text-amber-100">Continue de onde você parou sem perder seus envios anteriores.</p>
+        </div>
+        <a
+          href={nextActionHref}
+          class="min-h-11 inline-flex items-center rounded-xl bg-[#ffc400] px-4 text-sm font-extrabold text-[#0b1220] hover:brightness-95"
+        >
+          Continuar envio
+        </a>
+      </div>
+    {/if}
+
+    <div class="space-y-3">
+      {#each checklistSteps as step}
+        {@const badge = statusBadge(step.item)}
+        <Card class="p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-sm font-bold text-white">{step.title}</h2>
+                <Badge variant={badge.variant}>{badge.label}</Badge>
+              </div>
+              {#if step.item?.rejection_reason}
+                <p class="text-xs font-medium text-rose-300">
+                  Motivo da revisão: {step.item.rejection_reason}
+                </p>
+              {/if}
+              {#if step.key === "rg" && rg?.front_photo && !rg?.back_photo && !rg?.full_photo}
+                <p class="text-xs text-amber-300">Frente enviada; falta o verso do RG.</p>
+              {/if}
+            </div>
+
+            <a
+              href={step.href}
+              class="min-h-10 inline-flex items-center rounded-xl border border-white/20 bg-white/5 px-3.5 text-xs font-bold text-white hover:bg-white/10"
+            >
+              {step.item?.status === "approved"
+                ? "Ver etapa"
+                : step.item?.submitted
+                ? "Atualizar"
+                : "Enviar agora"}
+            </a>
+          </div>
+        </Card>
+      {/each}
+    </div>
+
+    {#if payment}
+      <Card class="p-4 text-xs text-white/75 flex flex-wrap items-center justify-between gap-2">
+        <span>
+          Taxa de matrícula: <strong class="text-white">{payment.amount}</strong>
+          ({payment.status === "paid" ? "Confirmada" : payment.status})
+          {#if payment.paid_at} — paga em {dateTimeLabel(payment.paid_at)}{/if}
+        </span>
+        {#if payment.receipt_url}
+          <a href={payment.receipt_url} target="_blank" rel="noopener noreferrer" class="font-bold text-[var(--yellow)] hover:underline">
+            Abrir recibo InfinitePay
+          </a>
+        {/if}
+      </Card>
+    {/if}
+
+    <div class="text-center text-xs text-white/60">
+      Dúvidas sobre seus documentos?
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar com atendimento</a>
+    </div>
+  {/if}
+</section>

@@ -1,10 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-// Smoke mínimo e estável: não depende do backend Django nem de fluxos de UI
-// instáveis. Valida que o Next sobe, a rota /healthz responde e o title/meta
-// do app está no ar. Adicione specs por feature conforme os fluxos ganham forma.
-
-test.describe("app-supletivo · smoke", () => {
+test.describe("app-supletivo · smoke (v2)", () => {
   test.beforeEach(async ({ context }) => {
     await context.clearCookies();
   });
@@ -14,7 +10,6 @@ test.describe("app-supletivo · smoke", () => {
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(body.status).toBe("ok");
-    // sha/builtAt podem vir "unknown" em dev local — só checamos presença.
     expect(body).toHaveProperty("sha");
     expect(body).toHaveProperty("builtAt");
   });
@@ -25,20 +20,27 @@ test.describe("app-supletivo · smoke", () => {
     await expect(page).toHaveTitle(/Entrar|Supletivo Brasil/i);
   });
 
-  test("fluxo zero-button: telefone valido avança automaticamente para OTP", async ({ page }) => {
-    const externalId = "11111111-1111-4111-8111-111111111111";
-
-    await page.route("**/api/v1/clients/auth/check", async (route) => {
+  test("fluxo zero-button: telefone válido dispara /api/v1/auth/otp/send e avança para OTP", async ({ page }) => {
+    await page.route("**/api/v1/auth/check", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           found: true,
-          external_id: externalId,
-          otp_sent: true,
-          otp_wait: 0,
-          whatsapp: true,
-          roles: ["aluno"],
+          phone: "5511999999999",
+          roles: ["client"],
+        }),
+      });
+    });
+
+    await page.route("**/api/v1/auth/otp/send", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          channel: "whatsapp",
+          cooldown_seconds: 60,
         }),
       });
     });
@@ -48,17 +50,16 @@ test.describe("app-supletivo · smoke", () => {
     await expect(phoneInput).toBeVisible();
     await expect(phoneInput).toHaveAttribute("data-hydrated", "true");
 
-    // Digita celular com DDD (11 dígitos) — auto-avanço zero-button
     await phoneInput.fill("11999999999");
     await page.waitForURL("**/autenticacao/otp**", { timeout: 15000 });
     expect(page.url()).toContain("/autenticacao/otp");
     expect(page.url()).toContain("tel=11999999999");
   });
 
-  test("autenticacao OTP zero-button valida 6 dígitos e direciona dinamicamente", async ({ page }) => {
+  test("autenticação OTP zero-button valida 6 dígitos em /api/v1/auth/otp/verify e redireciona", async ({ page }) => {
     const externalId = "11111111-1111-4111-8111-111111111111";
 
-    await page.route("**/api/v1/clients/auth/login", async (route) => {
+    await page.route("**/api/v1/auth/otp/verify", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -66,51 +67,55 @@ test.describe("app-supletivo · smoke", () => {
           access_token: "e2e-access-token",
           refresh_token: "e2e-refresh-token",
           token_type: "bearer",
+          roles: [{ role: "client", status: "enrolled" }],
         }),
       });
     });
 
-    await page.route("**/api/v1/clients/whoami", async (route) => {
+    await page.route("**/api/v1/auth/whoami", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          authenticated: true,
+          id: externalId,
           external_id: externalId,
-          roles: ["aluno"],
-          role_statuses: { student: "active" },
+          phone: "5511999999999",
           name: "Aluno Teste",
+          cpf: "11144477735",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "enrolled" },
+          status: "enrolled",
+          substatus: "siga_active",
         }),
       });
     });
 
-    await page.route("**/api/v1/clients/lead/me", async (route) => {
+    await page.route("**/api/v1/student/me", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          external_id: externalId,
-          status: "active",
-          created_at: "2026-01-01T00:00:00Z",
-          customer: { name: "Aluno Teste" },
-          promoter: {},
-          checkout: { is_paid: true },
+          user: { id: externalId, phone: "5511999999999", name: "Aluno Teste", full_name: "Aluno Teste", cpf: "11144477735", gender: null, blood_type: "O+" },
+          role: { id: "role-1", role: "client", status: "enrolled", substatus: "siga_active" },
+          siga_credentials: null,
+          document_progress: { blood_type_registered: true, military_exempt: false, academic_documents_ready: false, checklist: {} },
         }),
       });
     });
 
-    await page.goto(`/autenticacao/otp?id=${externalId}&tel=11999999999`);
+    await page.goto(`/autenticacao/otp?tel=11999999999`);
     await expect(page.locator("h1")).toHaveText("Digite seu código");
 
     const otp0 = page.locator("#otp-0");
     await expect(otp0).toHaveAttribute("data-hydrated", "true", { timeout: 15000 });
 
-    // Preenche os 6 dígitos (fluxo zero-button)
     for (let i = 0; i < 6; i++) {
       await page.locator(`#otp-${i}`).fill(String(i + 1));
     }
 
-    // Validação automática sem botão manual e redirecionamento para o ambiente do aluno
-    await page.waitForURL((url) => url.pathname.includes("/student") || url.pathname.includes("/painel"), { timeout: 15000 });
-    expect(page.url()).toMatch(/\/student|\/painel/);
+    await page.waitForURL((url) => url.pathname.includes("/student"), { timeout: 15000 });
+    expect(page.url()).toMatch(/\/student/);
   });
 });

@@ -17,8 +17,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
     "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://*.supletivo.net.br https://*.v7m.live https://servicodados.ibge.gov.br https://challenges.cloudflare.com https://static.cloudflareinsights.com https://pay.infinitepay.io https://api.infinitepay.io; frame-src 'self' https://challenges.cloudflare.com https://pay.infinitepay.io; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
   );
 
-  // Otimização de Cache para arquivos estáticos públicos servidos pelo Worker
-  if (pathname.startsWith('/fonts/') || pathname === '/favicon.ico' || pathname.endsWith('.png') || pathname.endsWith('.webp')) {
+  // Cache optimization strictly for public static assets served by the Worker
+  const isPrivateOrApi =
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/media/') ||
+    pathname.startsWith('/v1/');
+
+  if (
+    !isPrivateOrApi &&
+    (pathname.startsWith('/fonts/') ||
+      pathname === '/favicon.ico' ||
+      pathname.endsWith('.png') ||
+      pathname.endsWith('.webp'))
+  ) {
     if (!headers.has('Cache-Control') || headers.get('Cache-Control')?.includes('max-age=0')) {
       headers.set('Cache-Control', 'public, max-age=604800, s-maxage=2592000, immutable');
     }

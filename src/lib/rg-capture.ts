@@ -58,6 +58,32 @@ export function resolveRgClassification(result: RgClassification): RgCaptureSlot
   return result.completeness;
 }
 
+export type RgClassificationFallbackResult =
+  | { kind: "slot"; slot: RgCaptureSlot }
+  | { kind: "manual_side_required" };
+
+/**
+ * Classifies RG photo and falls back to inline manual side confirmation when
+ * completeness cannot be inferred reliably for a valid, legible RG.
+ */
+export function classifyRgWithFallback(result: RgClassification): RgClassificationFallbackResult {
+  const fileError = documentFileError(result.error_code);
+  if (fileError) throw new Error(fileError);
+  if (result.is_document === false || result.is_legible === false) {
+    throw new Error("Envie uma foto legível do RG, com as quatro bordas visíveis.");
+  }
+  if (result.doc_type && result.doc_type !== "rg") {
+    throw new Error("Para a matrícula de aluno, envie seu RG.");
+  }
+  if (result.is_document !== true || result.doc_type !== "rg") {
+    throw new Error("Não foi possível identificar o RG agora. Tente novamente em instantes; o arquivo não foi enviado para cadastro.");
+  }
+  if (result.completeness === "front" || result.completeness === "back" || result.completeness === "full") {
+    return { kind: "slot", slot: result.completeness };
+  }
+  return { kind: "manual_side_required" };
+}
+
 function validationStatus(value: string | null | undefined): ValidationStatus | null {
   return value === "pending" || value === "approved" || value === "rejected" || value === "review"
     ? value : null;

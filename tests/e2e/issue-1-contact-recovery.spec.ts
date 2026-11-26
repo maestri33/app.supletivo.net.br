@@ -1,98 +1,64 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Fluxo de Autoatendimento para Troca de Contato de Aluno (Issue #1)", () => {
+test.describe("Recuperação segura de contato em 3 etapas (Issue #1 — v2)", () => {
   test.beforeEach(async ({ page }) => {
-    // Acessa a tela de OTP simulando fluxo onde o contato precisa ser alterado
-    await page.goto("/autenticacao/otp?tel=11999999999&id=mock-external-id");
+    await page.goto("/autenticacao/otp?tel=11999999999");
     await page.waitForSelector("[data-hydrated='true']", { timeout: 15000 });
   });
 
-  test("1. Interface exibe opção amigável 'Não tenho mais acesso a este número'", async ({ page }) => {
+  test("1. Exibe botão 'Não tenho mais acesso a este número' e abre modal v2", async ({ page }) => {
     const triggerBtn = page.getByTestId("contact-recovery-trigger");
     await expect(triggerBtn).toBeVisible({ timeout: 10000 });
-    await expect(triggerBtn).toHaveText("Não tenho mais acesso a este número");
-  });
-
-  test("2. Clique na opção abre modal com mecanismos de validação secundária", async ({ page }) => {
-    const triggerBtn = page.getByTestId("contact-recovery-trigger");
     await triggerBtn.click();
 
     const modal = page.getByTestId("contact-recovery-modal");
     await expect(modal).toBeVisible();
-    await expect(modal.getByText("Atualização Segura de Contato")).toBeVisible();
-
-    // Validações secundárias disponíveis para prevenir sequestro de conta
-    await expect(modal.getByText("Link de confirmação no e-mail cadastrado")).toBeVisible();
-    await expect(modal.getByText("Reconhecimento facial biométrico")).toBeVisible();
-    await expect(modal.getByText("Atendimento humano na secretaria acadêmica")).toBeVisible();
+    await expect(modal.getByTestId("recovery-cpf-input")).toBeVisible();
   });
 
-  test("3. Validação de formulário bloqueia CPF incompleto", async ({ page }) => {
-    const triggerBtn = page.getByTestId("contact-recovery-trigger");
-    await triggerBtn.click();
-
-    const cpfInput = page.getByTestId("recovery-cpf-input");
-    const phoneInput = page.getByTestId("recovery-phone-input");
-    const submitBtn = page.getByTestId("recovery-submit-btn");
-
-    await cpfInput.fill("123456");
-    await phoneInput.fill("11988887777");
-    await submitBtn.click();
-
-    const error = page.getByTestId("recovery-error");
-    await expect(error).toBeVisible();
-    await expect(error).toContainText("digite um CPF válido com 11 dígitos");
+  test("2. Validação bloqueia CPF incompleto na etapa 1", async ({ page }) => {
+    await page.getByTestId("contact-recovery-trigger").click();
+    await page.getByTestId("recovery-cpf-input").fill("123456");
+    await page.getByTestId("recovery-phone-input").fill("11988887777");
+    await page.getByTestId("recovery-submit-btn").click();
+    await expect(page.getByTestId("recovery-error")).toBeVisible();
   });
 
-  test("4. Submissão completa gera protocolo auditável e exibe tela de confirmação", async ({ page }) => {
-    await page.route("**/api/v1/auth/recovery/contact", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
+  test("3. Fluxo completo lookup -> send-otp -> verify-and-link conclui troca de telefone", async ({ page }) => {
+    await page.route("**/api/v1/auth/recover/lookup", (route) =>
+      route.fulfill({
+        json: {
+          found: true,
+          has_email: true,
+          name_preview: "Aluno",
+          masked_email: "al***@example.com",
+          masked_phone: "(11) *****-9999",
+        },
+      }),
+    );
+    await page.route("**/api/v1/auth/recover/send-otp", (route) =>
+      route.fulfill({ json: { sent: true, channel: "email", cooldown_seconds: 60 } }),
+    );
+    await page.route("**/api/v1/auth/recover/verify-and-link", (route) =>
+      route.fulfill({
+        json: {
           success: true,
-          protocol: "SEC-REC-2026-123456",
-          status: "COMPLETED",
-          masked_new_phone: "(11) *****-7777",
-          instructions: "Validação concluída com sucesso.",
-        }),
-      });
-    });
+          access_token: "recovered-access",
+          refresh_token: "recovered-refresh",
+          new_phone: "5511988887777",
+        },
+      }),
+    );
 
-    const triggerBtn = page.getByTestId("contact-recovery-trigger");
-    await triggerBtn.click();
+    await page.getByTestId("contact-recovery-trigger").click();
+    await page.getByTestId("recovery-cpf-input").fill("11144477735");
+    await page.getByTestId("recovery-phone-input").fill("11988887777");
+    await page.getByTestId("recovery-submit-btn").click();
 
-    const cpfInput = page.getByTestId("recovery-cpf-input");
-    const phoneInput = page.getByTestId("recovery-phone-input");
-    const submitBtn = page.getByTestId("recovery-submit-btn");
+    await expect(page.getByTestId("recovery-challenge-box")).toBeVisible();
+    await page.getByTestId("recovery-otp-input").fill("123456");
+    await page.getByTestId("recovery-verify-otp-btn").click();
 
-    await cpfInput.fill("12345678909");
-    await phoneInput.fill("11988887777");
-    await submitBtn.click();
-
-    // Aguarda tela de sucesso
-    const successBox = page.getByTestId("recovery-success-box");
-    await expect(successBox).toBeVisible({ timeout: 10000 });
-    await expect(successBox).toContainText("Solicitação Protocolada");
-
-    // Verifica que o número de protocolo foi gerado e exibido
-    const protocolEl = page.getByTestId("recovery-protocol-number");
-    await expect(protocolEl).toBeVisible();
-    await expect(protocolEl).toContainText(/SEC-REC-2026-\d+/);
-  });
-
-  test("5. Endpoint direto /api/v1/auth/recovery/contact responde com auditoria e validação", async ({ request }) => {
-    const response = await request.post("/api/v1/auth/recovery/contact", {
-      data: {
-        cpf: "12345678909",
-        new_phone: "11987654321",
-        method: "email",
-      },
-    });
-
-    expect([200, 404]).toContain(response.status());
-    const data = await response.json();
-    expect(data).toHaveProperty("protocol");
-    expect(data.protocol).toMatch(/^SEC-REC-2026-\d+$/);
+    await expect(page.getByTestId("recovery-success-box")).toBeVisible({ timeout: 10000 });
   });
 });

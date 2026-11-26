@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { dockState, getLeadCheckoutReadyState } from "@/lib/dockState.svelte";
+  import { dockState } from "@/lib/dockState.svelte";
   import DockIcon from "@/components/icons/DockIcon.svelte";
-  import type { UserRole, ItemHealthStatus } from "./dock/types";
+  import type { UserRole } from "./dock/types";
 
   interface Props {
     initialRole?: UserRole;
@@ -13,8 +13,7 @@
     onLogout?: () => void;
     bypassAuth?: boolean;
     studentState?: Record<string, any>;
-    promoterState?: Record<string, any>;
-    poloState?: Record<string, any>;
+    adminState?: Record<string, any>;
   }
 
   let {
@@ -26,8 +25,7 @@
     onLogout,
     bypassAuth = false,
     studentState: controlledStudentState,
-    promoterState: controlledPromoterState,
-    poloState: controlledPoloState,
+    adminState: controlledAdminState,
   }: Props = $props();
 
   onMount(() => {
@@ -36,12 +34,13 @@
 
   let activeRole = $derived(controlledRole || dockState.activeRole || initialRole);
   let effectiveStudentState = $derived({ ...dockState.studentState, ...controlledStudentState });
-  let effectivePromoterState = $derived({ ...dockState.promoterState, ...controlledPromoterState });
-  let effectivePoloState = $derived({ ...dockState.poloState, ...controlledPoloState });
+  let effectiveAdminState = $derived({ ...dockState.adminState, ...controlledAdminState });
 
   let isLeadWizard = $derived(
-    (activeRole === "student" || activeRole === "aluno") &&
-    (effectiveStudentState.status === "lead" || currentPath.startsWith("/student/lead"))
+    activeRole === "student" &&
+      (effectiveStudentState.status === "lead" ||
+        effectiveStudentState.status === "payment_pending" ||
+        currentPath.startsWith("/student/lead"))
   );
 
   let shouldShow = $derived(
@@ -87,163 +86,184 @@
 
   let items = $derived.by<DockItem[]>(() => {
     const rawStatus = (effectiveStudentState.status || "").toLowerCase();
+    const rawSubstatus = (
+      effectiveStudentState.enrollmentStep ||
+      effectiveStudentState.substatus ||
+      ""
+    ).toLowerCase();
     const cleanPath = currentPath.split("#")[0];
     const currentHash = dockState.currentHash;
 
-    // 1. STUDENT
-    if (activeRole === "student" || activeRole === "aluno") {
-      if (rawStatus === "lead" || cleanPath.startsWith("/student/lead")) {
-        const isCheckoutReady = Boolean(effectiveStudentState.isCheckoutReady || getLeadCheckoutReadyState());
-        const modality = effectiveStudentState.selectedModality;
-        const isMethodSelected = Boolean(modality && isCheckoutReady);
-        const phase = effectiveStudentState.leadPhase ?? (cleanPath.endsWith("/checkout") ? "checkout" : "selection");
+    if (activeRole === "admin") {
+      const pendingDocs = effectiveAdminState.pendingDocsCount ?? 0;
+      const pendingSiga = effectiveAdminState.pendingSigaCount ?? 0;
+      const pendingExams = effectiveAdminState.pendingExamsCount ?? 0;
+      const pendingDiplomas = effectiveAdminState.pendingDiplomasCount ?? 0;
 
-        const checkoutTitle = modality === "pix" ? "Checkout PIX" : modality === "credit_card" ? "Checkout Cartão" : "Checkout";
-        const checkoutIcon = modality === "credit_card" ? "credit-card" : "pix";
-
-        return [
-          {
-            id: "payment",
-            title: "Forma de pagamento",
-            icon: "credit-card",
-            href: "/student/lead/payment",
-            isActive: phase === "selection" || !isMethodSelected,
-            statusIndicator: isMethodSelected ? "normal" : "warning",
-            onClick: () => {
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "selection" } }));
-              }
-            },
-          },
-          {
-            id: "checkout",
-            title: checkoutTitle,
-            icon: checkoutIcon,
-            href: "/student/lead/checkout",
-            isActive: phase === "checkout" && isMethodSelected,
-            disabled: !isMethodSelected,
-            statusIndicator: !isMethodSelected ? "disabled" : "success",
-            onClick: () => {
-              if (!isMethodSelected) return;
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("supletivo:lead-wizard-step", { detail: { step: "checkout" } }));
-              }
-            },
-          },
-          { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
-        ];
-      }
-
-      const releaseStatus = effectiveStudentState.enrollmentStep || rawStatus;
-      if (["awaiting_release", "fee_paid", "fee_scheduled"].includes(releaseStatus) && cleanPath === "/student/enrollment") {
-        const section = currentHash.replace("#", "") || "tracking";
-        return [
-          { id: "tracking", title: "Acompanhamento", icon: "progress", href: "/student/enrollment", isActive: section === "tracking", statusIndicator: "normal" },
-          { id: "documents", title: "Meus documentos", icon: "file-text", href: "/student/enrollment#documents", isActive: section === "documents", statusIndicator: "normal" },
-          { id: "payment", title: "Pagamento", icon: "credit-card", href: "/student/enrollment#payment", isActive: section === "payment", statusIndicator: "normal" },
-          { id: "contact", title: "Falar com o polo", icon: "messages", href: "/student/enrollment#contact", isActive: section === "contact", statusIndicator: "normal" },
-        ];
-      }
-
-      if (rawStatus === "active" || rawStatus === "exam_released" || rawStatus === "regular" || cleanPath.startsWith("/student/active")) {
-        const isDashboardActive = cleanPath === "/student/active/dashboard" || cleanPath === "/student/active" || cleanPath === "/student";
-        const isAccessActive = cleanPath === "/student/active/access" || cleanPath === "/student/active/subjects";
-        const isAssessmentsActive = cleanPath === "/student/active/assessments";
-
-        const examIndicator = effectiveStudentState.examStatus === "approved" ? "success" : effectiveStudentState.examStatus === "under_review" || rawStatus === "exam_released" ? "warning" : "normal";
-        const examBadge = effectiveStudentState.examStatus === "approved" ? "Aprovado" : effectiveStudentState.examStatus === "under_review" || rawStatus === "exam_released" ? "Liberada" : undefined;
-
-        return [
-          { id: "dashboard", title: "Painel", icon: "home", href: "/student/active/dashboard", isActive: isDashboardActive, statusIndicator: "normal" },
-          { id: "documents", title: "Documentos", icon: "file-text", href: "/student/active/documents", isActive: cleanPath === "/student/active/documents", statusIndicator: effectiveStudentState.pendingDocsCount ? "warning" : "normal" },
-          { id: "access", title: "Acesso", icon: "book", href: "/student/active/access", isActive: isAccessActive, statusIndicator: "normal" },
-          { id: "assessments", title: "Avaliações", icon: "award", href: "/student/active/assessments", isActive: isAssessmentsActive, badge: examBadge, badgeVariant: examIndicator === "success" ? "success" : "warning", statusIndicator: examIndicator },
-          { id: "finance", title: "Financeiro", icon: "credit-card", href: "/student/active/finance", isActive: cleanPath === "/student/active/finance", statusIndicator: "normal" },
-          { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
-        ];
-      }
-
-      if (rawStatus === "veteran" || rawStatus === "graduated" || rawStatus === "awaiting_diploma_issuance" || cleanPath.startsWith("/student/veteran")) {
-        return [
-          { id: "dashboard", title: "Conclusão", icon: "award", href: "/student/veteran/dashboard", isActive: cleanPath === "/student/veteran/dashboard" || cleanPath === "/student/veteran", statusIndicator: "success" },
-          { id: "records", title: "Histórico", icon: "file-text", href: "/student/veteran/records", isActive: cleanPath === "/student/veteran/records", statusIndicator: "success" },
-          { id: "diploma", title: "Diploma", icon: "certificate", href: "/student/veteran/diploma", isActive: cleanPath === "/student/veteran/diploma", statusIndicator: (effectiveStudentState.diplomaStatus as any) || "normal" },
-          { id: "assessments", title: "Prova", icon: "award", href: "/student/veteran/assessments", isActive: cleanPath === "/student/veteran/assessments", statusIndicator: "normal" },
-          { id: "finance", title: "Financeiro", icon: "credit-card", href: "/student/veteran/finance", isActive: cleanPath === "/student/veteran/finance", statusIndicator: "normal" },
-          { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
-        ];
-      }
-
-      // Default Enrollment Document Upload
-      const activeStep = cleanPath.endsWith("/address") ? "address" : cleanPath.endsWith("/education") ? "education" : cleanPath.endsWith("/selfie") ? "selfie" : "documents";
       return [
-        { id: "documents", title: "RG", icon: "id", href: "/student/enrollment/rg", isActive: activeStep === "documents", statusIndicator: effectiveStudentState.rgStatus || "normal" },
-        { id: "address", title: "Endereço", icon: "address", href: "/student/enrollment/address", isActive: activeStep === "address", statusIndicator: effectiveStudentState.addressStatus || "normal" },
-        { id: "education", title: "Escolaridade", icon: "school", href: "/student/enrollment/education", isActive: activeStep === "education", statusIndicator: effectiveStudentState.educationStatus || "normal" },
-        { id: "selfie", title: "Selfie", icon: "camera", href: "/student/enrollment/selfie", isActive: activeStep === "selfie", statusIndicator: effectiveStudentState.selfieStatus || "normal" },
+        {
+          id: "dashboard",
+          title: "Painel",
+          icon: "home",
+          href: "/admin/dashboard",
+          isActive: cleanPath === "/admin/dashboard" || cleanPath === "/admin",
+          statusIndicator: "normal",
+        },
+        {
+          id: "documents",
+          title: "Documentos",
+          icon: "file-check",
+          href: "/admin/documentos",
+          isActive: cleanPath === "/admin/documentos",
+          badge: pendingDocs > 0 ? pendingDocs : undefined,
+          badgeVariant: "warning",
+          statusIndicator: pendingDocs > 0 ? "warning" : "normal",
+        },
+        {
+          id: "siga",
+          title: "SIGA",
+          icon: "school",
+          href: "/admin/credenciais-siga",
+          isActive: cleanPath === "/admin/credenciais-siga",
+          badge: pendingSiga > 0 ? pendingSiga : undefined,
+          badgeVariant: "info",
+          statusIndicator: pendingSiga > 0 ? "warning" : "normal",
+        },
+        {
+          id: "fees",
+          title: "Taxa",
+          icon: "cash",
+          href: "/admin/taxa-parceira",
+          isActive: cleanPath === "/admin/taxa-parceira",
+          statusIndicator: "normal",
+        },
+        {
+          id: "exams",
+          title: "Provas",
+          icon: "award",
+          href: "/admin/provas",
+          isActive: cleanPath === "/admin/provas",
+          badge: pendingExams > 0 ? pendingExams : undefined,
+          badgeVariant: "info",
+          statusIndicator: "normal",
+        },
+        {
+          id: "diplomas",
+          title: "Diplomas",
+          icon: "certificate",
+          href: "/admin/diplomas",
+          isActive: cleanPath === "/admin/diplomas",
+          badge: pendingDiplomas > 0 ? pendingDiplomas : undefined,
+          badgeVariant: "success",
+          statusIndicator: "normal",
+        },
         { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
       ];
     }
 
-    // 2. PROMOTER
-    if (activeRole === "promoter" || activeRole === "promotor") {
-      const pStatus = (effectivePromoterState.status || "").toLowerCase();
-      const isCandidate = effectivePromoterState.isCandidate || cleanPath.startsWith("/promoter/candidate") || ["candidate", "started", "profile", "address", "documents", "pix", "education", "selfie", "completed"].includes(pStatus);
-      const isTraining = effectivePromoterState.isTrainingBlocked || cleanPath.startsWith("/promoter/training") || pStatus === "training";
-
-      if (isCandidate) {
-        const next = effectivePromoterState.registrationStep ?? "documents";
-        const section = currentHash.replace("#", "") || next;
-        const isPixApproved = effectivePromoterState.pixStatus === "approved";
-
-        return [
-          { id: "documents", title: "RG ou CNH", icon: "id", href: "#documents", isActive: section === "documents", statusIndicator: effectivePromoterState.documentStatus || "normal" },
-          { id: "address", title: "Endereço", icon: "address", href: "#address", isActive: section === "address", statusIndicator: effectivePromoterState.addressStatus || "normal" },
-          { id: "pix", title: "Chave Pix", icon: "pix", href: "#pix", isActive: section === "pix", badge: isPixApproved ? "OK" : undefined, badgeVariant: "success", statusIndicator: isPixApproved ? "success" : "normal" },
-          { id: "education", title: "Escolaridade", icon: "school", href: "#education", isActive: section === "education", statusIndicator: effectivePromoterState.educationStatus || "normal" },
-          { id: "selfie", title: "Selfie", icon: "camera", href: "#selfie", isActive: section === "selfie", statusIndicator: effectivePromoterState.selfieStatus || "normal" },
-          { id: "referral", title: "Indicação", icon: "link", href: "#referral", isActive: section === "referral", statusIndicator: "normal" },
-          { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
-        ];
-      }
-
-      if (isTraining) {
-        const section = currentHash.replace("#", "") || "training";
-        return [
-          { id: "training", title: "Treinamento", icon: "school", href: "/promoter/training", isActive: section === "training", statusIndicator: "warning" },
-          { id: "materials", title: "Materiais", icon: "book", href: "/promoter/training#materials", isActive: section === "materials", statusIndicator: "normal" },
-          { id: "support", title: "Suporte", icon: "messages", href: "/promoter/training#support", isActive: section === "support", statusIndicator: "normal" },
-          { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
-        ];
-      }
-
-      // Active Promoter
+    // STUDENT
+    if (
+      rawStatus === "lead" ||
+      rawStatus === "payment_pending" ||
+      cleanPath.startsWith("/student/lead")
+    ) {
       return [
-        { id: "dashboard", title: "Painel", icon: "home", href: "/promoter/active/dashboard", isActive: cleanPath === "/promoter/active/dashboard" || cleanPath === "/promoter/active" || cleanPath === "/promoter", statusIndicator: "normal" },
-        { id: "leads", title: "Leads", icon: "users", href: "/promoter/active/leads", isActive: cleanPath === "/promoter/active/leads", statusIndicator: "normal" },
-        { id: "commissions", title: "Comissões", icon: "cash", href: "/promoter/active/commissions", isActive: cleanPath === "/promoter/active/commissions", statusIndicator: "normal" },
-        { id: "materials", title: "Materiais", icon: "book", href: "/promoter/active/materials", isActive: cleanPath === "/promoter/active/materials", statusIndicator: "normal" },
+        {
+          id: "payment",
+          title: "Pagamento",
+          icon: "credit-card",
+          href: "/student/lead/payment",
+          isActive: true,
+          statusIndicator: effectiveStudentState.isCheckoutReady ? "success" : "warning",
+        },
         { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
       ];
     }
 
-    // 3. POLO / HUB
-    const pendingReviews = effectivePoloState.pendingValidationCount ?? 0;
-    const isReviews = effectivePoloState.status === "review" || cleanPath.startsWith("/hub/review");
+    if (
+      rawSubstatus === "pending_siga" &&
+      (cleanPath === "/student/enrollment" || cleanPath === "/student" || cleanPath === "/tabs-status")
+    ) {
+      const section = currentHash.replace("#", "") || "tracking";
+      return [
+        { id: "tracking", title: "Acompanhamento", icon: "progress", href: "/student/enrollment#tracking", isActive: section === "tracking", statusIndicator: "normal" },
+        { id: "documents", title: "Meus documentos", icon: "file-text", href: "/student/enrollment#documents", isActive: section === "documents", statusIndicator: "normal" },
+        { id: "payment", title: "Pagamento", icon: "credit-card", href: "/student/enrollment#payment", isActive: section === "payment", statusIndicator: "normal" },
+        { id: "contact", title: "Atendimento", icon: "messages", href: "/student/enrollment#contact", isActive: section === "contact", statusIndicator: "normal" },
+      ];
+    }
+
+    if (
+      rawStatus === "enrolled" ||
+      rawStatus === "exam_scheduled" ||
+      cleanPath.startsWith("/student/active")
+    ) {
+      const isDashboardActive =
+        cleanPath === "/student/active/dashboard" ||
+        cleanPath === "/student/active" ||
+        cleanPath === "/student";
+      const isAccessActive =
+        cleanPath === "/student/active/access" || cleanPath === "/student/active/subjects";
+      const isAssessmentsActive = cleanPath === "/student/active/assessments";
+
+      const examIndicator =
+        rawStatus === "exam_scheduled"
+          ? "warning"
+          : effectiveStudentState.examStatus === "approved"
+          ? "success"
+          : "normal";
+      const examBadge =
+        rawStatus === "exam_scheduled"
+          ? "Agendada"
+          : effectiveStudentState.examStatus === "approved"
+          ? "Liberada"
+          : undefined;
+
+      return [
+        { id: "dashboard", title: "Painel", icon: "home", href: "/student/active/dashboard", isActive: isDashboardActive, statusIndicator: "normal" },
+        { id: "documents", title: "Documentos", icon: "file-text", href: "/student/active/documents", isActive: cleanPath === "/student/active/documents", statusIndicator: effectiveStudentState.pendingDocsCount ? "warning" : "normal" },
+        { id: "access", title: "Acesso", icon: "book", href: "/student/active/access", isActive: isAccessActive, statusIndicator: "normal" },
+        { id: "assessments", title: "Avaliações", icon: "award", href: "/student/active/assessments", isActive: isAssessmentsActive, badge: examBadge, badgeVariant: examIndicator === "success" ? "success" : "warning", statusIndicator: examIndicator },
+        { id: "finance", title: "Financeiro", icon: "credit-card", href: "/student/active/finance", isActive: cleanPath === "/student/active/finance", statusIndicator: "normal" },
+        { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
+      ];
+    }
+
+    if (
+      rawStatus === "awaiting_pickup" ||
+      rawStatus === "graduated" ||
+      cleanPath.startsWith("/student/veteran")
+    ) {
+      return [
+        { id: "dashboard", title: "Conclusão", icon: "award", href: "/student/veteran/dashboard", isActive: cleanPath === "/student/veteran/dashboard" || cleanPath === "/student/veteran", statusIndicator: "success" },
+        { id: "records", title: "Histórico", icon: "file-text", href: "/student/veteran/records", isActive: cleanPath === "/student/veteran/records", statusIndicator: "success" },
+        { id: "diploma", title: "Diploma", icon: "certificate", href: "/student/veteran/diploma", isActive: cleanPath === "/student/veteran/diploma", statusIndicator: (effectiveStudentState.diplomaStatus as any) || "normal" },
+        { id: "assessments", title: "Prova", icon: "award", href: "/student/veteran/assessments", isActive: cleanPath === "/student/veteran/assessments", statusIndicator: "normal" },
+        { id: "finance", title: "Financeiro", icon: "credit-card", href: "/student/veteran/finance", isActive: cleanPath === "/student/veteran/finance", statusIndicator: "normal" },
+        { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
+      ];
+    }
+
+    // Default pre_enrolled onboarding steps
+    const activeStep = cleanPath.endsWith("/address")
+      ? "address"
+      : cleanPath.endsWith("/education")
+      ? "education"
+      : cleanPath.endsWith("/selfie")
+      ? "selfie"
+      : "documents";
+
     return [
-      { id: "dashboard", title: "Painel", icon: "home", href: "/hub/active/dashboard", isActive: cleanPath === "/hub/active/dashboard" || cleanPath === "/hub", statusIndicator: "normal" },
-      { id: "students", title: "Alunos", icon: "file-check", href: "/hub/active/operations", badge: pendingReviews > 0 ? pendingReviews : undefined, badgeVariant: "warning", statusIndicator: pendingReviews > 0 ? "warning" : "normal", isActive: isReviews || cleanPath === "/hub/active/operations" },
-      { id: "promoters", title: "Promotores", icon: "users", href: "/hub/review/promoters", statusIndicator: "normal", isActive: cleanPath === "/hub/review/promoters" },
-      { id: "exams", title: "Provas", icon: "school", href: "/hub/active/exams", statusIndicator: "normal", isActive: cleanPath === "/hub/active/exams" },
+      { id: "documents", title: "RG", icon: "id", href: "/student/enrollment/rg", isActive: activeStep === "documents", statusIndicator: effectiveStudentState.rgStatus || "normal" },
+      { id: "address", title: "Endereço", icon: "address", href: "/student/enrollment/address", isActive: activeStep === "address", statusIndicator: effectiveStudentState.addressStatus || "normal" },
+      { id: "education", title: "Escolaridade", icon: "school", href: "/student/enrollment/education", isActive: activeStep === "education", statusIndicator: effectiveStudentState.educationStatus || "normal" },
+      { id: "selfie", title: "Selfie", icon: "camera", href: "/student/enrollment/selfie", isActive: activeStep === "selfie", statusIndicator: effectiveStudentState.selfieStatus || "normal" },
       { id: "logout", title: "Sair", icon: "logout", onClick: handleLogout },
     ];
   });
 
-  // Filter out logout button on mobile bottom bar for student/promoter as canonical
   let displayedItems = $derived(
-    (["student", "aluno", "promoter", "promotor"].includes(activeRole))
-      ? items.filter((i) => i.id !== "logout")
-      : items
+    activeRole === "student" ? items.filter((i) => i.id !== "logout") : items
   );
 
   function getIndicatorClasses(indicator?: string, disabled?: boolean) {
@@ -273,6 +293,30 @@
   }
 </script>
 
+{#snippet bottomDockContent(item: DockItem)}
+  <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
+    <div class="size-5">
+      <DockIcon name={item.icon} />
+    </div>
+    {#if item.badge !== undefined && item.badge !== null}
+      <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
+        {item.badge}
+      </span>
+    {/if}
+  </div>
+  <span class="text-[10px] tracking-tight whitespace-nowrap">{item.title}</span>
+{/snippet}
+
+{#snippet floatingDockContent(item: DockItem)}
+  <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
+    <DockIcon name={item.icon} />
+  </div>
+  <span class="sr-only">{item.title}</span>
+  <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
+    {item.title}
+  </span>
+{/snippet}
+
 {#if shouldShow}
   {#if variant === "bottom-bar"}
     <nav
@@ -283,9 +327,9 @@
       class="fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[var(--ink)]/90 backdrop-blur-2xl shadow-2xl pb-[env(safe-area-inset-bottom)]"
     >
       <div class="h-[2px] w-full bg-gradient-to-r from-[var(--green)] via-[var(--yellow)] to-[var(--blue)]"></div>
-      <div class="mx-auto flex w-full max-w-lg items-center justify-around px-2 py-2">
+      <div class="mx-auto flex w-full max-w-lg items-center justify-around px-1 sm:px-2 py-2 overflow-x-auto">
         {#each displayedItems as item}
-          {@const commonClasses = `flex min-h-12 min-w-12 flex-col items-center gap-1 p-2 rounded-xl transition-[color,transform] duration-200 active:scale-95 cursor-pointer touch-manipulation ${
+          {@const commonClasses = `flex min-h-12 min-w-11 flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition-[color,transform] duration-200 active:scale-95 cursor-pointer touch-manipulation ${
             item.isActive
               ? "text-[var(--yellow)] font-bold drop-shadow-[0_0_8px_rgba(255,204,0,0.3)]"
               : "text-white/70 hover:text-white"
@@ -299,17 +343,7 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <div class="size-5">
-                  <DockIcon name={item.icon} />
-                </div>
-                {#if item.badge !== undefined && item.badge !== null}
-                  <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
-                    {item.badge}
-                  </span>
-                {/if}
-              </div>
-              <span class="text-[10px] tracking-tight">{item.title}</span>
+              {@render bottomDockContent(item)}
             </button>
           {:else}
             <a
@@ -319,24 +353,13 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <div class="size-5">
-                  <DockIcon name={item.icon} />
-                </div>
-                {#if item.badge !== undefined && item.badge !== null}
-                  <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
-                    {item.badge}
-                  </span>
-                {/if}
-              </div>
-              <span class="text-[10px] tracking-tight">{item.title}</span>
+              {@render bottomDockContent(item)}
             </a>
           {/if}
         {/each}
       </div>
     </nav>
   {:else}
-    <!-- Variant: Floating Dock Cápsula -->
     <nav
       aria-label={`Navegação principal do ${activeRole}`}
       data-testid="role-adaptive-dock"
@@ -360,14 +383,7 @@
               aria-label={item.title}
               class={commonClasses}
             >
-              <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <DockIcon name={item.icon} />
-              </div>
-              <span class="sr-only">{item.title}</span>
-              <!-- Tooltip on hover -->
-              <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
-                {item.title}
-              </span>
+              {@render floatingDockContent(item)}
             </button>
           {:else}
             <a
@@ -377,14 +393,7 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <DockIcon name={item.icon} />
-              </div>
-              <span class="sr-only">{item.title}</span>
-              <!-- Tooltip on hover -->
-              <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
-                {item.title}
-              </span>
+              {@render floatingDockContent(item)}
             </a>
           {/if}
         {/each}

@@ -1,75 +1,117 @@
-import { ApiError } from "@/lib/api";
-
-export function enrollmentPath(status: string): string | null {
-  switch (status) {
-    case "rg": return "/student/enrollment/rg";
-    case "address": return "/student/enrollment/address";
-    case "education": return "/student/enrollment/education";
-    case "selfie": return "/student/enrollment/selfie";
-    case "awaiting_release": return "/student/enrollment";
-    default: return null;
+export function enrollmentPath(stepOrSubstatus: string | number | null | undefined): string | null {
+  switch (stepOrSubstatus) {
+    case 1:
+    case "rg":
+    case "rg_pending":
+      return "/student/enrollment/rg";
+    case 2:
+    case "address":
+    case "address_pending":
+    case "needs_kinship":
+      return "/student/enrollment/address";
+    case 3:
+    case "education":
+    case "education_pending":
+      return "/student/enrollment/education";
+    case 4:
+    case "selfie":
+    case "selfie_pending":
+      return "/student/enrollment/selfie";
+    case 5:
+    case "awaiting_release":
+    case "pending_siga":
+      return "/student/enrollment";
+    default:
+      return null;
   }
 }
 
-export function followEnrollmentStatus(status: string): boolean {
-  const target = enrollmentPath(status);
-  if (target && window.location.pathname.replace(/\/$/, "") !== target) {
-    window.location.replace(target);
-    return true;
-  }
-  return false;
-}
-
-export function expectedStatus(error: unknown): string | null {
-  if (!(error instanceof ApiError)) return null;
-  const status = error.expectedStatus ?? error.extra?.expected_status;
-  return typeof status === "string" ? status : null;
-}
-
-/** Only explicit HTTP(S) links may leave the app; reject embedded credentials. */
+/** Only explicit HTTPS links may leave the app; reject embedded credentials. */
 export function safePartnerUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.username || url.password) return null;
     return url.href;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-/** Backend media paths are local files, never executable or protocol-relative URLs. */
-export function safeMediaUrl(value: string | null | undefined): string | null {
-  if (!value || /[\\\u0000-\u001f]/.test(value)) return null;
-  if (/^https?:\/\//i.test(value)) return safePartnerUrl(value);
-  if (value.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(value)) return null;
-  const path = value.replace(/^\/+/, "");
-  if (!path || path.split("/").some(part => part === "." || part === "..")) return null;
-  return path.startsWith("media/") ? `/${path}` : `/media/${path}`;
+/** Restricts return_to redirects to same-origin relative paths without backslashes or protocol-relative prefixes. */
+export function safeReturnTo(
+  returnTo: string | null | undefined,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+): string | null {
+  if (!origin || !returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//") || returnTo.includes("\\")) {
+    return null;
+  }
+  try {
+    const parsed = new URL(returnTo, origin);
+    if (parsed.origin !== origin) return null;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return null;
+  }
 }
 
 export const STUDENT_STATUS_LABELS: Record<string, string> = {
-  active: "Matrícula Ativa",
-  regular: "Matrícula Regular",
   lead: "Aguardando Matrícula",
-  enrollment: "Fase de Matrícula",
-  awaiting_documents: "Aguardando documentos", documents_under_review: "Documentos em análise",
-  blood_type_pending: "Tipo sanguíneo pendente", exam_released: "Prova liberada",
-  exam_scheduled: "Prova agendada", exam_failed: "Nova prova necessária",
-  awaiting_documentation_dispatch: "Aguardando envio da documentação", pending: "Pendências em aberto",
-  awaiting_diploma_issuance: "Aguardando emissão do diploma", awaiting_pickup: "Aguardando retirada do diploma", veteran: "Concluído",
+  payment_pending: "Pagamento Pendente",
+  pre_enrolled: "Fase de Matrícula",
+  enrolled: "Matrícula Ativa",
+  exam_scheduled: "Prova Agendada",
+  awaiting_pickup: "Aguardando Retirada do Diploma",
+  graduated: "Concluído",
+  cancelled: "Matrícula Cancelada",
+  siga_active: "Acesso Liberado",
+  pending_post_siga_docs: "Documentação Complementar Pendente",
+  eligible_for_exam: "Liberado para Prova",
+  scheduled: "Prova Agendada",
+  pending_documents: "Emissão de Diploma",
+  ready_for_pickup: "Pronto para Retirada",
 };
 
-export function dateLabel(value: string | null | undefined): string {
-  if (!value) return "Ainda não informado";
+export function dateLabel(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "Ainda não informado";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Data não disponível" : date.toLocaleDateString("pt-BR");
 }
 
-export function imageError(file: File): string | null {
-  return ["image/jpeg", "image/png", "image/webp"].includes(file.type)
-    ? null : "Envie uma imagem JPG, PNG ou WebP legível.";
+export function dateTimeLabel(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "Ainda não informado";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Data não disponível"
+    : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export function documentFileError(file: File): string | null {
-  return ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)
-    ? null : "Envie uma imagem (JPG, PNG, WebP) ou arquivo PDF legível.";
+export const DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const ADMIN_PDF_MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+function fileSizeError(file: File, maxBytes: number): string | null {
+  if (file.size <= maxBytes) return null;
+  const maxMb = Math.round(maxBytes / (1024 * 1024));
+  return `Escolha um arquivo de até ${maxMb} MB.`;
+}
+
+export function imageError(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): string | null {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    return "Envie uma imagem JPG, PNG ou WebP legível.";
+  }
+  return fileSizeError(file, maxBytes);
+}
+
+export function documentFileError(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): string | null {
+  if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) {
+    return "Envie uma imagem (JPG, PNG, WebP) ou arquivo PDF legível.";
+  }
+  return fileSizeError(file, maxBytes);
+}
+
+export function pdfFileError(file: File, maxBytes = ADMIN_PDF_MAX_UPLOAD_BYTES): string | null {
+  if (file.type !== "application/pdf") {
+    return "Envie um arquivo PDF válido.";
+  }
+  return fileSizeError(file, maxBytes);
 }

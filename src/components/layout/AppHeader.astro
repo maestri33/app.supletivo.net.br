@@ -35,13 +35,12 @@ const { appName = "Supletivo", brandColor } = Astro.props;
       </a>
     </div>
 
-    <!-- Abas de Roles Superiores -->
     <div class="order-3 basis-full sm:order-none sm:basis-auto flex items-center justify-center">
       <RoleTabsHeader client:load />
     </div>
 
     <div class="flex items-center gap-2">
-      <AppHeaderUser client:load showLogout={/^\/(student|aluno|promoter|promotor|hub|polo)(\/|$)/.test(Astro.url.pathname)} />
+      <AppHeaderUser client:load showLogout={/^\/(student|admin)(\/|$)/.test(Astro.url.pathname)} />
     </div>
   </div>
 </header>

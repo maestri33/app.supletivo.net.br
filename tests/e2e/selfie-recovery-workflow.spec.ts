@@ -1,83 +1,185 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from "@playwright/test";
 
-async function setup(page: Page, role: 'student' | 'promoter', selfie = { exists: false, analysis_status: '' }) {
+async function setup(
+  page: Page,
+  selfieStatus: { submitted: boolean; status: string; rejection_reason?: string } = {
+    submitted: false,
+    status: "pending",
+  },
+) {
   await page.addInitScript(() => {
-    localStorage.setItem('supletivo.login', JSON.stringify({ access_token: 'fixture', refresh_token: 'fixture' }));
-    localStorage.setItem('supletivo.session', JSON.stringify({ phone: '11900000000', externalId: 'fixture' }));
+    localStorage.setItem(
+      "supletivo.login",
+      JSON.stringify({
+        access_token: "fixture",
+        refresh_token: "fixture",
+        roles: ["client"],
+        role_statuses: { client: "pre_enrolled" },
+      }),
+    );
+    localStorage.setItem("supletivo.session", JSON.stringify({ phone: "11900000000", externalId: "fixture" }));
   });
-  await page.route('**/api/v1/clients/whoami', route => route.fulfill({ json: { external_id: 'fixture', roles: [role === 'student' ? 'enrollment' : 'candidate'], role_statuses: { [role]: role === 'student' ? 'enrollment' : 'candidate' } } }));
-  await page.route('**/localidades/estados**', route => route.fulfill({ json: [] }));
-  await page.route('**/contract/current', route => route.fulfill({ json: { text: 'Contrato exclusivo de teste', version: 'test' } }));
-  const doc = { number: '123', doc_type: 'rg', full_photo: 'test.jpg', analysis_status: 'approved', validation_status: 'approved', missing_fields: [] };
-  const state = { status: 'selfie', selfie, documents: { rg: doc }, address_proof: { exists: true, status: 'approved' }, address: { street: 'Rua', number: '1', city: 'Cidade', state: 'PR', zipcode: '80000000' }, ref_url: 'https://supletivo.net.br', profile: {}, pix_validated: true };
-  await page.route('**/api/v1/clients/enrollment/me', route => route.fulfill({ json: state }));
-  await page.route('**/api/v1/collaborators/candidate/me', route => route.fulfill({ json: state }));
-  await page.route('**/api/v1/collaborators/candidate/document', route => route.fulfill({ json: doc }));
-  await page.goto(role === 'student' ? '/student/enrollment/selfie' : '/promoter/candidate');
+
+  await page.route("**/api/v1/auth/whoami", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        id: "fixture",
+        external_id: "fixture",
+        phone: "5511900000000",
+        roles: ["client"],
+        active_role: "client",
+        role_statuses: { client: "pre_enrolled" },
+        status: "pre_enrolled",
+        substatus: "selfie_pending",
+      },
+    }),
+  );
+
+  await page.route("**/api/v1/enrollment/status", (route) =>
+    route.fulfill({
+      json: {
+        student_role_id: "r1",
+        current_status: "pre_enrolled",
+        substatus: "selfie_pending",
+        step: 4,
+        all_basic_docs_ready: false,
+        checklist: {
+          rg: { submitted: true, status: "approved", needs_manual_review: 0 },
+          proof_of_residence: { submitted: true, status: "approved", needs_manual_review: 0 },
+          education_level: { submitted: true, status: "approved", needs_manual_review: 0 },
+          contract_signature: { submitted: false, status: "pending", needs_manual_review: 0 },
+          selfie: { ...selfieStatus, needs_manual_review: 0 },
+        },
+      },
+    }),
+  );
+
+  await page.route("**/api/v1/contract/current", (route) =>
+    route.fulfill({
+      json: { text: "Contrato exclusivo de teste", version: "v2", hash: "hash-v2" },
+    }),
+  );
+
+  await page.goto("/student/enrollment/selfie");
 }
 
-for (const role of ['student', 'promoter'] as const) {
-  test(`${role}: live camera frame is captured and sent once`, async ({ browser, baseURL }) => {
-    const context = await browser.newContext({ baseURL, permissions: ['camera'] });
-    const page = await context.newPage();
-    await page.addInitScript(() => {
-      // In-memory video frames exercise canvas capture without uploading personal data.
-      navigator.mediaDevices.getUserMedia = async () => {
-        const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
-        const ctx = canvas.getContext('2d')!; ctx.fillRect(0, 0, 640, 480);
-        const stream = canvas.captureStream(10);
-        setInterval(() => ctx.fillRect(0, 0, 640, 480), 100);
-        return stream;
-      };
-    });
-    let uploads = 0;
-    await setup(page, role);
-    const path = role === 'student' ? '**/api/v1/clients/enrollment/selfie' : '**/api/v1/collaborators/candidate/selfie';
-    await page.route(path, route => {
-      uploads++;
-      expect(route.request().headers()['content-type']).toContain('multipart/form-data');
-      return route.fulfill({ status: 503, json: { detail: 'Falha controlada de teste' } });
-    });
-    await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'Abrir câmera para selfie' }).click();
-    await expect(page.getByRole('button', { name: 'Fotografar e enviar selfie' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Fotografar e enviar selfie' }).click();
-    await expect(page.getByText('Falha controlada de teste', { exact: true })).toBeVisible();
-    expect(uploads).toBe(1);
-    await expect(page.getByRole('button', { name: 'Abrir câmera para selfie' })).toBeEnabled();
-    await context.close();
+test("student: live camera frame is captured and sent once with contract sign", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, permissions: ["camera"] });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(10);
+      setInterval(() => ctx.fillRect(0, 0, 640, 480), 100);
+      return stream;
+    };
   });
-  test(`${role}: permission ignored allows cancellation and retry`, async ({ page }) => {
-    await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = () => new Promise(() => {}); });
-    await setup(page, role);
-    await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'Abrir câmera para selfie' }).click();
-    await page.getByRole('button', { name: 'Cancelar abertura' }).click();
-    await expect(page.getByRole('button', { name: 'Abrir câmera para selfie' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Abrir câmera para selfie' }).click();
-    await expect(page.getByRole('alert')).toContainText('A câmera não respondeu', { timeout: 18000 });
-    await expect(page.getByRole('button', { name: 'Abrir câmera para selfie' })).toBeEnabled();
-  });
-  test(`${role}: occupied camera explains recovery`, async ({ page }) => {
-    await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('busy', 'NotReadableError')); });
-    await setup(page, role);
-    await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'Abrir câmera para selfie' }).click();
-    await expect(page.getByRole('alert')).toContainText('Feche outros apps');
-    await expect(page.getByRole('button', { name: 'Abrir câmera para selfie' })).toBeEnabled();
-  });
-  test(`${role}: review shows actual next step without requesting another selfie`, async ({ page }) => {
-    await setup(page, role, { exists: true, analysis_status: 'review' });
-    await expect(page.getByText('Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Abrir câmera para selfie' })).toHaveCount(0);
-  });
-}
 
-test('student resumes pending analysis after reload', async ({ page }) => {
-  await setup(page, 'student', { exists: true, analysis_status: 'pending' });
-  let reads = 0;
-  await page.route('**/api/v1/clients/enrollment/me', route => { reads++; return route.fulfill({ json: { status: 'selfie', selfie: { exists: true, analysis_status: reads > 1 ? 'review' : 'pending' } } }); });
-  await page.reload();
-  await expect(page.getByText('Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora.')).toBeVisible();
-  expect(reads).toBeGreaterThan(1);
+  let signCalls = 0;
+  let uploads = 0;
+  await setup(page);
+  await page.route("**/api/v1/student/contract/sign", (route) => {
+    signCalls += 1;
+    expect(route.request().postDataJSON()).toEqual({ contract_version_hash: "hash-v2", accepted: true });
+    return route.fulfill({ json: { id: "sig-1", document_type: "contract_signature", status: "approved", signed_at: Date.now() } });
+  });
+  await page.route("**/api/v1/enrollment/selfie", (route) => {
+    uploads += 1;
+    expect(route.request().headers()["content-type"]).toContain("multipart/form-data");
+    return route.fulfill({ status: 503, json: { error: "Falha controlada de teste" } });
+  });
+
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByRole("button", { name: "Fotografar e enviar selfie" })).toBeEnabled();
+  await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "Falha controlada de teste" })).toBeVisible();
+  expect(signCalls).toBe(1);
+  expect(uploads).toBe(1);
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
+  await context.close();
+});
+
+test("student: permission ignored allows cancellation and retry", async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => new Promise(() => {});
+  });
+  await setup(page);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await page.getByRole("button", { name: "Cancelar abertura" }).click();
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByRole("alert")).toContainText("A câmera não respondeu", { timeout: 18000 });
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
+});
+
+test("student: occupied camera explains recovery", async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException("busy", "NotReadableError"));
+  });
+  await setup(page);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByRole("alert")).toContainText("Feche outros apps");
+  await expect(page.getByRole("button", { name: "Abrir câmera para selfie" })).toBeEnabled();
+});
+
+test("student: displays rejection reason when selfie needs resubmission", async ({ page }) => {
+  await setup(page, {
+    submitted: true,
+    status: "rejected",
+    rejection_reason: "Foto escura. Tire em ambiente iluminado.",
+  });
+  await expect(page.getByText("Motivo da reprovação da selfie")).toBeVisible();
+  await expect(page.getByText("Foto escura. Tire em ambiente iluminado.")).toBeVisible();
+});
+
+test("student: CONTRACT_HASH_MISMATCH reloads contract and prompts re-acceptance", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, permissions: ["camera"] });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(10);
+      setInterval(() => ctx.fillRect(0, 0, 640, 480), 100);
+      return stream;
+    };
+  });
+
+  await setup(page);
+  let contractReads = 0;
+  await page.route("**/api/v1/contract/current", (route) => {
+    contractReads += 1;
+    return route.fulfill({
+      json: { text: "Contrato atualizado v3", version: "v3", hash: "hash-v3" },
+    });
+  });
+  await page.route("**/api/v1/student/contract/sign", (route) =>
+    route.fulfill({
+      status: 409,
+      json: { error: "Hash desatualizado", code: "CONTRACT_HASH_MISMATCH" },
+    }),
+  );
+
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Abrir câmera para selfie" }).click();
+  await expect(page.getByRole("button", { name: "Fotografar e enviar selfie" })).toBeEnabled();
+  await page.getByRole("button", { name: "Fotografar e enviar selfie" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("O texto do contrato foi atualizado");
+  await expect(page.getByText("Contrato atualizado v3")).toBeVisible();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  expect(contractReads).toBeGreaterThanOrEqual(1);
+  await context.close();
 });

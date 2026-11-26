@@ -10,7 +10,8 @@
   },
   "workers_dev": true,
   "vars": {
-    "URL_BACKEND": "https://backend.supletivo.net.br"
+    "URL_BACKEND": "https://api.supletivo.net.br",
+    "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAGTC_8XkQzpEDx7t"
   },
   "placement": {
     "mode": "smart"

@@ -22,7 +22,7 @@ const FILE_ERRORS: Record<string, string> = {
   PDF_PASSWORD_REQUIRED: "Este PDF está protegido por senha. Remova a senha ou envie uma foto do documento.",
   PDF_TOO_MANY_PAGES: "Envie um PDF com até duas páginas do documento.",
   PDF_EMPTY: "Este PDF não tem páginas. Escolha outro arquivo.",
-  PDF_TOO_LARGE: "Escolha um arquivo de até 15 MB.",
+  PDF_TOO_LARGE: "Escolha um arquivo de até 10 MB.",
   PDF_DECODE_FAILED: "Não foi possível abrir esse PDF. Escolha outro arquivo ou envie uma foto do documento.",
   PDF_RENDER_FAILED: "Não foi possível abrir esse PDF agora. Tente novamente ou envie uma foto do documento.",
 };

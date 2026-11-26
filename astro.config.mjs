@@ -42,6 +42,14 @@ export default defineConfig({
       status: 308,
       destination: '/student/enrollment',
     },
+    '/onboarding': {
+      status: 308,
+      destination: '/student/enrollment',
+    },
+    '/contrato': {
+      status: 308,
+      destination: '/student/enrollment/selfie',
+    },
     '/recuperar-numero': {
       status: 308,
       destination: '/autenticacao/recuperar-numero',
@@ -66,33 +74,45 @@ export default defineConfig({
       status: 308,
       destination: 'https://supletivo.net.br',
     },
-    '/promotor': {
-      status: 308,
-      destination: '/promoter',
-    },
-    '/promotor/adesao': {
-      status: 308,
-      destination: '/promoter/candidate',
-    },
-    '/promotor/leads': {
-      status: 308,
-      destination: '/promoter/leads',
-    },
-    '/promotor/comissoes': {
-      status: 308,
-      destination: '/promoter/comissoes',
-    },
     '/polo': {
       status: 308,
-      destination: '/hub',
+      destination: '/admin/dashboard',
+    },
+    '/hub': {
+      status: 308,
+      destination: '/admin/dashboard',
     },
     '/hub/index': {
       status: 308,
-      destination: '/hub',
+      destination: '/admin/dashboard',
     },
-    '/promoter/index': {
+    '/hub/active': {
       status: 308,
-      destination: '/promoter',
+      destination: '/admin/dashboard',
+    },
+    '/hub/active/dashboard': {
+      status: 308,
+      destination: '/admin/dashboard',
+    },
+    '/hub/active/exams': {
+      status: 308,
+      destination: '/admin/dashboard',
+    },
+    '/hub/active/operations': {
+      status: 308,
+      destination: '/admin/dashboard',
+    },
+    '/hub/review': {
+      status: 308,
+      destination: '/admin/documentos',
+    },
+    '/hub/review/promoters': {
+      status: 308,
+      destination: '/admin/dashboard',
+    },
+    '/hub/review/students': {
+      status: 308,
+      destination: '/admin/dashboard',
     },
     '/student/index': {
       status: 308,

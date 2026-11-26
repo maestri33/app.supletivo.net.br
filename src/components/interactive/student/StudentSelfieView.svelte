@@ -1,135 +1,210 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getContract, getEnrollmentMe, getErrorMessage, postEnrollmentSelfie, selfieAnalysisStatus, selfieAnalysisReason, type Contract, type EnrollmentMe } from "@/lib/api";
-  import { ackPoll } from "@/lib/poll";
-  import { expectedStatus, followEnrollmentStatus, imageError } from "./workflow";
-  import LiveSelfieCamera from "../LiveSelfieCamera.svelte";
-  import Alert from "@/components/ui/Alert.svelte";
-  import Card from "@/components/ui/Card.svelte";
-  import Skeleton from "@/components/ui/Skeleton.svelte";
+  import {
+    ApiError,
+    getContract,
+    getEnrollmentStatus,
+    getErrorMessage,
+    postEnrollmentSelfie,
+    signContract,
+    type Contract,
+    type EnrollmentStatusResponse,
+  } from "@/lib/api";
+  import { compressImage } from "@/lib/image-compression";
+  import LiveSelfieCamera from "@/components/interactive/LiveSelfieCamera.svelte";
+  import { imageError } from "@/components/interactive/student/workflow";
+  import { Alert, Badge, Card } from "@/components/ui";
 
-  let me = $state<EnrollmentMe | null>(null), contract = $state<Contract | null>(null), consent = $state(false);
-  let loading = $state(true), busy = $state(false), error = $state(""), active = true;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let analysisSlow = $state(false);
-  const verdict = $derived(me?.selfie ? selfieAnalysisStatus(me.selfie) : me?.selfie_status ?? null);
-  const reason = $derived(me?.selfie ? selfieAnalysisReason(me.selfie) : null);
+  let loading = $state(true);
+  let busy = $state(false);
+  let error = $state("");
+  let notice = $state("");
 
-  async function load() {
-    if (timer) clearTimeout(timer);
-    loading = true; error = ""; analysisSlow = false;
+  let statusInfo = $state<EnrollmentStatusResponse | null>(null);
+  let contract = $state<Contract | null>(null);
+  let acceptedContract = $state(false);
+  let useFileFallback = $state(false);
+
+  const contractHash = $derived(contract?.hash ?? contract?.sha256_hash ?? "");
+  const contractVersion = $derived(contract?.version ?? contract?.contract_version ?? "v1");
+
+  onMount(async () => {
     try {
-      const result = await getEnrollmentMe(); if (!active) return; me = result;
-      if (followEnrollmentStatus(result.status)) return;
-      if (result.status !== "selfie") { error = "A assinatura não está disponível nesta etapa da matrícula."; return; }
-      contract = await getContract();
-      if (result.selfie?.exists && selfieAnalysisStatus(result.selfie) === "pending") {
-        busy = true; void poll(result);
+      const [st, ctr] = await Promise.all([
+        getEnrollmentStatus().catch(() => null),
+        getContract(),
+      ]);
+      statusInfo = st;
+      contract = ctr;
+      if (st?.checklist?.contract_signature?.submitted) {
+        acceptedContract = true;
       }
-    } catch (cause) { if (active) error = getErrorMessage(cause); } finally { if (active) loading = false; }
-  }
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      loading = false;
+    }
+  });
 
-  async function poll(ack: EnrollmentMe) {
-    const { intervalMs, deadlineMs } = ackPoll(ack);
-    const check = async () => {
-      if (!active) return;
+  async function processSelfieAndSign(rawFile: File) {
+    if (!acceptedContract) {
+      error = "Leia e aceite o contrato de matrícula antes de enviar sua selfie.";
+      return;
+    }
+    if (!contractHash) {
+      error = "Hash do contrato indisponível. Recarregue a página e tente novamente.";
+      return;
+    }
+
+    const fileCheck = imageError(rawFile);
+    if (fileCheck) {
+      error = fileCheck;
+      return;
+    }
+
+    busy = true;
+    error = "";
+    notice = "";
+
+    try {
+      const compressed = await compressImage(rawFile, { maxSizeMB: 2 });
+      const postCompressErr = imageError(compressed);
+      if (postCompressErr) throw new Error(postCompressErr);
+
+      // 1. Contract must be signed before selfie upload
       try {
-        const result = await getEnrollmentMe(); if (!active) return; me = result;
-        if (followEnrollmentStatus(result.status)) return;
-        const pending = result.selfie ? selfieAnalysisStatus(result.selfie) === "pending" : result.selfie_status === "pending";
-        if (pending && Date.now() < deadlineMs) timer = setTimeout(check, intervalMs);
-        else { busy = false; analysisSlow = pending; }
+        await signContract(contractHash);
+      } catch (signErr) {
+        if (signErr instanceof ApiError && signErr.status === 409 && signErr.code === "CONTRACT_HASH_MISMATCH") {
+          contract = await getContract();
+          acceptedContract = false;
+          error = "O texto do contrato foi atualizado. Leia a versão atual, aceite novamente e envie sua selfie.";
+          busy = false;
+          return;
+        }
+        throw signErr;
       }
-      catch (cause) { if (active) { error = getErrorMessage(cause); busy = false; } }
-    }; await check();
+
+      // 2. Upload selfie
+      await postEnrollmentSelfie(compressed);
+
+      const st = await getEnrollmentStatus().catch(() => null);
+      statusInfo = st;
+      notice = "Contrato assinado e selfie enviada com sucesso!";
+      window.location.href = "/student/enrollment";
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      busy = false;
+    }
   }
 
-  async function upload(file: File) {
-    if (!file || !consent || !contract || busy) return;
-    const invalid = imageError(file); if (invalid) { error = invalid; return; }
-    busy = true; error = ""; analysisSlow = false;
-    try { me = await postEnrollmentSelfie(file); if (followEnrollmentStatus(me.status)) return; await poll(me); }
-    catch (cause) { error = getErrorMessage(cause); const status = expectedStatus(cause); if (status) followEnrollmentStatus(status); busy = false; }
+  async function handleFileInput(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (file) {
+      await processSelfieAndSign(file);
+    }
   }
-
-  onMount(() => { void load(); return () => { active = false; if (timer) clearTimeout(timer); }; });
 </script>
 
-<section class="w-full max-w-2xl mx-auto p-4 sm:p-6 space-y-6 text-white" aria-busy={loading || busy}>
-  <div class="space-y-2">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--green)]/15 border border-[var(--green)]/30 text-xs font-semibold text-emerald-300">
-      <span class="size-2 rounded-full bg-[var(--green)] animate-pulse"></span>
-      Assinatura Digital
+<section class="mx-auto max-w-2xl px-4 pb-28 pt-6 space-y-5">
+  <header class="space-y-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <Badge variant="info">Etapas 4 e 5 — Contrato e Selfie</Badge>
+      <a href="/student/enrollment" class="text-xs font-bold text-[var(--yellow)] hover:underline">
+        Voltar ao checklist
+      </a>
     </div>
-    <h1 class="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">
-      Selfie e assinatura da matrícula
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
+      Assinatura do contrato e selfie de verificação
     </h1>
-    <p class="text-xs sm:text-sm text-white/70">
-      Leia o contrato e tire uma foto nítida do seu rosto pela câmera. A foto será usada para confirmar sua identidade e registrar a assinatura.
+    <p class="text-sm text-[var(--muted-on-dark)]">
+      Leia o contrato abaixo, confirme o aceite e tire uma selfie ao vivo para concluir sua documentação inicial.
     </p>
-  </div>
+  </header>
 
   {#if loading}
-    <div class="space-y-4">
-      <Skeleton class="h-12 w-full rounded-2xl" />
-      <Skeleton class="h-48 w-full rounded-3xl" />
-    </div>
-  {/if}
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando contrato...</p></Card>
+  {:else}
+    {#if error}
+      <Alert variant="danger" title="Não foi possível concluir">{error}</Alert>
+    {/if}
+    {#if notice}
+      <Alert variant="success">{notice}</Alert>
+    {/if}
+    {#if statusInfo?.checklist?.selfie?.rejection_reason}
+      <Alert variant="warning" title="Motivo da reprovação da selfie">
+        {statusInfo.checklist.selfie.rejection_reason}
+      </Alert>
+    {/if}
 
-  {#if contract}
-    <Card
-      title="Contrato de Matrícula"
-      description={`Termos de adesão e prestação de serviços educacionais • Versão ${contract.version}`}
-      class="border-white/15 bg-white/5 backdrop-blur-2xl space-y-4"
-    >
-      <div class="max-h-60 overflow-y-auto p-4 rounded-xl bg-black/40 border border-white/10 text-xs text-white/80 leading-relaxed font-sans select-text">
-        <pre tabindex="0" aria-label="Texto do contrato" class="whitespace-pre-wrap font-sans">{contract.text}</pre>
-      </div>
+    {#if contract}
+      <Card class="p-5 sm:p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white">Contrato de Prestação de Serviços Educacionais</h2>
+          <Badge variant="neutral">Versão {contractVersion}</Badge>
+        </div>
 
-      {#if !me?.selfie?.exists || verdict === "rejected"}
-        <label class="flex items-center gap-3 p-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition cursor-pointer min-h-[48px]">
+        <div class="max-h-60 overflow-y-auto rounded-xl border border-white/15 bg-white/5 p-4 text-xs leading-relaxed text-white/85 whitespace-pre-wrap">
+          {contract.text}
+        </div>
+
+        <label class="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3.5 text-sm font-semibold text-white">
           <input
             type="checkbox"
-            bind:checked={consent}
+            bind:checked={acceptedContract}
             disabled={busy}
-            class="size-5 rounded accent-[var(--yellow)] cursor-pointer"
+            class="mt-0.5 h-4 w-4 accent-[#ffc400]"
           />
-          <span class="text-xs sm:text-sm font-semibold text-white/90">
-            Li o contrato e autorizo a assinatura com minha selfie
-          </span>
+          <span>Li e aceito os termos do contrato acima (assinatura digital vinculada à minha selfie).</span>
         </label>
+      </Card>
+    {/if}
 
-        <div class="pt-2">
-          <LiveSelfieCamera disabled={!consent || busy} onCapture={upload} />
-        </div>
+    <Card class="p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-sm font-bold text-white">Captura da selfie (prova de vida)</h2>
+        <button
+          type="button"
+          onclick={() => { useFileFallback = !useFileFallback; }}
+          class="text-xs font-semibold text-[var(--yellow)] hover:underline"
+        >
+          {useFileFallback ? "Usar câmera ao vivo" : "Enviar foto da galeria"}
+        </button>
+      </div>
+
+      {#if !acceptedContract}
+        <p class="rounded-xl border border-[#ffc400]/40 bg-[#ffc400]/10 p-3 text-xs font-semibold text-amber-100">
+          Aceite o contrato acima para liberar o envio da selfie.
+        </p>
+      {/if}
+
+      {#if !useFileFallback}
+        <LiveSelfieCamera
+          disabled={busy || !acceptedContract}
+          onCapture={processSelfieAndSign}
+        />
+      {:else}
+        <label
+          class={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl px-5 text-sm font-extrabold transition ${
+            busy || !acceptedContract
+              ? "bg-white/10 text-white/50 cursor-not-allowed"
+              : "bg-[#ffc400] text-[#0b1220] hover:brightness-95"
+          }`}
+        >
+          <span>{busy ? "Assinando e enviando selfie..." : "Selecionar foto da selfie"}</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="user"
+            onchange={handleFileInput}
+            disabled={busy || !acceptedContract}
+            class="sr-only"
+          />
+        </label>
       {/if}
     </Card>
-  {/if}
-
-  {#if me?.selfie?.exists}
-    <Alert
-      variant={verdict === "approved" ? "success" : verdict === "rejected" ? "danger" : "info"}
-      title={verdict === "approved" ? "Selfie aprovada" : verdict === "rejected" ? "Envie uma nova foto" : "Selfie recebida"}
-      description={verdict === "review" ? "Sua selfie foi recebida e precisa de conferência do polo. Você não precisa enviar outra foto agora." : reason ?? (verdict === "pending" ? "Selfie enviada. A análise está em andamento." : verdict === "approved" ? "Selfie aprovada. Consultando a liberação do polo." : "Envie uma nova foto nítida do seu rosto.")}
-    />
-  {/if}
-
-  {#if error}
-    <Alert variant="danger" title="Atenção" description={error} />
-  {/if}
-
-  {#if analysisSlow}
-    <Alert variant="warning" title="Análise em processamento" description="A análise está demorando mais que o esperado. Sua selfie já foi recebida; consulte novamente para acompanhar o resultado." />
-  {/if}
-
-  {#if !loading && (!contract || verdict === "pending" || verdict === "review")}
-    <button
-      type="button"
-      onclick={load}
-      disabled={busy}
-      class="min-h-[48px] px-6 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition cursor-pointer"
-    >
-      Consultar novamente
-    </button>
   {/if}
 </section>

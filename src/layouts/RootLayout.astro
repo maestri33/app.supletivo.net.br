@@ -23,23 +23,18 @@ const {
 } = Astro.props;
 
 const pathname = Astro.url.pathname.replace(/\/+$/, '') || '/';
-const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/pix') || pathname.startsWith('/tabs-');
-const isTriageIndexRoute = pathname === '/student' || pathname === '/promoter' || pathname === '/hub';
+const isPublicAuthRoute = pathname === '/' || pathname.startsWith('/autenticacao') || pathname.startsWith('/tabs-');
+const isTriageIndexRoute = pathname === '/student' || pathname === '/admin';
 const shouldRenderDock = showDock ?? !isPublicAuthRoute;
 const shouldGuardAuth = requireAuth !== undefined ? requireAuth : (!isPublicAuthRoute && !isTriageIndexRoute);
-const shouldGuardRole = shouldGuardAuth && /^\/(student|promoter|hub)\//.test(pathname);
+const shouldGuardRole = shouldGuardAuth && /^\/(student|admin)\//.test(pathname);
 
-let initialRole: "student" | "promoter" | "hub" = "student";
-if (pathname.startsWith('/promoter') || pathname.startsWith('/promotor')) {
-  initialRole = "promoter";
-} else if (pathname.startsWith('/hub') || pathname.startsWith('/polo')) {
-  initialRole = "hub";
-}
+const initialRole: "student" | "admin" = pathname.startsWith('/admin') ? "admin" : "student";
 const fullSearch = Astro.url.search;
 const returnToParam = encodeURIComponent(pathname + fullSearch);
-const authRedirectTarget = initialRole === "promoter"
-  ? (pathname === '/promoter' ? "/?role=promoter" : `/?role=promoter&return_to=${returnToParam}`)
-  : (pathname === '/' || pathname === '/student' ? "/" : `/?return_to=${returnToParam}`);
+const authRedirectTarget = (pathname === '/' || pathname === '/student' || pathname === '/admin')
+  ? "/"
+  : `/?return_to=${returnToParam}`;
 ---
 
 <!doctype html>
@@ -50,7 +45,6 @@ const authRedirectTarget = initialRole === "promoter"
     <meta name="theme-color" content="#002776" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
 
-    <!-- Fontes críticas pré-carregadas (elimina FOIT/FOUT) -->
     <link
       rel="preload"
       href="/fonts/archivo-black-latin-400-normal.woff2"
@@ -102,16 +96,13 @@ const authRedirectTarget = initialRole === "promoter"
       Pular para o conteúdo
     </a>
 
-    <!-- Aurora Background Zero-JS -->
     <div class="aurora-wrap" aria-hidden="true">
       <div class="aurora-layer"></div>
     </div>
 
-    <!-- App Header -->
     <AppHeader />
     {shouldGuardRole && <RoleRouteGuard client:load pathname={pathname} />}
 
-    <!-- Conteúdo principal rolável da aplicação -->
     <main
       id="conteudo"
       class:list={[
@@ -122,15 +113,12 @@ const authRedirectTarget = initialRole === "promoter"
       <slot />
     </main>
 
-    <!-- Navegação Adaptativa Global (Dock Flutuante em Svelte 5 Puro) -->
     {shouldRenderDock && (
       <RoleAdaptiveNavDock client:load initialRole={initialRole} currentPath={pathname} />
     )}
 
-    <!-- Rodapé institucional Zero-JS (suprimido quando há dock ativo para evitar colisão) -->
     {showFooter && !shouldRenderDock && <SiteFooter />}
 
-    <!-- Toaster Global para Notificações e Feedbacks -->
     <Toaster client:load />
   </body>
 </html>

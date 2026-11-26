@@ -1,0 +1,8 @@
+---
+import RootLayout from "../../layouts/RootLayout.astro";
+import AdminExamsView from "../../components/interactive/admin/AdminExamsView.svelte";
+export const prerender = false;
+---
+<RootLayout title="Administração — Provas e Correções | Supletivo Brasil">
+  <AdminExamsView client:load />
+</RootLayout>
