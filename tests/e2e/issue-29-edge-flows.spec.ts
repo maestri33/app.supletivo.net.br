@@ -354,7 +354,9 @@ test.describe("Fluxos Críticos e Edge Cases Issue #29", () => {
       classifyCalls += 1;
       return route.fulfill({ status: 500, json: { error: "Should not call classify" } });
     });
+    let addressUploads = 0;
     await page.route("**/api/v1/enrollment/address/proof", (route) => {
+      addressUploads += 1;
       substatus = "needs_kinship";
       return route.fulfill({
         json: {
@@ -379,10 +381,19 @@ test.describe("Fluxos Críticos e Edge Cases Issue #29", () => {
 
     await page.goto("/student/enrollment/address");
     await page.locator('input[type="file"]').setInputFiles({
+      name: "conta-grande.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.alloc(10 * 1024 * 1024 + 1, 0x20),
+    });
+    await expect(page.getByText("Escolha um arquivo de até 10 MB.")).toBeVisible();
+    expect(addressUploads).toBe(0);
+
+    await page.locator('input[type="file"]').setInputFiles({
       name: "conta-luz.pdf",
       mimeType: "application/pdf",
       buffer: TINY_PDF,
     });
+    await expect.poll(() => addressUploads).toBe(1);
 
     expect(classifyCalls).toBe(0);
     const dialog = page.getByRole("dialog");
@@ -572,6 +583,7 @@ test.describe("Fluxos Críticos e Edge Cases Issue #29", () => {
   test("GET /auth/confirm-link redireciona 302 preservando token para /v1/auth/confirm-link", async ({ request }) => {
     const res = await request.get("/auth/confirm-link?token=magic-tok-29", { maxRedirects: 0 });
     expect(res.status()).toBe(302);
+    expect(res.headers()["cache-control"]).toBe("no-store");
     const location = res.headers().location ?? "";
     expect(location).toMatch(/\/v1\/auth\/confirm-link\?token=magic-tok-29$/);
   });

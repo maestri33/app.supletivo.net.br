@@ -664,6 +664,14 @@ test.describe("Módulo Administrativo Unificado (/admin/*)", () => {
     await page.goto("/admin/diplomas");
     await page.getByRole("button", { name: /Juliana Santos/i }).click();
 
+    await expect(page.getByText("PDF do Diploma (até 15 MB)")).toBeVisible();
+    await page.locator("#dip-pdf").setInputFiles({
+      name: "nao-pdf.png",
+      mimeType: "image/png",
+      buffer: TINY_PNG,
+    });
+    await expect(page.getByText("Envie um arquivo PDF válido.")).toBeVisible();
+
     await page.locator("#dip-pdf").setInputFiles({
       name: "diploma.pdf",
       mimeType: "application/pdf",
