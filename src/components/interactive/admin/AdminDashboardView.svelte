@@ -69,61 +69,45 @@
     }
   });
 
-  async function applyFilters(event?: Event) {
+  async function runBusy(work: () => Promise<void>, clearNotice = false) {
+    busy = true;
+    error = "";
+    if (clearNotice) notice = "";
+    try {
+      await work();
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function applyFilters(event?: Event) {
     event?.preventDefault();
     studentsPage = 1;
-    busy = true;
-    error = "";
-    try {
-      await loadDashboard();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    return runBusy(loadDashboard);
   }
 
-  async function changePage(nextPage: number) {
+  function changePage(nextPage: number) {
     if (nextPage < 1 || nextPage > studentsTotalPages) return;
     studentsPage = nextPage;
-    busy = true;
-    error = "";
-    try {
-      await loadDashboard();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    return runBusy(loadDashboard);
   }
 
-  async function openStudentDetail(roleId: string) {
-    busy = true;
-    error = "";
-    try {
+  function openStudentDetail(roleId: string) {
+    return runBusy(async () => {
       const res = await getAdminStudentDetail(roleId);
       selectedDetail = res.student;
       detailOpen = true;
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    });
   }
 
-  async function handleRecheckPayment(paymentId: string) {
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+  function handleRecheckPayment(paymentId: string) {
+    return runBusy(async () => {
       const res = await recheckAdminPayment(paymentId);
       notice = res.message || `Pagamento atualizado para ${res.status}.`;
       await loadDashboard();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    }, true);
   }
 
   async function handleMarkRefunded(event: Event) {
@@ -132,11 +116,9 @@
       error = "Informe o motivo do estorno (mínimo 3 caracteres).";
       return;
     }
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      const res = await markAdminPaymentRefunded(refundTargetId, {
+    const targetId = refundTargetId;
+    await runBusy(async () => {
+      const res = await markAdminPaymentRefunded(targetId, {
         refund_reason: refundReason.trim(),
         refund_action: refundAction,
       });
@@ -144,11 +126,7 @@
       refundTargetId = null;
       refundReason = "";
       await loadDashboard();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    }, true);
   }
 </script>
 

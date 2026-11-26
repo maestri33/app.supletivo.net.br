@@ -54,15 +54,12 @@
     }
   });
 
-  async function handleSelectEnrollment(item: AdminEnrollmentItem) {
-    selectedEnrollment = item;
-    decodedQr = null;
-    qrPayload = "";
+  async function runBusy(work: () => Promise<void>) {
+    busy = true;
     error = "";
     notice = "";
-    busy = true;
     try {
-      await loadFees(item.role_id);
+      await work();
     } catch (err) {
       error = getErrorMessage(err);
     } finally {
@@ -70,50 +67,46 @@
     }
   }
 
-  async function handleDecodeQr() {
+  function handleSelectEnrollment(item: AdminEnrollmentItem) {
+    selectedEnrollment = item;
+    decodedQr = null;
+    qrPayload = "";
+    return runBusy(() => loadFees(item.role_id));
+  }
+
+  function handleDecodeQr() {
     if (!qrPayload.trim()) {
       error = "Cole o código Pix Copia e Cola gerado pela instituição parceira.";
       return;
     }
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      decodedQr = await decodeAdminFeeQr(qrPayload.trim());
-    } catch (err) {
-      error = getErrorMessage(err);
-      decodedQr = null;
-    } finally {
-      busy = false;
-    }
+    return runBusy(async () => {
+      try {
+        decodedQr = await decodeAdminFeeQr(qrPayload.trim());
+      } catch (err) {
+        decodedQr = null;
+        throw err;
+      }
+    });
   }
 
-  async function handlePayFirst() {
+  function handlePayFirst() {
     if (!selectedEnrollment || !qrPayload.trim()) return;
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      await payAdminFirstFee(selectedEnrollment.role_id, qrPayload.trim());
+    const enrollmentId = selectedEnrollment.role_id;
+    return runBusy(async () => {
+      await payAdminFirstFee(enrollmentId, qrPayload.trim());
       notice = "1ª parcela da taxa parceira enviada via Asaas PIX!";
       qrPayload = "";
       decodedQr = null;
-      await Promise.all([loadFees(selectedEnrollment.role_id), loadEnrollments()]);
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+      await Promise.all([loadFees(enrollmentId), loadEnrollments()]);
+    });
   }
 
-  async function handleScheduleSecond() {
+  function handleScheduleSecond() {
     if (!selectedEnrollment || !qrPayload.trim()) return;
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+    const enrollmentId = selectedEnrollment.role_id;
+    return runBusy(async () => {
       await scheduleAdminSecondFee(
-        selectedEnrollment.role_id,
+        enrollmentId,
         qrPayload.trim(),
         scheduleDate.trim() || undefined
       );
@@ -121,28 +114,18 @@
       qrPayload = "";
       decodedQr = null;
       scheduleDate = "";
-      await Promise.all([loadFees(selectedEnrollment.role_id), loadEnrollments()]);
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+      await Promise.all([loadFees(enrollmentId), loadEnrollments()]);
+    });
   }
 
-  async function handleReconcile(feeId: string) {
+  function handleReconcile(feeId: string) {
     if (!selectedEnrollment) return;
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+    const enrollmentId = selectedEnrollment.role_id;
+    return runBusy(async () => {
       const updated = await reconcileAdminFee(feeId);
       notice = `Parcela atualizada para status: ${updated.status}.`;
-      await Promise.all([loadFees(selectedEnrollment.role_id), loadEnrollments()]);
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+      await Promise.all([loadFees(enrollmentId), loadEnrollments()]);
+    });
   }
 </script>
 

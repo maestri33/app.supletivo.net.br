@@ -50,28 +50,27 @@
     }
   });
 
-  async function downloadDiplomaAsset(type: "diploma" | "transcript") {
+  async function openProtectedPdf(apiPath: string, filename: string) {
     error = "";
     try {
-      await openAuthenticatedApiFile(
-        `/api/v1/student/diploma/file?type=${type}`,
-        type === "diploma" ? "diploma.pdf" : "historico-escolar.pdf"
-      );
+      await openAuthenticatedApiFile(apiPath, filename);
     } catch (err) {
       error = getErrorMessage(err);
     }
   }
 
-  async function downloadExamPdf(examId: string, attempt: number) {
-    error = "";
-    try {
-      await openAuthenticatedApiFile(
-        `/api/v1/student/exams/corrected-pdf?exam_id=${encodeURIComponent(examId)}`,
-        `prova-corrigida-${attempt}.pdf`
-      );
-    } catch (err) {
-      error = getErrorMessage(err);
-    }
+  function downloadDiplomaAsset(type: "diploma" | "transcript") {
+    return openProtectedPdf(
+      `/api/v1/student/diploma/file?type=${type}`,
+      type === "diploma" ? "diploma.pdf" : "historico-escolar.pdf"
+    );
+  }
+
+  function downloadExamPdf(examId: string, attempt: number) {
+    return openProtectedPdf(
+      `/api/v1/student/exams/corrected-pdf?exam_id=${encodeURIComponent(examId)}`,
+      `prova-corrigida-${attempt}.pdf`
+    );
   }
 </script>
 

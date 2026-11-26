@@ -16,10 +16,7 @@ export interface StudentDockState {
   pendingDocsCount?: number;
   hasPartnerUrl?: boolean;
   enrollmentStep?: string;
-  isLocked?: boolean;
-  leadPhase?: "selection" | "checkout";
   isCheckoutReady?: boolean;
-  selectedModality?: "pix" | "credit_card" | null;
   rgStatus?: ItemHealthStatus;
   addressStatus?: ItemHealthStatus;
   educationStatus?: ItemHealthStatus;

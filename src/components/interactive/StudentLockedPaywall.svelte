@@ -86,7 +86,7 @@
     if (user?.email && !emailInput) emailInput = user.email;
   }
 
-  async function refreshSessionAndAdvance() {
+  async function refreshSessionAndAdvance(fallbackPath?: string): Promise<boolean> {
     const updated = await whoami();
     me = updated;
     saveLogin({ ...getLogin(), ...updated });
@@ -95,6 +95,10 @@
     const isAdminOnly = updated.roles?.includes("admin") && !updated.roles?.includes("client");
     if (dest && (isAdminOnly || (currentStatus && currentStatus !== "lead" && currentStatus !== "payment_pending"))) {
       window.location.href = dest;
+      return true;
+    }
+    if (fallbackPath) {
+      window.location.href = fallbackPath;
       return true;
     }
     return false;
@@ -172,8 +176,7 @@
           if (confirmed.paid || confirmed.already_paid || confirmed.status === "paid") {
             paidConfirmed = true;
             notice = "Pagamento confirmado! Redirecionando para o envio de documentos...";
-            const moved = await refreshSessionAndAdvance();
-            if (!moved) window.location.href = "/student/enrollment";
+            await refreshSessionAndAdvance("/student/enrollment");
             return;
           }
           await pollPaymentUntilPaid(confirmed.payment_id, 5);
@@ -301,7 +304,7 @@
       await pollPaymentUntilPaid(res.payment_id, 5);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && err.code === "PROFILE_INCOMPLETE") {
-        const missing = Array.isArray(err.extra.missing_fields)
+        const missing = Array.isArray(err.extra?.missing_fields)
           ? (err.extra.missing_fields as string[])
           : [];
         needsCpf = missing.includes("cpf") || !me?.cpf;
@@ -325,8 +328,7 @@
         if (st.paid || st.status === "paid") {
           paidConfirmed = true;
           notice = "Pagamento confirmado! Redirecionando...";
-          const moved = await refreshSessionAndAdvance();
-          if (!moved) window.location.href = "/student/enrollment";
+          await refreshSessionAndAdvance("/student/enrollment");
           return;
         }
       }
@@ -334,8 +336,7 @@
       currentPayment = pay;
       if (pay?.status === "paid") {
         paidConfirmed = true;
-        const moved = await refreshSessionAndAdvance();
-        if (!moved) window.location.href = "/student/enrollment";
+        await refreshSessionAndAdvance("/student/enrollment");
         return;
       }
       notice = "Pagamento ainda pendente de confirmação bancária. Aguarde alguns instantes e tente novamente.";

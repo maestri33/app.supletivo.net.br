@@ -205,25 +205,26 @@
     }
   }
 
-  async function handleDownloadExamPdf(examId: string, attempt: number) {
+  async function openProtectedResource(opener: () => Promise<void>) {
     error = "";
     try {
-      await openAuthenticatedApiFile(
-        `/api/v1/student/exams/corrected-pdf?exam_id=${encodeURIComponent(examId)}`,
-        `prova-corrigida-${attempt}.pdf`
-      );
+      await opener();
     } catch (err) {
       error = getErrorMessage(err);
     }
   }
 
-  async function handleOpenDocFile(fileKey: string) {
-    error = "";
-    try {
-      await openPrivateMedia(fileKey);
-    } catch (err) {
-      error = getErrorMessage(err);
-    }
+  function handleDownloadExamPdf(examId: string, attempt: number) {
+    return openProtectedResource(() =>
+      openAuthenticatedApiFile(
+        `/api/v1/student/exams/corrected-pdf?exam_id=${encodeURIComponent(examId)}`,
+        `prova-corrigida-${attempt}.pdf`
+      )
+    );
+  }
+
+  function handleOpenDocFile(fileKey: string) {
+    return openProtectedResource(() => openPrivateMedia(fileKey));
   }
 </script>
 

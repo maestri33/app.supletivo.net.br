@@ -8,25 +8,6 @@ import type {
   ItemHealthStatus,
 } from "../components/interactive/dock/types";
 
-let leadCheckoutReadyGlobal = false;
-
-export function setLeadCheckoutReadyState(ready: boolean): void {
-  leadCheckoutReadyGlobal = ready;
-  dockState.isCheckoutReady = ready;
-  if (typeof document !== "undefined" && document.documentElement) {
-    document.documentElement.dataset.supletivoCheckoutReady = ready ? "true" : "false";
-  }
-}
-
-export function getLeadCheckoutReadyState(): boolean {
-  if (typeof document !== "undefined" && document.documentElement) {
-    if (document.documentElement.dataset.supletivoCheckoutReady === "true") {
-      return true;
-    }
-  }
-  return leadCheckoutReadyGlobal;
-}
-
 function mapDocHealth(item?: { submitted?: boolean; status?: string | null; needs_manual_review?: number }): ItemHealthStatus {
   if (!item?.submitted) return "pending";
   if (item.status === "approved") return "approved";
@@ -40,16 +21,13 @@ class DockStateStore {
   isAuthenticated = $state(false);
   isLocked = $state(false);
   currentHash = $state("");
-  isCheckoutReady = $state(false);
 
   studentState = $state<StudentDockState>({
     status: null,
     substatus: null,
     pendingDocsCount: 0,
     hasPartnerUrl: false,
-    leadPhase: "selection",
     isCheckoutReady: false,
-    selectedModality: null,
   });
 
   adminState = $state<AdminDockState>({
@@ -94,70 +72,9 @@ class DockStateStore {
       this.currentHash = window.location.hash;
     });
 
-    window.addEventListener("supletivo:role-change", (e: Event) => {
-      const customEvent = e as CustomEvent<{ role: UserRole }>;
-      if (customEvent.detail?.role) {
-        this.activeRole = customEvent.detail.role;
-      }
-    });
-
-    window.addEventListener("supletivo:lock-change", (e: Event) => {
-      const customEvent = e as CustomEvent<{ isLocked: boolean }>;
-      if (typeof customEvent.detail?.isLocked === "boolean") {
-        this.isLocked = customEvent.detail.isLocked;
-      }
-    });
-
-    window.addEventListener("supletivo:student-state", (e: Event) => {
-      const customEvent = e as CustomEvent<Partial<StudentDockState>>;
-      if (customEvent.detail) {
-        Object.assign(this.studentState, customEvent.detail);
-      }
-    });
-
-    window.addEventListener("supletivo:enrollment-state", (e: Event) => {
-      const detail = (e as CustomEvent<{ status?: string; substatus?: string }>).detail;
-      if (detail?.substatus) {
-        this.studentState.substatus = detail.substatus;
-        this.studentState.enrollmentStep = detail.substatus;
-      } else if (detail?.status) {
-        this.studentState.enrollmentStep = detail.status;
-      }
-    });
-
-    window.addEventListener("supletivo:admin-state", (e: Event) => {
-      const customEvent = e as CustomEvent<Partial<AdminDockState>>;
-      if (customEvent.detail) {
-        Object.assign(this.adminState, customEvent.detail);
-      }
-    });
-
     window.addEventListener("supletivo:identity", (e: Event) => {
       const identity = (e as CustomEvent<RoleIdentity>).detail;
       if (identity) this.applyIdentity(identity);
-    });
-
-    window.addEventListener("supletivo:lead-wizard-phase", (e: Event) => {
-      const customEvent = e as CustomEvent<{ phase: "selection" | "checkout" }>;
-      if (customEvent.detail?.phase) {
-        this.studentState.leadPhase = customEvent.detail.phase;
-      }
-    });
-
-    window.addEventListener("supletivo:lead-checkout-status", (e: Event) => {
-      const customEvent = e as CustomEvent<{
-        ready: boolean;
-        phase?: "selection" | "checkout";
-        modality?: "pix" | "credit_card" | null;
-      }>;
-      if (customEvent.detail) {
-        setLeadCheckoutReadyState(customEvent.detail.ready);
-        this.studentState.isCheckoutReady = customEvent.detail.ready;
-        if (customEvent.detail.phase) this.studentState.leadPhase = customEvent.detail.phase;
-        if (customEvent.detail.modality !== undefined) {
-          this.studentState.selectedModality = customEvent.detail.modality;
-        }
-      }
     });
 
     const login = getLogin();

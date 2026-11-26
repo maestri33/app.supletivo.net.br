@@ -91,11 +91,6 @@
       const st = await getEnrollmentStatus().catch(() => null);
       statusInfo = st;
       notice = "Contrato assinado e selfie enviada com sucesso!";
-
-      if (st?.substatus === "pending_siga" || (st?.step ?? 0) >= 5) {
-        window.location.href = "/student/enrollment";
-        return;
-      }
       window.location.href = "/student/enrollment";
     } catch (err) {
       error = getErrorMessage(err);

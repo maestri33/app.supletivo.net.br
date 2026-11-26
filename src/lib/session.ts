@@ -50,7 +50,6 @@ const AUTH_COOKIE_MAX_AGE = 2592000; // 30 days in seconds
 export function clearLogin(): void {
   if (typeof window === "undefined") return;
   refreshTokenMemory = null;
-  loginCache = { raw: null, value: null };
   window.localStorage.removeItem(LOGIN_KEY);
   try {
     const secureFlag = typeof location !== "undefined" && location.protocol === "https:" ? ";Secure" : "";
@@ -111,31 +110,6 @@ export function getLogin(): Record<string, unknown> | null {
   }
 }
 
-let loginCache: { raw: string | null; value: Record<string, unknown> | null } = {
-  raw: null,
-  value: null,
-};
-
-export function getLoginSnapshot(): Record<string, unknown> | null {
-  const raw = window.localStorage.getItem(LOGIN_KEY);
-  if (raw !== loginCache.raw) {
-    let value: Record<string, unknown> | null = null;
-    if (raw) {
-      try {
-        value = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        value = null;
-      }
-    }
-    loginCache = { raw, value };
-  }
-  return loginCache.value;
-}
-
-export function getServerLoginSnapshot(): Record<string, unknown> | null {
-  return null;
-}
-
 export function subscribeStorage(callback: () => void): () => void {
   window.addEventListener("storage", callback);
   return () => window.removeEventListener("storage", callback);
@@ -145,10 +119,6 @@ export function getAccessToken(): string | null {
   const login = getLogin();
   const token = login?.access_token;
   return typeof token === "string" && token.length > 0 ? token : null;
-}
-
-export function getServerAccessToken(): string | null {
-  return null;
 }
 
 export function getRefreshToken(): string | null {

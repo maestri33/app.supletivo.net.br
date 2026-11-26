@@ -114,10 +114,9 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
       if (!res.ok) {
         const topExtra: Record<string, unknown> = {};
         if (Array.isArray(data?.missing_fields)) topExtra.missing_fields = data.missing_fields;
-        if (data?.wait_seconds !== undefined) topExtra.wait_seconds = data.wait_seconds;
-        if (data?.retry_after_s !== undefined) topExtra.retry_after_s = data.retry_after_s;
-        if (data?.expected_status !== undefined) topExtra.expected_status = data.expected_status;
-        if (data?.available !== undefined) topExtra.available = data.available;
+        for (const key of ["wait_seconds", "retry_after_s", "expected_status", "available"] as const) {
+          if (data?.[key] !== undefined) topExtra[key] = data[key];
+        }
 
         const nestedExtra =
           data?.extra && typeof data.extra === "object"
@@ -222,13 +221,6 @@ export interface CheckResponse {
   roles: string[] | null;
   masked_phone?: string | null;
   masked_email?: string | null;
-}
-
-export const CLIENT_ROLES = ["client", "admin"] as const;
-
-export function isClient(roles: string[] | null | undefined): boolean {
-  if (!roles) return false;
-  return roles.some((r) => ["client", "student", "admin"].includes(r));
 }
 
 export function checkPhone(phone: string): Promise<CheckResponse> {
@@ -604,6 +596,12 @@ function normalizeRgMediaUrl(raw?: string | null): string | null {
   return raw;
 }
 
+function resolveRgAnalysisStatus(status?: string, needsManualReview?: number): string {
+  if (status === "approved") return "approved";
+  if (status === "rejected") return "rejected";
+  return needsManualReview ? "review" : "pending";
+}
+
 export async function getEnrollmentRg(): Promise<RgSection> {
   const res = await requestAuth<{
     submitted: boolean;
@@ -649,14 +647,7 @@ export async function getEnrollmentRg(): Promise<RgSection> {
 
   const slots = parsedPayload.slots ?? {};
   const ext = res.document.extracted_data ?? {};
-  const statusStr =
-    res.document.status === "approved"
-      ? "approved"
-      : res.document.status === "rejected"
-      ? "rejected"
-      : res.document.needs_manual_review
-      ? "review"
-      : "pending";
+  const statusStr = resolveRgAnalysisStatus(res.document.status, res.document.needs_manual_review);
 
   return {
     front_photo: normalizeRgMediaUrl(slots.front ?? null),
@@ -698,12 +689,7 @@ export async function postEnrollmentRgPhoto(
   });
 
   const analysisStatus =
-    res.analysis_status ??
-    (res.status === "approved"
-      ? "approved"
-      : res.needs_manual_review
-      ? "review"
-      : "pending");
+    res.analysis_status ?? resolveRgAnalysisStatus(res.status, res.needs_manual_review);
 
   return {
     slot: res.slot ?? slot,
@@ -1345,24 +1331,6 @@ export function getAdminReviewDesk(): Promise<{
   documents: AdminDocumentReviewDeskItem[];
 }> {
   return requestAuth("/api/v1/admin/documents/review-desk");
-}
-
-export function getAdminPendingDocuments(): Promise<
-  Array<{
-    student_role_id: string;
-    student_name: string;
-    cpf: string;
-    phone: string;
-    submitted_at: number;
-    pending_documents: Array<{
-      doc_id: string;
-      document_type: string;
-      file_url_temporary: string;
-      status: string;
-    }>;
-  }>
-> {
-  return requestAuth("/api/v1/admin/documents/pending");
 }
 
 export function fastOkAdminDocument(id: string): Promise<{

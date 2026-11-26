@@ -79,39 +79,38 @@
     }
   });
 
-  function onDiplomaPdfChange(event: Event) {
-    const f = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+  function readValidatedPdf(event: Event): File | null {
+    const input = event.currentTarget as HTMLInputElement;
+    const f = input.files?.[0] ?? null;
     if (f) {
       const err = documentFileError(f);
       if (err) {
         error = err;
-        (event.currentTarget as HTMLInputElement).value = "";
-        return;
+        input.value = "";
+        return null;
       }
     }
-    diplomaFile = f;
+    return f;
   }
 
-  function onTranscriptPdfChange(event: Event) {
-    const f = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
-    if (f) {
-      const err = documentFileError(f);
-      if (err) {
-        error = err;
-        (event.currentTarget as HTMLInputElement).value = "";
-        return;
-      }
+  async function runBusy(work: () => Promise<void>) {
+    busy = true;
+    error = "";
+    notice = "";
+    try {
+      await work();
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      busy = false;
     }
-    transcriptFile = f;
   }
 
   async function handleIssueDiploma(event: Event) {
     event.preventDefault();
     if (!selectedStudent) return;
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+    const target = selectedStudent;
+    await runBusy(async () => {
       const fd = new FormData();
       if (registrationNumber.trim()) fd.set("registration_number", registrationNumber.trim());
       if (processNumber.trim()) fd.set("process_number", processNumber.trim());
@@ -119,14 +118,10 @@
       if (diplomaFile) fd.set("diploma", diplomaFile);
       if (transcriptFile) fd.set("transcript", transcriptFile);
 
-      const res = await issueAdminDiploma(selectedStudent.role_id, fd);
+      const res = await issueAdminDiploma(target.role_id, fd);
       notice = res.message || "Diploma e histórico registrados com sucesso.";
-      await Promise.all([selectStudent(selectedStudent), loadStudents()]);
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+      await Promise.all([selectStudent(target), loadStudents()]);
+    });
   }
 
   async function handlePickupPhoto(event: Event) {
@@ -141,22 +136,16 @@
       return;
     }
 
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+    const target = selectedStudent;
+    await runBusy(async () => {
       const compressed = await compressImage(rawFile, { maxSizeMB: 2 });
       const postErr = imageError(compressed);
       if (postErr) throw new Error(postErr);
 
-      const res = await pickupAdminDiploma(selectedStudent.role_id, compressed);
+      const res = await pickupAdminDiploma(target.role_id, compressed);
       notice = res.message || "Retirada do diploma registrada.";
-      await Promise.all([selectStudent(selectedStudent), loadStudents()]);
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+      await Promise.all([selectStudent(target), loadStudents()]);
+    });
   }
 </script>
 
@@ -268,7 +257,7 @@
                   id="dip-pdf"
                   type="file"
                   accept="application/pdf"
-                  onchange={onDiplomaPdfChange}
+                  onchange={(e) => { diplomaFile = readValidatedPdf(e); }}
                   class="block w-full text-xs text-slate-600"
                 />
               </div>
@@ -278,7 +267,7 @@
                   id="trans-pdf"
                   type="file"
                   accept="application/pdf"
-                  onchange={onTranscriptPdfChange}
+                  onchange={(e) => { transcriptFile = readValidatedPdf(e); }}
                   class="block w-full text-xs text-slate-600"
                 />
               </div>

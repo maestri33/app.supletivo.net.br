@@ -48,14 +48,12 @@
     }
   });
 
-  async function handleFastOk(id: string) {
+  async function runBusy(work: () => Promise<void>) {
     busy = true;
     error = "";
     notice = "";
     try {
-      const res = await fastOkAdminDocument(id);
-      notice = res.message || "Documento aprovado via Fast OK.";
-      await loadQueues();
+      await work();
     } catch (err) {
       error = getErrorMessage(err);
     } finally {
@@ -63,34 +61,15 @@
     }
   }
 
-  async function handleApproveInitial(id: string) {
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      const res = await approveAdminDocument(id);
-      notice = res.message || "Documento aprovado.";
+  function handleDecision(
+    action: () => Promise<{ message?: string }>,
+    fallbackNotice: string
+  ) {
+    return runBusy(async () => {
+      const res = await action();
+      notice = res.message || fallbackNotice;
       await loadQueues();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function handleApproveAcademic(docId: string) {
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      const res = await approveAdminStudentDocument(docId);
-      notice = res.message || "Documento acadêmico aprovado.";
-      await loadQueues();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    });
   }
 
   async function submitReject(event: Event) {
@@ -99,24 +78,19 @@
       error = "Informe o motivo da reprovação para orientar o aluno.";
       return;
     }
-    busy = true;
-    error = "";
-    notice = "";
-    try {
-      if (rejectModal.kind === "initial") {
-        await rejectAdminDocument(rejectModal.id, rejectReason.trim());
+    const modal = rejectModal;
+    const reason = rejectReason.trim();
+    await runBusy(async () => {
+      if (modal.kind === "initial") {
+        await rejectAdminDocument(modal.id, reason);
       } else {
-        await rejectAdminStudentDocument(rejectModal.id, rejectReason.trim());
+        await rejectAdminStudentDocument(modal.id, reason);
       }
       notice = "Documento reprovado e aluno notificado para reenvio.";
       rejectModal = null;
       rejectReason = "";
       await loadQueues();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    });
   }
 </script>
 
@@ -189,7 +163,7 @@
               {#if item.fast_ok_eligible}
                 <button
                   type="button"
-                  onclick={() => handleFastOk(item.id)}
+                  onclick={() => handleDecision(() => fastOkAdminDocument(item.id), "Documento aprovado via Fast OK.")}
                   disabled={busy}
                   class="min-h-10 rounded-xl bg-[#00734d] px-3.5 text-xs font-bold text-white disabled:opacity-50"
                 >
@@ -198,7 +172,7 @@
               {/if}
               <button
                 type="button"
-                onclick={() => handleApproveInitial(item.id)}
+                onclick={() => handleDecision(() => approveAdminDocument(item.id), "Documento aprovado.")}
                 disabled={busy}
                 class="min-h-10 rounded-xl bg-[#0b1220] px-3.5 text-xs font-bold text-white disabled:opacity-50"
               >
@@ -245,7 +219,7 @@
                   <div class="flex gap-2">
                     <button
                       type="button"
-                      onclick={() => handleApproveAcademic(doc.doc_id)}
+                      onclick={() => handleDecision(() => approveAdminStudentDocument(doc.doc_id), "Documento acadêmico aprovado.")}
                       disabled={busy}
                       class="min-h-9 rounded-lg bg-[#00734d] px-3 text-xs font-bold text-white disabled:opacity-50"
                     >

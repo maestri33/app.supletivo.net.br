@@ -1,5 +1,3 @@
-import { ApiError } from "@/lib/api";
-
 export function enrollmentPath(stepOrSubstatus: string | number | null | undefined): string | null {
   switch (stepOrSubstatus) {
     case 1:
@@ -28,21 +26,6 @@ export function enrollmentPath(stepOrSubstatus: string | number | null | undefin
   }
 }
 
-export function followEnrollmentStatus(stepOrSubstatus: string | number | null | undefined): boolean {
-  const target = enrollmentPath(stepOrSubstatus);
-  if (target && window.location.pathname.replace(/\/$/, "") !== target) {
-    window.location.replace(target);
-    return true;
-  }
-  return false;
-}
-
-export function expectedStatus(error: unknown): string | null {
-  if (!(error instanceof ApiError)) return null;
-  const status = error.expectedStatus ?? error.extra?.expected_status;
-  return typeof status === "string" ? status : null;
-}
-
 /** Only explicit HTTPS links may leave the app; reject embedded credentials. */
 export function safePartnerUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -53,17 +36,6 @@ export function safePartnerUrl(value: string | null | undefined): string | null 
   } catch {
     return null;
   }
-}
-
-/** Backend media paths are local files, never executable or protocol-relative URLs. */
-export function safeMediaUrl(value: string | null | undefined): string | null {
-  if (!value || /[\\\u0000-\u001f]/.test(value)) return null;
-  if (/^https?:\/\//i.test(value)) return safePartnerUrl(value);
-  if (value.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(value)) return null;
-  let path = value.replace(/^\/+/, "");
-  if (!path || path.split("/").some((part) => part === "." || part === "..")) return null;
-  if (path.startsWith("v1/media/")) path = path.slice("v1/".length);
-  return path.startsWith("media/") ? `/${path}` : `/media/${path}`;
 }
 
 export const STUDENT_STATUS_LABELS: Record<string, string> = {

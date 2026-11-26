@@ -72,8 +72,7 @@ async function downloadOnce(path: string): Promise<Blob> {
   );
 }
 
-export async function fetchPrivateMedia(path: string): Promise<Blob> {
-  const safePath = privateMediaPath(path);
+async function fetchBlobWithAuthRefresh(safePath: string): Promise<Blob> {
   try {
     return await downloadOnce(safePath);
   } catch (error) {
@@ -83,28 +82,32 @@ export async function fetchPrivateMedia(path: string): Promise<Blob> {
   }
 }
 
-export async function fetchAuthenticatedBlob(apiPath: string): Promise<Blob> {
-  const safePath = safeApiBinaryPath(apiPath);
-  try {
-    return await downloadOnce(safePath);
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    await requestAuth("/api/v1/auth/whoami");
-    return await downloadOnce(safePath);
-  }
+export function fetchPrivateMedia(path: string): Promise<Blob> {
+  return fetchBlobWithAuthRefresh(privateMediaPath(path));
 }
 
-async function openBlobInNewTab(blob: Blob, fallbackName: string): Promise<void> {
+export function fetchAuthenticatedBlob(apiPath: string): Promise<Blob> {
+  return fetchBlobWithAuthRefresh(safeApiBinaryPath(apiPath));
+}
+
+const PREVIEWABLE_MIMES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+/** Open popup synchronously during click to avoid blockers; never put a token in a URL. */
+async function openBlobFromFetcher(
+  fetcher: () => Promise<Blob>,
+  fallbackName: string
+): Promise<void> {
   const popup = window.open("about:blank", "_blank");
   if (popup) popup.opener = null;
   try {
+    const blob = await fetcher();
     const url = URL.createObjectURL(blob);
-    const previewable = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ].includes(blob.type.split(";")[0]);
+    const previewable = PREVIEWABLE_MIMES.has(blob.type.split(";")[0]);
     if (popup && previewable) {
       popup.location.replace(url);
       const timer = setInterval(() => {
@@ -131,49 +134,14 @@ async function openBlobInNewTab(blob: Blob, fallbackName: string): Promise<void>
   }
 }
 
-/** Start during the click event to avoid popup blockers; never put a token in a URL. */
-export async function openPrivateMedia(path: string): Promise<void> {
-  const popup = window.open("about:blank", "_blank");
-  if (popup) popup.opener = null;
-  try {
-    const blob = await fetchPrivateMedia(path);
-    const url = URL.createObjectURL(blob);
-    const previewable = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ].includes(blob.type.split(";")[0]);
-    if (popup && previewable) {
-      popup.location.replace(url);
-      const timer = setInterval(() => {
-        if (popup.closed) {
-          URL.revokeObjectURL(url);
-          clearInterval(timer);
-        }
-      }, 1_000);
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-        clearInterval(timer);
-      }, 300_000);
-    } else {
-      popup?.close();
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = path.split("/").pop() || "documento";
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    }
-  } catch (error) {
-    popup?.close();
-    throw error;
-  }
+export function openPrivateMedia(path: string): Promise<void> {
+  const fallbackName = path.split("/").pop() || "documento";
+  return openBlobFromFetcher(() => fetchPrivateMedia(path), fallbackName);
 }
 
-export async function openAuthenticatedApiFile(
+export function openAuthenticatedApiFile(
   apiPath: string,
   fallbackName = "documento.pdf"
 ): Promise<void> {
-  const blob = await fetchAuthenticatedBlob(apiPath);
-  await openBlobInNewTab(blob, fallbackName);
+  return openBlobFromFetcher(() => fetchAuthenticatedBlob(apiPath), fallbackName);
 }

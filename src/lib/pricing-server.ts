@@ -1,4 +1,4 @@
-import type { Pricing } from "@/lib/payment";
+import { normalizeCatalogPricing, type Pricing } from "@/lib/payment";
 import { fetchJsonWithDeadline } from "./deadline";
 
 /**
@@ -22,13 +22,7 @@ export async function getPricing(runtimeEnv?: { URL_BACKEND?: string }): Promise
       Pricing & { promo_pix?: string | null; promo_card?: Pricing["card"] | null }
     >(`${backendUrl}/v1/catalog/pricing`, { cache: "no-store" });
     if (!res.ok || !data) return fallback;
-    const pix =
-      data.promo_pix ?? (data.pix === "1615.00" ? "999.00" : data.pix || "999.00");
-    return {
-      ...data,
-      pix,
-      card: data.promo_card ?? null,
-    };
+    return normalizeCatalogPricing(data);
   } catch {
     return fallback;
   }

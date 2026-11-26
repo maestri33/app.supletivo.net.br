@@ -1,5 +1,3 @@
-import { formatBRL } from "@/lib/money";
-
 export type PaymentMethod = "pix" | "card";
 
 export interface CardPricing {
@@ -28,26 +26,13 @@ export function parsePaymentMethod(raw: string | null | undefined): PaymentMetho
   return raw === "pix" || raw === "card" ? raw : null;
 }
 
-export function priceLine(method: PaymentMethod, pricing: Pricing): string {
-  const pixValue = pricing.promo_pix ?? pricing.pix;
-  if (method === "pix") return `${formatBRL(pixValue)} à vista`;
-  return `em até 12x no cartão pela InfinitePay (${formatBRL(pixValue)} à vista no Pix)`;
-}
-
-export interface TierPricing {
-  hasRef: boolean;
-  pix: string;
-  card: CardPricing | null;
-  economyBrl?: string;
-  label?: string;
-}
-
-export function getConsultantPricing(_hasRef?: boolean): TierPricing {
+export function normalizeCatalogPricing(
+  data: Pricing & { promo_pix?: string | null; promo_card?: Pricing["card"] | null }
+): Pricing {
+  const pix = data.promo_pix ?? (data.pix === "1615.00" ? "999.00" : data.pix || "999.00");
   return {
-    hasRef: true,
-    pix: "999.00",
-    card: null,
-    economyBrl: "616,00",
-    label: "Condição Especial de Matrícula (Desconto de R$ 616)",
+    ...data,
+    pix,
+    card: data.promo_card ?? null,
   };
 }

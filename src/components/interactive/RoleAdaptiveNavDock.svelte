@@ -293,6 +293,30 @@
   }
 </script>
 
+{#snippet bottomDockContent(item: DockItem)}
+  <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
+    <div class="size-5">
+      <DockIcon name={item.icon} />
+    </div>
+    {#if item.badge !== undefined && item.badge !== null}
+      <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
+        {item.badge}
+      </span>
+    {/if}
+  </div>
+  <span class="text-[10px] tracking-tight whitespace-nowrap">{item.title}</span>
+{/snippet}
+
+{#snippet floatingDockContent(item: DockItem)}
+  <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
+    <DockIcon name={item.icon} />
+  </div>
+  <span class="sr-only">{item.title}</span>
+  <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
+    {item.title}
+  </span>
+{/snippet}
+
 {#if shouldShow}
   {#if variant === "bottom-bar"}
     <nav
@@ -319,17 +343,7 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <div class="size-5">
-                  <DockIcon name={item.icon} />
-                </div>
-                {#if item.badge !== undefined && item.badge !== null}
-                  <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
-                    {item.badge}
-                  </span>
-                {/if}
-              </div>
-              <span class="text-[10px] tracking-tight whitespace-nowrap">{item.title}</span>
+              {@render bottomDockContent(item)}
             </button>
           {:else}
             <a
@@ -339,17 +353,7 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-200 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <div class="size-5">
-                  <DockIcon name={item.icon} />
-                </div>
-                {#if item.badge !== undefined && item.badge !== null}
-                  <span class="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md {getBadgeClasses(item.badgeVariant)}">
-                    {item.badge}
-                  </span>
-                {/if}
-              </div>
-              <span class="text-[10px] tracking-tight whitespace-nowrap">{item.title}</span>
+              {@render bottomDockContent(item)}
             </a>
           {/if}
         {/each}
@@ -379,13 +383,7 @@
               aria-label={item.title}
               class={commonClasses}
             >
-              <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <DockIcon name={item.icon} />
-              </div>
-              <span class="sr-only">{item.title}</span>
-              <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
-                {item.title}
-              </span>
+              {@render floatingDockContent(item)}
             </button>
           {:else}
             <a
@@ -395,13 +393,7 @@
               aria-current={item.isActive ? "page" : undefined}
               class={commonClasses}
             >
-              <div class="size-5 {getIndicatorClasses(item.statusIndicator, item.disabled)}">
-                <DockIcon name={item.icon} />
-              </div>
-              <span class="sr-only">{item.title}</span>
-              <span class="absolute -top-8 px-2 py-0.5 rounded-md bg-black/90 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
-                {item.title}
-              </span>
+              {@render floatingDockContent(item)}
             </a>
           {/if}
         {/each}

@@ -6,7 +6,6 @@
 export type BackendRole = "client" | "admin";
 
 export type CanonicalEnvironment = "student" | "admin";
-export type AppEnvironment = CanonicalEnvironment;
 
 export type StudentStatus =
   | "lead"
@@ -38,15 +37,6 @@ export type StudentSubstatus =
   | "pending_documents"
   | "ready_for_pickup"
   | "failed"
-  | string;
-
-export type EnrollmentStatus =
-  | "rg_pending"
-  | "address_pending"
-  | "needs_kinship"
-  | "education_pending"
-  | "selfie_pending"
-  | "pending_siga"
   | string;
 
 export const ENVIRONMENT_META: Record<
@@ -201,29 +191,4 @@ export function canVisitRolePath(identity: RoleIdentity, pathname: string): bool
     return status === "awaiting_pickup" || status === "graduated";
   }
   return false;
-}
-
-export function formatStudentStatus(status?: string | null): {
-  label: string;
-  variant: "info" | "success" | "warning" | "danger";
-} {
-  switch (status) {
-    case "lead":
-    case "payment_pending":
-      return { label: "Aguardando Matrícula", variant: "warning" };
-    case "pre_enrolled":
-      return { label: "Fase de Matrícula", variant: "info" };
-    case "enrolled":
-      return { label: "Matrícula Ativa", variant: "success" };
-    case "exam_scheduled":
-      return { label: "Prova Agendada", variant: "info" };
-    case "awaiting_pickup":
-      return { label: "Aguardando Retirada", variant: "warning" };
-    case "graduated":
-      return { label: "Concluído / Formado", variant: "success" };
-    case "cancelled":
-      return { label: "Matrícula Cancelada", variant: "danger" };
-    default:
-      return { label: "Em Andamento", variant: "info" };
-  }
 }

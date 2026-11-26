@@ -40,18 +40,12 @@
     }
   });
 
-  async function handleGrade(examId: string, passed: boolean) {
+  async function runBusy(work: () => Promise<void>) {
     busy = true;
     error = "";
     notice = "";
     try {
-      const notes = notesByExam[examId]?.trim();
-      const res = await gradeAdminExam(examId, {
-        passed,
-        ...(notes ? { notes } : {}),
-      });
-      notice = res.message || `Resultado lançado: ${passed ? "Aprovado" : "Reprovado"}.`;
-      await loadExams();
+      await work();
     } catch (err) {
       error = getErrorMessage(err);
     } finally {
@@ -59,7 +53,19 @@
     }
   }
 
-  async function handleUploadCorrectedPdf(examId: string, event: Event) {
+  function handleGrade(examId: string, passed: boolean) {
+    return runBusy(async () => {
+      const notes = notesByExam[examId]?.trim();
+      const res = await gradeAdminExam(examId, {
+        passed,
+        ...(notes ? { notes } : {}),
+      });
+      notice = res.message || `Resultado lançado: ${passed ? "Aprovado" : "Reprovado"}.`;
+      await loadExams();
+    });
+  }
+
+  function handleUploadCorrectedPdf(examId: string, event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     input.value = "";
@@ -71,18 +77,11 @@
       return;
     }
 
-    busy = true;
-    error = "";
-    notice = "";
-    try {
+    return runBusy(async () => {
       const res = await uploadAdminCorrectedExamPdf(examId, file);
       notice = res.message || "PDF da prova corrigida enviado com sucesso.";
       await loadExams();
-    } catch (err) {
-      error = getErrorMessage(err);
-    } finally {
-      busy = false;
-    }
+    });
   }
 </script>
 
