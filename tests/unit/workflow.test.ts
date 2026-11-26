@@ -6,6 +6,7 @@ import {
   documentFileError,
   imageError,
   pdfFileError,
+  safeReturnTo,
 } from "../../src/components/interactive/student/workflow.ts";
 
 function fakeFile(name: string, type: string, size: number): File {
@@ -49,4 +50,13 @@ test("pdfFileError requires application/pdf and 15 MB admin limit", () => {
     pdfFileError(fakeFile("diploma.pdf", "application/pdf", ADMIN_PDF_MAX_UPLOAD_BYTES + 1)),
     "Escolha um arquivo de até 15 MB.",
   );
+});
+
+test("safeReturnTo allows only same-origin relative paths without backslashes", () => {
+  const origin = "https://app.supletivo.net.br";
+  assert.equal(safeReturnTo("/student/active?tab=1#top", origin), "/student/active?tab=1#top");
+  assert.equal(safeReturnTo("//evil.example/phish", origin), null);
+  assert.equal(safeReturnTo("/\\evil.example", origin), null);
+  assert.equal(safeReturnTo("https://evil.example/phish", origin), null);
+  assert.equal(safeReturnTo("/admin/@evil.example", origin), "/admin/@evil.example");
 });

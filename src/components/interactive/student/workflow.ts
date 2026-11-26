@@ -38,6 +38,23 @@ export function safePartnerUrl(value: string | null | undefined): string | null 
   }
 }
 
+/** Restricts return_to redirects to same-origin relative paths without backslashes or protocol-relative prefixes. */
+export function safeReturnTo(
+  returnTo: string | null | undefined,
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+): string | null {
+  if (!origin || !returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//") || returnTo.includes("\\")) {
+    return null;
+  }
+  try {
+    const parsed = new URL(returnTo, origin);
+    if (parsed.origin !== origin) return null;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return null;
+  }
+}
+
 export const STUDENT_STATUS_LABELS: Record<string, string> = {
   lead: "Aguardando Matrícula",
   payment_pending: "Pagamento Pendente",

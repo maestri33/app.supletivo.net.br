@@ -4,6 +4,7 @@
   import { getAccessToken, saveSession, clearSession } from "@/lib/session";
   import { isValidBrMobile } from "@/lib/phone";
   import { getRoleDestination } from "@/lib/roles";
+  import { safeReturnTo } from "@/components/interactive/student/workflow";
   import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   let phone = $state("");
@@ -35,12 +36,8 @@
         const who = await whoami();
         const target = getRoleDestination(who);
         if (!target) throw new Error("Não foi possível identificar a etapa da sua conta. Tente novamente.");
-        const returnTo = urlParams.get("return_to");
-        const safeReturnTo =
-          returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
-            ? returnTo
-            : null;
-        window.location.replace(safeReturnTo || target);
+        const safeReturn = safeReturnTo(urlParams.get("return_to"));
+        window.location.replace(safeReturn || target);
       } catch (failure) {
         if (failure instanceof ApiError && failure.status === 401) clearSession();
         else {
@@ -106,8 +103,8 @@
         return;
       }
 
-      const returnTo = new URLSearchParams(window.location.search).get("return_to");
-      const returnQuery = returnTo ? `&return_to=${encodeURIComponent(returnTo)}` : "";
+      const safeReturn = safeReturnTo(new URLSearchParams(window.location.search).get("return_to"));
+      const returnQuery = safeReturn ? `&return_to=${encodeURIComponent(safeReturn)}` : "";
       saveSession({ phone: digits, externalId: res.external_id || null });
       const idParam = res.external_id ? `id=${encodeURIComponent(res.external_id)}&` : "";
       window.location.href = `/autenticacao/otp?${idParam}tel=${encodeURIComponent(digits)}${returnQuery}`;

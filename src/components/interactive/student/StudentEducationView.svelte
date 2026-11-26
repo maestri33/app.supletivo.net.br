@@ -154,23 +154,23 @@
   <header class="space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <Badge variant="info">Documento 3 de 5 — Escolaridade</Badge>
-      <a href="/student/enrollment" class="text-xs font-bold text-[#002776] underline">
+      <a href="/student/enrollment" class="text-xs font-bold text-[var(--yellow)] hover:underline">
         Voltar ao checklist
       </a>
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Escolaridade anterior
     </h1>
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-[var(--muted-on-dark)]">
       Informe qual foi o último nível e série cursados para prepararmos seu plano de estudos.
     </p>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando formulário...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando formulário...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Corrija antes de continuar">{error}</Alert>
+      <Alert variant="danger" title="Corrija antes de continuar">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant="success">{notice}</Alert>
@@ -185,44 +185,44 @@
       <form class="space-y-4" onsubmit={handlePreSubmit}>
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label for="edu-level" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+            <label for="edu-level" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
               Último nível cursado
             </label>
             <select
               id="edu-level"
               value={level}
               onchange={(e) => handleLevelChange((e.currentTarget as HTMLSelectElement).value as EducationLevel)}
-              class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+              class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
             >
-              <option value="fundamental">Ensino Fundamental</option>
-              <option value="medio">Ensino Médio</option>
+              <option value="fundamental" class="bg-[#121d33] text-white">Ensino Fundamental</option>
+              <option value="medio" class="bg-[#121d33] text-white">Ensino Médio</option>
             </select>
           </div>
 
           <div>
-            <label for="edu-grade" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+            <label for="edu-grade" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
               Última série / ano
             </label>
             <select
               id="edu-grade"
               bind:value={grade}
-              class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+              class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
             >
               {#each gradeOptions as g}
-                <option value={g}>{g}º ano</option>
+                <option value={g} class="bg-[#121d33] text-white">{g}º ano</option>
               {/each}
             </select>
           </div>
         </div>
 
-        <label class="flex items-center gap-3 rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-sm text-[#0b1220]">
-          <input type="checkbox" bind:checked={completed} class="h-4 w-4 accent-[#00734d]" />
+        <label class="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-3 text-sm text-white">
+          <input type="checkbox" bind:checked={completed} class="h-4 w-4 accent-[#ffc400]" />
           <span>Concluí integralmente essa série/etapa acima</span>
         </label>
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label for="edu-uf" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+            <label for="edu-uf" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
               Estado (UF) da escola
             </label>
             {#if ufs.length > 0}
@@ -234,11 +234,11 @@
                   void loadCitiesForUf(stateUf, false);
                 }}
                 required
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
               >
-                <option value="">Selecione...</option>
+                <option value="" class="bg-[#121d33] text-white">Selecione...</option>
                 {#each ufs as uf}
-                  <option value={uf.sigla}>{uf.sigla} — {uf.nome}</option>
+                  <option value={uf.sigla} class="bg-[#121d33] text-white">{uf.sigla} — {uf.nome}</option>
                 {/each}
               </select>
             {:else}
@@ -249,13 +249,13 @@
                 bind:value={stateUf}
                 placeholder="PR"
                 required
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm uppercase text-[#0b1220]"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm uppercase text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
               />
             {/if}
           </div>
 
           <div>
-            <label for="edu-city" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+            <label for="edu-city" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
               Cidade da escola
             </label>
             {#if cities.length > 0}
@@ -264,11 +264,11 @@
                 bind:value={city}
                 disabled={loadingCities}
                 required
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
               >
-                <option value="">Selecione a cidade...</option>
+                <option value="" class="bg-[#121d33] text-white">Selecione a cidade...</option>
                 {#each cities as c}
-                  <option value={c}>{c}</option>
+                  <option value={c} class="bg-[#121d33] text-white">{c}</option>
                 {/each}
               </select>
             {:else}
@@ -278,7 +278,7 @@
                 bind:value={city}
                 placeholder={loadingCities ? "Carregando cidades..." : "Nome da cidade"}
                 required
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
               />
             {/if}
           </div>
@@ -286,21 +286,21 @@
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label for="edu-school" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
-              Nome da última escola <span class="font-normal text-slate-400">(opcional)</span>
+            <label for="edu-school" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
+              Nome da última escola <span class="font-normal text-white/50">(opcional)</span>
             </label>
             <input
               id="edu-school"
               type="text"
               bind:value={lastSchool}
               placeholder="Opcional"
-              class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+              class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
             />
           </div>
 
           <div>
-            <label for="edu-year" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
-              Ano em que estudou <span class="font-normal text-slate-400">(opcional)</span>
+            <label for="edu-year" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/75">
+              Ano em que estudou <span class="font-normal text-white/50">(opcional)</span>
             </label>
             <input
               id="edu-year"
@@ -309,13 +309,13 @@
               maxlength="4"
               bind:value={lastYearWhen}
               placeholder="Ex.: 2018"
-              class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220]"
+              class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
             />
           </div>
         </div>
 
-        <label class="flex items-start gap-3 rounded-xl border border-[#002776]/15 bg-[#002776]/5 p-3.5 text-xs text-slate-700">
-          <input type="checkbox" bind:checked={declarationAccepted} class="mt-0.5 h-4 w-4 accent-[#00734d]" />
+        <label class="flex items-start gap-3 rounded-xl border border-white/15 bg-white/5 p-3.5 text-xs text-white/85">
+          <input type="checkbox" bind:checked={declarationAccepted} class="mt-0.5 h-4 w-4 accent-[#ffc400]" />
           <span>
             Declaro que as informações sobre minha escolaridade anterior são verdadeiras para fins de matrícula na EJA.
           </span>

@@ -132,21 +132,21 @@
 <section class="mx-auto max-w-6xl px-4 pb-28 pt-6 space-y-5">
   <header class="space-y-2">
     <Badge variant="info">Saída Administrativa Asaas PIX</Badge>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Taxa da Instituição Parceira
     </h1>
     <AdminNav active="taxa-parceira" />
   </header>
 
   {#if error}
-    <Alert variant="error" title="Erro">{error}</Alert>
+    <Alert variant="danger" title="Erro">{error}</Alert>
   {/if}
   {#if notice}
     <Alert variant="success">{notice}</Alert>
   {/if}
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando matrículas...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando matrículas...</p></Card>
   {:else}
     <div class="grid gap-5 lg:grid-cols-2">
       <Card class="p-4 sm:p-5 space-y-3">
@@ -162,9 +162,9 @@
             type="search"
             bind:value={search}
             placeholder="Filtrar aluno por nome ou CPF"
-            class="min-h-10 flex-1 rounded-xl border border-black/15 px-3 text-sm"
+            class="min-h-10 flex-1 rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
           />
-          <button type="submit" class="min-h-10 rounded-xl bg-[#0b1220] px-4 text-xs font-bold text-white">
+          <button type="submit" class="min-h-10 rounded-xl bg-[#ffc400] px-4 text-xs font-extrabold text-[#0b1220] hover:brightness-95">
             Buscar
           </button>
         </form>
@@ -176,17 +176,17 @@
               onclick={() => handleSelectEnrollment(item)}
               class={`w-full rounded-xl border p-3 text-left transition ${
                 selectedEnrollment?.role_id === item.role_id
-                  ? "border-[#002776] bg-[#002776]/5"
-                  : "border-black/10 hover:bg-black/5"
+                  ? "border-[var(--yellow)]/60 bg-[var(--yellow)]/10"
+                  : "border-white/15 bg-white/5 hover:bg-white/10"
               }`}
             >
               <div class="flex items-center justify-between gap-2">
-                <span class="text-sm font-bold text-[#0b1220]">{item.full_name || item.name || item.phone}</span>
-                <span class="text-[11px] font-semibold text-slate-600">
+                <span class="text-sm font-bold text-white">{item.full_name || item.name || item.phone}</span>
+                <span class="text-[11px] font-semibold text-white/75">
                   P1: {item.fee_1_status ?? "—"} | P2: {item.fee_2_status ?? "—"}
                 </span>
               </div>
-              <p class="text-xs text-slate-600 mt-0.5">CPF {item.cpf || "—"} • {item.status}</p>
+              <p class="text-xs text-white/75 mt-0.5">CPF {item.cpf || "—"} • {item.status}</p>
             </button>
           {/each}
         </div>
@@ -194,35 +194,35 @@
 
       <Card class="p-4 sm:p-5 space-y-4">
         {#if !selectedEnrollment}
-          <p class="text-sm text-slate-500">
+          <p class="text-sm text-white/60">
             Selecione um aluno ao lado para conferir ou pagar as 2 parcelas da taxa parceira.
           </p>
         {:else}
-          <div class="border-b border-black/10 pb-3">
-            <h2 class="text-base font-bold text-[#0b1220]">
+          <div class="border-b border-white/15 pb-3">
+            <h2 class="text-base font-bold text-white">
               {selectedEnrollment.full_name || selectedEnrollment.name || selectedEnrollment.phone}
             </h2>
-            <p class="text-xs text-slate-600">ID Matrícula: {selectedEnrollment.role_id}</p>
+            <p class="text-xs text-white/75">ID Matrícula: {selectedEnrollment.role_id}</p>
           </div>
 
           <div class="space-y-2">
-            <h3 class="text-xs font-bold uppercase text-slate-500">Parcelas registradas</h3>
+            <h3 class="text-xs font-bold uppercase text-white/60">Parcelas registradas</h3>
             {#if !fees.length}
-              <p class="text-xs text-slate-500">Nenhuma parcela paga ou agendada ainda.</p>
+              <p class="text-xs text-white/60">Nenhuma parcela paga ou agendada ainda.</p>
             {:else}
               {#each fees as fee}
-                <div class="rounded-xl border border-black/10 p-3 text-xs flex flex-wrap items-center justify-between gap-2">
+                <div class="rounded-xl border border-white/15 bg-white/5 p-3 text-xs flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p class="font-bold text-[#0b1220]">
+                    <p class="font-bold text-white">
                       Parcela {fee.installment_number} — {formatBRL(fee.amount_cents / 100)}
                     </p>
-                    <p class="text-slate-600">
-                      Status: <strong>{fee.status}</strong>
+                    <p class="text-white/75">
+                      Status: <strong class="text-white">{fee.status}</strong>
                       {#if fee.paid_at} • Paga em {dateTimeLabel(fee.paid_at)}{/if}
                       {#if fee.due_date} • Vencimento: {fee.due_date}{/if}
                     </p>
                     {#if fee.last_error}
-                      <p class="text-red-700 mt-0.5">{fee.last_error}</p>
+                      <p class="text-rose-300 mt-0.5">{fee.last_error}</p>
                     {/if}
                   </div>
                   <div class="flex gap-2">
@@ -230,7 +230,7 @@
                       type="button"
                       onclick={() => handleReconcile(fee.id)}
                       disabled={busy}
-                      class="min-h-9 rounded-lg border border-black/15 px-3 font-bold text-[#002776]"
+                      class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 font-bold text-sky-300 hover:bg-white/10 disabled:opacity-50"
                     >
                       Reconciliar
                     </button>
@@ -240,8 +240,8 @@
             {/if}
           </div>
 
-          <div class="space-y-3 border-t border-black/10 pt-3">
-            <label for="fee-qr" class="block text-xs font-bold uppercase text-slate-600">
+          <div class="space-y-3 border-t border-white/15 pt-3">
+            <label for="fee-qr" class="block text-xs font-bold uppercase text-white/75">
               Pix Copia e Cola da instituição parceira (Asaas)
             </label>
             <textarea
@@ -249,7 +249,7 @@
               rows="3"
               bind:value={qrPayload}
               placeholder="000201..."
-              class="w-full rounded-xl border border-black/15 p-3 font-mono text-xs"
+              class="w-full rounded-xl border border-white/20 bg-white/5 p-3 font-mono text-xs text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
             ></textarea>
 
             <div class="flex flex-wrap items-end gap-2">
@@ -257,30 +257,30 @@
                 type="button"
                 onclick={handleDecodeQr}
                 disabled={busy}
-                class="min-h-10 rounded-xl border border-[#002776] px-4 text-xs font-bold text-[#002776]"
+                class="min-h-10 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 text-xs font-bold text-sky-200 hover:bg-sky-500/20 disabled:opacity-50"
               >
                 Decodificar QR Code
               </button>
               <div class="flex-1 min-w-[160px]">
-                <label for="fee-schedule-date" class="mb-1 block text-[11px] font-bold text-slate-500">
+                <label for="fee-schedule-date" class="mb-1 block text-[11px] font-bold text-white/60">
                   Data agendamento 2ª parcela (opcional)
                 </label>
                 <input
                   id="fee-schedule-date"
                   type="date"
                   bind:value={scheduleDate}
-                  class="min-h-10 w-full rounded-xl border border-black/15 px-3 text-xs"
+                  class="min-h-10 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
                 />
               </div>
             </div>
 
             {#if decodedQr}
-              <div class="rounded-xl border border-[#00734d]/25 bg-[#00734d]/5 p-3 text-xs space-y-1">
-                <p><strong>Valor:</strong> {formatBRL(decodedQr.amount_cents / 100)}</p>
-                <p><strong>Recebedor:</strong> {decodedQr.receiverName || "—"} ({decodedQr.receiverCpfCnpj || "—"})</p>
-                {#if decodedQr.dueDate}<p><strong>Vencimento:</strong> {decodedQr.dueDate}</p>{/if}
+              <div class="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-xs text-white/90 space-y-1">
+                <p><strong class="text-white">Valor:</strong> {formatBRL(decodedQr.amount_cents / 100)}</p>
+                <p><strong class="text-white">Recebedor:</strong> {decodedQr.receiverName || "—"} ({decodedQr.receiverCpfCnpj || "—"})</p>
+                {#if decodedQr.dueDate}<p><strong class="text-white">Vencimento:</strong> {decodedQr.dueDate}</p>{/if}
                 {#if !decodedQr.canBePaid}
-                  <p class="font-bold text-red-700">{decodedQr.cannotBePaidReason || "QR indisponível para pagamento."}</p>
+                  <p class="font-bold text-rose-300">{decodedQr.cannotBePaidReason || "QR indisponível para pagamento."}</p>
                 {/if}
               </div>
             {/if}

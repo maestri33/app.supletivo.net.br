@@ -81,7 +81,7 @@
           required
           minlength="2"
           disabled={busy}
-          class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+          class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         />
       </div>
     {/if}
@@ -94,16 +94,16 @@
         id="kinship-relation"
         bind:value={selectedRelation}
         disabled={busy}
-        class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+        class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
       >
         {#each RELATION_OPTIONS as option}
-          <option value={option.value}>{option.label}</option>
+          <option value={option.value} class="bg-[#121d33] text-white">{option.label}</option>
         {/each}
       </select>
     </div>
 
     {#if errorMsg}
-      <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700" role="alert">
+      <p class="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-medium text-rose-200" role="alert">
         {errorMsg}
       </p>
     {/if}

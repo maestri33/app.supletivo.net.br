@@ -15,6 +15,21 @@ export const ALL: APIRoute = async (context) => {
     ? pathname.slice('/api'.length)
     : pathname;
   const targetUrl = new URL(targetPath + url.search, backendUrl);
+  if (!targetUrl.pathname.startsWith('/v1/')) {
+    return new Response(
+      JSON.stringify({
+        error: 'invalid_path',
+        message: 'Caminho de API inválido.',
+      }),
+      {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
+  }
 
   const headers = new Headers();
   for (const [key, val] of request.headers.entries()) {
@@ -71,7 +86,7 @@ export const ALL: APIRoute = async (context) => {
         'Cache-Control',
         'public, max-age=30, s-maxage=300, stale-while-revalidate=60'
       );
-    } else if (request.headers.has('authorization')) {
+    } else if (request.headers.has('authorization') || !res.ok) {
       responseHeaders.set('Cache-Control', 'private, no-store');
     }
 

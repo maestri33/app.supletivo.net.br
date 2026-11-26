@@ -20,7 +20,7 @@
   import { resolveSupportHref, type InstitutionalContact } from "@/lib/config";
   import { compressImage } from "@/lib/image-compression";
   import { openAuthenticatedApiFile, openPrivateMedia } from "@/lib/private-media";
-  import { saveSession } from "@/lib/session";
+  import { getLogin, saveLogin } from "@/lib/session";
   import {
     dateLabel,
     dateTimeLabel,
@@ -81,11 +81,11 @@
 
   function docStatusBadge(status: string | null | undefined, exempt = false): {
     label: string;
-    variant: "success" | "warning" | "error" | "info" | "default";
+    variant: "success" | "warning" | "danger" | "info" | "neutral";
   } {
-    if (exempt) return { label: "Dispensado", variant: "default" };
+    if (exempt) return { label: "Dispensado", variant: "neutral" };
     if (status === "approved") return { label: "Aprovado", variant: "success" };
-    if (status === "rejected") return { label: "Reprovado", variant: "error" };
+    if (status === "rejected") return { label: "Reprovado", variant: "danger" };
     if (status === "pending" || status === "review") return { label: "Em análise", variant: "info" };
     return { label: "Pendente", variant: "warning" };
   }
@@ -104,8 +104,8 @@
     if (meRes.user.blood_type) {
       selectedBloodType = meRes.user.blood_type;
     }
-    saveSession({
-      role: meRes.role.role,
+    saveLogin({
+      ...(getLogin() ?? {}),
       status: meRes.role.status,
       substatus: meRes.role.substatus ?? null,
     });
@@ -238,7 +238,7 @@
         <Badge variant="info">{STUDENT_STATUS_LABELS[me.role.substatus] ?? me.role.substatus}</Badge>
       {/if}
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       {#if view === "access"}
         Acesso ao portal SIGA
       {:else if view === "documents"}
@@ -251,19 +251,19 @@
     </h1>
 
     <nav class="flex flex-wrap gap-2 pt-1 text-xs font-bold">
-      <a href="/student/active/dashboard" class={`rounded-lg px-3 py-1.5 ${view === "dashboard" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Resumo</a>
-      <a href="/student/active/access" class={`rounded-lg px-3 py-1.5 ${view === "access" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Acesso SIGA</a>
-      <a href="/student/active/documents" class={`rounded-lg px-3 py-1.5 ${view === "documents" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Documentos</a>
-      <a href="/student/active/assessments" class={`rounded-lg px-3 py-1.5 ${view === "assessments" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Provas</a>
-      <a href="/student/active/finance" class="rounded-lg bg-black/5 px-3 py-1.5 text-slate-700">Financeiro</a>
+      <a href="/student/active/dashboard" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "dashboard" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Resumo</a>
+      <a href="/student/active/access" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "access" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Acesso SIGA</a>
+      <a href="/student/active/documents" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "documents" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Documentos</a>
+      <a href="/student/active/assessments" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "assessments" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Provas</a>
+      <a href="/student/active/finance" class="min-h-9 inline-flex items-center rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-white/80 hover:bg-white/10 hover:text-white transition">Financeiro</a>
     </nav>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando dados do aluno...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando dados do aluno...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Atenção">{error}</Alert>
+      <Alert variant="danger" title="Atenção">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant="success">{notice}</Alert>
@@ -272,45 +272,45 @@
     {#if view === "dashboard"}
       <div class="grid gap-4 sm:grid-cols-2">
         <Card class="p-5 space-y-2">
-          <p class="text-xs font-bold uppercase text-slate-500">Portal de estudos (SIGA)</p>
-          <p class="text-base font-bold text-[#0b1220]">
+          <p class="text-xs font-bold uppercase text-white/60">Portal de estudos (SIGA)</p>
+          <p class="text-base font-bold text-white">
             {me?.siga_credentials ? `Usuário: ${me.siga_credentials.username}` : "Credenciais em emissão"}
           </p>
-          <a href="/student/active/access" class="inline-block text-xs font-bold text-[#002776] underline">
+          <a href="/student/active/access" class="inline-block text-xs font-bold text-[var(--yellow)] hover:underline">
             Ver acesso ao portal
           </a>
         </Card>
 
         <Card class="p-5 space-y-2">
-          <p class="text-xs font-bold uppercase text-slate-500">Documentos pós-SIGA</p>
-          <p class="text-base font-bold text-[#0b1220]">
+          <p class="text-xs font-bold uppercase text-white/60">Documentos pós-SIGA</p>
+          <p class="text-base font-bold text-white">
             {me?.document_progress?.academic_documents_ready
               ? "Documentação completa"
               : "Envios pendentes"}
           </p>
-          <a href="/student/active/documents" class="inline-block text-xs font-bold text-[#002776] underline">
+          <a href="/student/active/documents" class="inline-block text-xs font-bold text-[var(--yellow)] hover:underline">
             Gerenciar documentos
           </a>
         </Card>
 
         <Card class="p-5 space-y-2">
-          <p class="text-xs font-bold uppercase text-slate-500">Avaliações</p>
-          <p class="text-base font-bold text-[#0b1220]">
+          <p class="text-xs font-bold uppercase text-white/60">Avaliações</p>
+          <p class="text-base font-bold text-white">
             {examsData?.eligibility?.exam_can_schedule
               ? "Liberado para agendar prova"
               : `Previsão: ${examsData?.eligibility?.exam_available_at ? dateLabel(examsData.eligibility.exam_available_at) : "Em breve"}`}
           </p>
-          <a href="/student/active/assessments" class="inline-block text-xs font-bold text-[#002776] underline">
+          <a href="/student/active/assessments" class="inline-block text-xs font-bold text-[var(--yellow)] hover:underline">
             Ir para provas
           </a>
         </Card>
 
         <Card class="p-5 space-y-2">
-          <p class="text-xs font-bold uppercase text-slate-500">Tipo sanguíneo</p>
-          <p class="text-base font-bold text-[#0b1220]">
+          <p class="text-xs font-bold uppercase text-white/60">Tipo sanguíneo</p>
+          <p class="text-base font-bold text-white">
             {me?.user?.blood_type ? me.user.blood_type : "Ainda não informado"}
           </p>
-          <a href="/student/active/documents" class="inline-block text-xs font-bold text-[#002776] underline">
+          <a href="/student/active/documents" class="inline-block text-xs font-bold text-[var(--yellow)] hover:underline">
             Atualizar no perfil
           </a>
         </Card>
@@ -319,25 +319,25 @@
       <Card class="p-5 sm:p-6 space-y-4">
         {#if me?.siga_credentials}
           <div class="space-y-3">
-            <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3.5 flex items-center justify-between gap-2">
+            <div class="rounded-xl border border-white/15 bg-white/5 p-3.5 flex items-center justify-between gap-2">
               <div>
-                <p class="text-xs font-bold uppercase text-slate-500">Login SIGA</p>
-                <p class="font-mono text-sm font-bold text-[#0b1220]">{me.siga_credentials.username}</p>
+                <p class="text-xs font-bold uppercase text-white/60">Login SIGA</p>
+                <p class="font-mono text-sm font-bold text-white">{me.siga_credentials.username}</p>
               </div>
               <button
                 type="button"
                 onclick={() => me?.siga_credentials && copyText(me.siga_credentials.username, "Login")}
-                class="min-h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-[#0b1220]"
+                class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-bold text-white hover:bg-white/10"
               >
                 Copiar
               </button>
             </div>
 
             {#if me.siga_credentials.password}
-              <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3.5 flex items-center justify-between gap-2">
+              <div class="rounded-xl border border-white/15 bg-white/5 p-3.5 flex items-center justify-between gap-2">
                 <div>
-                  <p class="text-xs font-bold uppercase text-slate-500">Senha inicial</p>
-                  <p class="font-mono text-sm font-bold text-[#0b1220]">
+                  <p class="text-xs font-bold uppercase text-white/60">Senha inicial</p>
+                  <p class="font-mono text-sm font-bold text-white">
                     {showPassword ? me.siga_credentials.password : "••••••••"}
                   </p>
                 </div>
@@ -345,14 +345,14 @@
                   <button
                     type="button"
                     onclick={() => { showPassword = !showPassword; }}
-                    class="min-h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-[#0b1220]"
+                    class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-bold text-white hover:bg-white/10"
                   >
                     {showPassword ? "Ocultar" : "Mostrar"}
                   </button>
                   <button
                     type="button"
                     onclick={() => me?.siga_credentials?.password && copyText(me.siga_credentials.password, "Senha")}
-                    class="min-h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-[#0b1220]"
+                    class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-bold text-white hover:bg-white/10"
                   >
                     Copiar
                   </button>
@@ -379,21 +379,21 @@
       </Card>
     {:else if view === "documents"}
       <Card class="p-5 sm:p-6 space-y-4">
-        <h2 class="text-base font-bold text-[#0b1220]">Tipo sanguíneo (obrigatório para histórico/diploma)</h2>
+        <h2 class="text-base font-bold text-white">Tipo sanguíneo (obrigatório para histórico/diploma)</h2>
         <form onsubmit={handleSaveBloodType} class="flex flex-wrap items-center gap-3">
           <select
             bind:value={selectedBloodType}
             disabled={busy}
-            class="min-h-11 rounded-xl border border-black/15 bg-white px-3.5 text-sm font-bold text-[#0b1220]"
+            class="min-h-11 rounded-xl border border-white/20 bg-[#121d33] px-3.5 text-sm font-bold text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
           >
             {#each BLOOD_TYPES as bt}
-              <option value={bt}>{bt}</option>
+              <option value={bt} class="bg-[#121d33] text-white">{bt}</option>
             {/each}
           </select>
           <button
             type="submit"
             disabled={busy}
-            class="min-h-11 rounded-xl bg-[#0b1220] px-4 text-sm font-bold text-white hover:opacity-95 disabled:opacity-50"
+            class="min-h-11 rounded-xl bg-[#ffc400] px-4 text-sm font-extrabold text-[#0b1220] hover:brightness-95 disabled:opacity-50"
           >
             {busy ? "Salvando..." : "Salvar tipo sanguíneo"}
           </button>
@@ -407,8 +407,8 @@
       <Card class="p-5 sm:p-6 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 class="text-base font-bold text-[#0b1220]">Histórico escolar anterior</h2>
-            <p class="text-xs text-slate-600">Aceita foto legível ou PDF de até 10 MB.</p>
+            <h2 class="text-base font-bold text-white">Histórico escolar anterior</h2>
+            <p class="text-xs text-white/75">Aceita foto legível ou PDF de até 10 MB.</p>
           </div>
           <Badge variant={schoolBadge.variant}>{schoolBadge.label}</Badge>
         </div>
@@ -436,7 +436,7 @@
             <button
               type="button"
               onclick={() => schoolDoc.file_key && handleOpenDocFile(schoolDoc.file_key)}
-              class="min-h-11 rounded-xl border border-black/15 px-3.5 text-xs font-bold text-[#002776]"
+              class="min-h-11 rounded-xl border border-white/20 bg-white/5 px-3.5 text-xs font-bold text-sky-300 hover:bg-white/10"
             >
               Visualizar arquivo enviado
             </button>
@@ -452,8 +452,8 @@
       <Card class="p-5 sm:p-6 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 class="text-base font-bold text-[#0b1220]">Certificado militar / Reservista</h2>
-            <p class="text-xs text-slate-600">
+            <h2 class="text-base font-bold text-white">Certificado militar / Reservista</h2>
+            <p class="text-xs text-white/75">
               {milExempt
                 ? "Dispensado para o seu perfil."
                 : "Obrigatório para estudantes do sexo masculino maiores de 18 anos (foto ou PDF até 10 MB)."}
@@ -486,7 +486,7 @@
               <button
                 type="button"
                 onclick={() => milDoc.file_key && handleOpenDocFile(milDoc.file_key)}
-                class="min-h-11 rounded-xl border border-black/15 px-3.5 text-xs font-bold text-[#002776]"
+                class="min-h-11 rounded-xl border border-white/20 bg-white/5 px-3.5 text-xs font-bold text-sky-300 hover:bg-white/10"
               >
                 Visualizar arquivo enviado
               </button>
@@ -497,7 +497,7 @@
     {:else if view === "assessments"}
       <Card class="p-5 sm:p-6 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-base font-bold text-[#0b1220]">Agendamento de prova presencial</h2>
+          <h2 class="text-base font-bold text-white">Agendamento de prova presencial</h2>
           <Badge variant={examsData?.eligibility?.exam_can_schedule ? "success" : "warning"}>
             {examsData?.eligibility?.exam_can_schedule ? "Elegível" : "Aguardando liberação"}
           </Badge>
@@ -506,25 +506,25 @@
         {#if examsData?.eligibility?.exam_can_schedule}
           <form onsubmit={handleScheduleExam} class="grid gap-3 sm:grid-cols-3 items-end">
             <div>
-              <label for="exam-subject" class="mb-1 block text-xs font-bold text-slate-600">Matéria</label>
+              <label for="exam-subject" class="mb-1 block text-xs font-bold text-white/75">Matéria</label>
               <select
                 id="exam-subject"
                 bind:value={examSubject}
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
               >
                 {#each EXAM_SUBJECTS as subj}
-                  <option value={subj}>{subj}</option>
+                  <option value={subj} class="bg-[#121d33] text-white">{subj}</option>
                 {/each}
               </select>
             </div>
             <div>
-              <label for="exam-dt" class="mb-1 block text-xs font-bold text-slate-600">Data e hora</label>
+              <label for="exam-dt" class="mb-1 block text-xs font-bold text-white/75">Data e hora</label>
               <input
                 id="exam-dt"
                 type="datetime-local"
                 bind:value={examDateTime}
                 required
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
               />
             </div>
             <button
@@ -536,7 +536,7 @@
             </button>
           </form>
         {:else}
-          <p class="text-sm text-slate-600">
+          <p class="text-sm text-white/75">
             {examsData?.eligibility?.exam_block_reason ||
               `Agendamento previsto a partir de ${
                 examsData?.eligibility?.exam_available_at
@@ -548,24 +548,24 @@
       </Card>
 
       <Card class="p-5 sm:p-6 space-y-3">
-        <h2 class="text-base font-bold text-[#0b1220]">Histórico de tentativas e correções</h2>
+        <h2 class="text-base font-bold text-white">Histórico de tentativas e correções</h2>
         {#if !examsData?.exams?.length}
-          <p class="text-sm text-slate-500">Nenhuma prova agendada até o momento.</p>
+          <p class="text-sm text-white/60">Nenhuma prova agendada até o momento.</p>
         {:else}
           <div class="space-y-3">
             {#each examsData.exams as exam}
-              <div class="rounded-xl border border-black/10 p-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="rounded-xl border border-white/15 bg-white/5 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div class="space-y-1">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-bold text-[#0b1220]">{exam.subject}</span>
-                    <Badge variant="default">Tentativa #{exam.attempt_number}</Badge>
-                    <Badge variant={exam.result === "passed" ? "success" : exam.result === "failed" ? "error" : "info"}>
+                    <span class="text-sm font-bold text-white">{exam.subject}</span>
+                    <Badge variant="neutral">Tentativa #{exam.attempt_number}</Badge>
+                    <Badge variant={exam.result === "passed" ? "success" : exam.result === "failed" ? "danger" : "info"}>
                       {exam.result === "passed" ? "Aprovado" : exam.result === "failed" ? "Reprovado" : "Agendada"}
                     </Badge>
                   </div>
-                  <p class="text-xs text-slate-600">Data: {dateTimeLabel(exam.scheduled_at)}</p>
+                  <p class="text-xs text-white/75">Data: {dateTimeLabel(exam.scheduled_at)}</p>
                   {#if exam.notes}
-                    <p class="text-xs text-slate-700">Observações: {exam.notes}</p>
+                    <p class="text-xs text-white/85">Observações: {exam.notes}</p>
                   {/if}
                 </div>
 
@@ -585,9 +585,9 @@
       </Card>
     {/if}
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Precisa de atendimento da secretaria?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar por e-mail</a>
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar por e-mail</a>
     </div>
   {/if}
 </section>

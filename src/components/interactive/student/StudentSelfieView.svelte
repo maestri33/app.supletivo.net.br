@@ -113,23 +113,23 @@
   <header class="space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <Badge variant="info">Etapas 4 e 5 — Contrato e Selfie</Badge>
-      <a href="/student/enrollment" class="text-xs font-bold text-[#002776] underline">
+      <a href="/student/enrollment" class="text-xs font-bold text-[var(--yellow)] hover:underline">
         Voltar ao checklist
       </a>
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Assinatura do contrato e selfie de verificação
     </h1>
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-[var(--muted-on-dark)]">
       Leia o contrato abaixo, confirme o aceite e tire uma selfie ao vivo para concluir sua documentação inicial.
     </p>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando contrato...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando contrato...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Não foi possível concluir">{error}</Alert>
+      <Alert variant="danger" title="Não foi possível concluir">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant="success">{notice}</Alert>
@@ -143,20 +143,20 @@
     {#if contract}
       <Card class="p-5 sm:p-6 space-y-4">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-bold text-[#0b1220]">Contrato de Prestação de Serviços Educacionais</h2>
-          <Badge variant="default">Versão {contractVersion}</Badge>
+          <h2 class="text-sm font-bold text-white">Contrato de Prestação de Serviços Educacionais</h2>
+          <Badge variant="neutral">Versão {contractVersion}</Badge>
         </div>
 
-        <div class="max-h-60 overflow-y-auto rounded-xl border border-black/10 bg-[#f6f6f2] p-4 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap">
+        <div class="max-h-60 overflow-y-auto rounded-xl border border-white/15 bg-white/5 p-4 text-xs leading-relaxed text-white/85 whitespace-pre-wrap">
           {contract.text}
         </div>
 
-        <label class="flex items-start gap-3 rounded-xl border border-[#00734d]/25 bg-[#00734d]/5 p-3.5 text-sm font-semibold text-[#0b1220]">
+        <label class="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3.5 text-sm font-semibold text-white">
           <input
             type="checkbox"
             bind:checked={acceptedContract}
             disabled={busy}
-            class="mt-0.5 h-4 w-4 accent-[#00734d]"
+            class="mt-0.5 h-4 w-4 accent-[#ffc400]"
           />
           <span>Li e aceito os termos do contrato acima (assinatura digital vinculada à minha selfie).</span>
         </label>
@@ -165,18 +165,18 @@
 
     <Card class="p-5 sm:p-6 space-y-4">
       <div class="flex items-center justify-between gap-2">
-        <h2 class="text-sm font-bold text-[#0b1220]">Captura da selfie (prova de vida)</h2>
+        <h2 class="text-sm font-bold text-white">Captura da selfie (prova de vida)</h2>
         <button
           type="button"
           onclick={() => { useFileFallback = !useFileFallback; }}
-          class="text-xs font-semibold text-[#002776] underline"
+          class="text-xs font-semibold text-[var(--yellow)] hover:underline"
         >
           {useFileFallback ? "Usar câmera ao vivo" : "Enviar foto da galeria"}
         </button>
       </div>
 
       {#if !acceptedContract}
-        <p class="rounded-xl border border-[#ffc400]/50 bg-[#ffc400]/10 p-3 text-xs font-semibold text-[#0b1220]">
+        <p class="rounded-xl border border-[#ffc400]/40 bg-[#ffc400]/10 p-3 text-xs font-semibold text-amber-100">
           Aceite o contrato acima para liberar o envio da selfie.
         </p>
       {/if}
@@ -190,7 +190,7 @@
         <label
           class={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl px-5 text-sm font-extrabold transition ${
             busy || !acceptedContract
-              ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+              ? "bg-white/10 text-white/50 cursor-not-allowed"
               : "bg-[#ffc400] text-[#0b1220] hover:brightness-95"
           }`}
         >

@@ -14,6 +14,12 @@ export const ALL: APIRoute = async (context) => {
     ? url.pathname
     : `/v1${url.pathname}`;
   const targetUrl = new URL(targetPath + url.search, backendUrl);
+  if (!targetUrl.pathname.startsWith('/v1/media/')) {
+    return new Response('Bad Request', {
+      status: 400,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
 
   const headers = new Headers();
   for (const [key, val] of request.headers.entries()) {
@@ -45,11 +51,9 @@ export const ALL: APIRoute = async (context) => {
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-length');
 
-    if (res.ok || res.status === 206) {
-      responseHeaders.set('Cache-Control', 'private, no-store, max-age=0');
-      responseHeaders.set('Vary', 'Authorization');
-      responseHeaders.set('X-Content-Type-Options', 'nosniff');
-    }
+    responseHeaders.set('Cache-Control', 'private, no-store, max-age=0');
+    responseHeaders.set('Vary', 'Authorization');
+    responseHeaders.set('X-Content-Type-Options', 'nosniff');
 
     return new Response(res.body, {
       status: res.status,

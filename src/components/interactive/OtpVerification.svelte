@@ -16,6 +16,7 @@
     clearLogin,
   } from "@/lib/session";
   import { getRoleDestination } from "@/lib/roles";
+  import { safeReturnTo } from "@/components/interactive/student/workflow";
   import ContactRecoveryModal from "./ContactRecoveryModal.svelte";
   import InputOtp from "@/components/ui/InputOtp.svelte";
   import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
@@ -137,12 +138,8 @@
         const target = getRoleDestination(who);
         if (!target) throw new Error("Não foi possível identificar a etapa da sua conta.");
         const urlParams = new URLSearchParams(window.location.search);
-        const returnTo = urlParams.get("return_to");
-        const safeReturnTo =
-          returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
-            ? returnTo
-            : null;
-        window.location.href = safeReturnTo || target;
+        const safeReturn = safeReturnTo(urlParams.get("return_to"));
+        window.location.href = safeReturn || target;
         return;
       } catch {
         window.location.href = "/autenticacao/conta";
@@ -233,7 +230,7 @@
       primaryAction={errorCode === "OTP_EXPIRED" || (errorMessage || "").toLowerCase().includes("expirado")
         ? { label: "Reenviar Novo Código", action: () => { isErrorDialogOpen = false; void handleResend(); } }
         : errorCode === "OTP_INVALID" || (errorMessage || "").toLowerCase().includes("incorreto")
-          ? { label: "Digitar Novamente", action: () => { isErrorDialogOpen = false; code = ""; otpInputRef?.clear(); otpInputRef?.focus(); } }
+          ? { label: "Digitar Novamente", action: () => { isErrorDialogOpen = false; code = ""; otpInputRef?.clear(); } }
           : undefined}
       secondaryAction={errorCode === "OTP_EXPIRED" || (errorMessage || "").toLowerCase().includes("expirado")
         ? { label: "Trocar Número", action: () => { window.location.href = `/?trocar=1&tel=${encodeURIComponent(phone)}`; } }

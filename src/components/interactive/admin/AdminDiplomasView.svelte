@@ -158,21 +158,21 @@
 <section class="mx-auto max-w-6xl px-4 pb-28 pt-6 space-y-5">
   <header class="space-y-2">
     <Badge variant="info">Conclusão & Certificação</Badge>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Diplomas, Históricos e Entregas
     </h1>
     <AdminNav active="diplomas" />
   </header>
 
   {#if error}
-    <Alert variant="error" title="Erro">{error}</Alert>
+    <Alert variant="danger" title="Erro">{error}</Alert>
   {/if}
   {#if notice}
     <Alert variant="success">{notice}</Alert>
   {/if}
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando alunos...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando alunos...</p></Card>
   {:else}
     <div class="grid gap-5 lg:grid-cols-2">
       <Card class="p-4 sm:p-5 space-y-3">
@@ -188,14 +188,14 @@
             type="search"
             bind:value={search}
             placeholder="Nome ou CPF"
-            class="min-h-10 flex-1 rounded-xl border border-black/15 px-3 text-xs"
+            class="min-h-10 flex-1 rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
           />
-          <select bind:value={statusFilter} class="min-h-10 rounded-xl border border-black/15 px-3 text-xs">
-            <option value="">Todos</option>
-            <option value="awaiting_pickup">Aguardando retirada do diploma</option>
-            <option value="graduated">Concluintes</option>
+          <select bind:value={statusFilter} class="min-h-10 rounded-xl border border-white/20 bg-[#121d33] px-3 text-xs text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none">
+            <option value="" class="bg-[#121d33] text-white">Todos</option>
+            <option value="awaiting_pickup" class="bg-[#121d33] text-white">Aguardando retirada do diploma</option>
+            <option value="graduated" class="bg-[#121d33] text-white">Concluintes</option>
           </select>
-          <button type="submit" class="min-h-10 rounded-xl bg-[#0b1220] px-4 text-xs font-bold text-white">
+          <button type="submit" class="min-h-10 rounded-xl bg-[#ffc400] px-4 text-xs font-extrabold text-[#0b1220] hover:brightness-95">
             Buscar
           </button>
         </form>
@@ -207,17 +207,17 @@
               onclick={() => selectStudent(st)}
               class={`w-full rounded-xl border p-3 text-left transition ${
                 selectedStudent?.role_id === st.role_id
-                  ? "border-[#002776] bg-[#002776]/5"
-                  : "border-black/10 hover:bg-black/5"
+                  ? "border-[var(--yellow)]/60 bg-[var(--yellow)]/10"
+                  : "border-white/15 bg-white/5 hover:bg-white/10"
               }`}
             >
               <div class="flex items-center justify-between gap-2">
-                <span class="text-sm font-bold text-[#0b1220]">{st.full_name || st.name || st.phone}</span>
+                <span class="text-sm font-bold text-white">{st.full_name || st.name || st.phone}</span>
                 <Badge variant={st.status === "graduated" ? "success" : "info"}>
                   {STUDENT_STATUS_LABELS[st.status] ?? st.status}
                 </Badge>
               </div>
-              <p class="text-xs text-slate-600 mt-0.5">CPF {st.cpf || "—"} • {st.phone}</p>
+              <p class="text-xs text-white/75 mt-0.5">CPF {st.cpf || "—"} • {st.phone}</p>
             </button>
           {/each}
         </div>
@@ -225,56 +225,56 @@
 
       <Card class="p-4 sm:p-5 space-y-4">
         {#if !selectedStudent || !diplomaDetail}
-          <p class="text-sm text-slate-500">
+          <p class="text-sm text-white/60">
             Selecione um aluno ao lado para emitir os PDFs oficiais ou registrar a foto de entrega do diploma.
           </p>
         {:else}
-          <div class="border-b border-black/10 pb-3">
-            <h2 class="text-base font-bold text-[#0b1220]">
+          <div class="border-b border-white/15 pb-3">
+            <h2 class="text-base font-bold text-white">
               {diplomaDetail.user.full_name || diplomaDetail.user.name || diplomaDetail.user.phone}
             </h2>
-            <p class="text-xs text-slate-600">
-              Status atual: <strong>{STUDENT_STATUS_LABELS[diplomaDetail.role.status] ?? diplomaDetail.role.status}</strong>
+            <p class="text-xs text-white/75">
+              Status atual: <strong class="text-white">{STUDENT_STATUS_LABELS[diplomaDetail.role.status] ?? diplomaDetail.role.status}</strong>
               {#if diplomaDetail.role.substatus} ({diplomaDetail.role.substatus}){/if}
             </p>
           </div>
 
           <form onsubmit={handleIssueDiploma} class="space-y-3">
-            <h3 class="text-xs font-bold uppercase text-slate-500">Expedição e arquivos oficiais (PDF)</h3>
+            <h3 class="text-xs font-bold uppercase text-white/60">Expedição e arquivos oficiais (PDF)</h3>
             <div class="grid gap-3 sm:grid-cols-3">
               <div>
-                <label for="dip-reg" class="mb-1 block text-[11px] font-bold text-slate-600">Nº Registro</label>
-                <input id="dip-reg" type="text" bind:value={registrationNumber} class="min-h-10 w-full rounded-xl border border-black/15 px-3 text-xs" />
+                <label for="dip-reg" class="mb-1 block text-[11px] font-bold text-white/75">Nº Registro</label>
+                <input id="dip-reg" type="text" bind:value={registrationNumber} class="min-h-10 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none" />
               </div>
               <div>
-                <label for="dip-proc" class="mb-1 block text-[11px] font-bold text-slate-600">Nº Processo</label>
-                <input id="dip-proc" type="text" bind:value={processNumber} class="min-h-10 w-full rounded-xl border border-black/15 px-3 text-xs" />
+                <label for="dip-proc" class="mb-1 block text-[11px] font-bold text-white/75">Nº Processo</label>
+                <input id="dip-proc" type="text" bind:value={processNumber} class="min-h-10 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none" />
               </div>
               <div>
-                <label for="dip-gazette" class="mb-1 block text-[11px] font-bold text-slate-600">Data D.O.</label>
-                <input id="dip-gazette" type="date" bind:value={officialGazetteDate} class="min-h-10 w-full rounded-xl border border-black/15 px-3 text-xs" />
+                <label for="dip-gazette" class="mb-1 block text-[11px] font-bold text-white/75">Data D.O.</label>
+                <input id="dip-gazette" type="date" bind:value={officialGazetteDate} class="min-h-10 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none" />
               </div>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
-                <label for="dip-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Diploma (até 15 MB)</label>
+                <label for="dip-pdf" class="mb-1 block text-[11px] font-bold text-white/75">PDF do Diploma (até 15 MB)</label>
                 <input
                   id="dip-pdf"
                   type="file"
                   accept="application/pdf"
                   onchange={(e) => { diplomaFile = readValidatedPdf(e); }}
-                  class="block w-full text-xs text-slate-600"
+                  class="block w-full text-xs text-white/75 file:mr-2 file:rounded-lg file:border-0 file:bg-white/15 file:px-2.5 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-white/25"
                 />
               </div>
               <div>
-                <label for="trans-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Histórico (até 15 MB)</label>
+                <label for="trans-pdf" class="mb-1 block text-[11px] font-bold text-white/75">PDF do Histórico (até 15 MB)</label>
                 <input
                   id="trans-pdf"
                   type="file"
                   accept="application/pdf"
                   onchange={(e) => { transcriptFile = readValidatedPdf(e); }}
-                  class="block w-full text-xs text-slate-600"
+                  class="block w-full text-xs text-white/75 file:mr-2 file:rounded-lg file:border-0 file:bg-white/15 file:px-2.5 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-white/25"
                 />
               </div>
             </div>
@@ -289,26 +289,26 @@
           </form>
 
           {#if diplomaDetail.diploma}
-            <div class="space-y-3 border-t border-black/10 pt-3 text-xs">
+            <div class="space-y-3 border-t border-white/15 pt-3 text-xs text-white/85">
               <p>
-                Emitido em: <strong>{diplomaDetail.diploma.issued_at ? dateTimeLabel(diplomaDetail.diploma.issued_at) : "—"}</strong>
-                • Retirado em: <strong>{diplomaDetail.diploma.picked_up_at ? dateLabel(diplomaDetail.diploma.picked_up_at) : "Aguardando retirada"}</strong>
+                Emitido em: <strong class="text-white">{diplomaDetail.diploma.issued_at ? dateTimeLabel(diplomaDetail.diploma.issued_at) : "—"}</strong>
+                • Retirado em: <strong class="text-white">{diplomaDetail.diploma.picked_up_at ? dateLabel(diplomaDetail.diploma.picked_up_at) : "Aguardando retirada"}</strong>
               </p>
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p class="font-bold text-[#0b1220] mb-1">Diploma emitido</p>
+                  <p class="font-bold text-white mb-1">Diploma emitido</p>
                   <PrivateMediaPreview path={diplomaDetail.diploma.diploma_file_key} alt="Diploma PDF" compact />
                 </div>
                 <div>
-                  <p class="font-bold text-[#0b1220] mb-1">Histórico emitido</p>
+                  <p class="font-bold text-white mb-1">Histórico emitido</p>
                   <PrivateMediaPreview path={diplomaDetail.diploma.transcript_file_key} alt="Histórico PDF" compact />
                 </div>
               </div>
 
               <div class="space-y-2 pt-2">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                  <p class="font-bold text-[#0b1220]">Comprovante presencial de retirada (foto)</p>
+                  <p class="font-bold text-white">Comprovante presencial de retirada (foto)</p>
                   <label class="min-h-9 inline-flex cursor-pointer items-center rounded-lg bg-[#002776] px-3 text-xs font-bold text-white">
                     <span>Registrar retirada com foto</span>
                     <input

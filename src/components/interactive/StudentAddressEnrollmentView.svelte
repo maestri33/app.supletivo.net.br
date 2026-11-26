@@ -122,23 +122,23 @@
   <header class="space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <Badge variant="info">Documento 2 de 5 — Comprovante de residência</Badge>
-      <a href="/student/enrollment" class="text-xs font-bold text-[#002776] underline">
+      <a href="/student/enrollment" class="text-xs font-bold text-[var(--yellow)] hover:underline">
         Voltar ao checklist
       </a>
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Comprovante de residência
     </h1>
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-[var(--muted-on-dark)]">
       Envie conta de luz, água, internet ou contrato recente (foto ou PDF de até 10 MB). Se estiver em nome de outra pessoa, pediremos o vínculo.
     </p>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando etapa...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando etapa...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Não foi possível enviar">{error}</Alert>
+      <Alert variant="danger" title="Não foi possível enviar">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant="success">{notice}</Alert>
@@ -150,14 +150,14 @@
     {/if}
 
     <Card class="p-5 sm:p-6 space-y-4">
-      <ul class="space-y-1.5 text-sm text-slate-700 list-disc pl-5">
+      <ul class="space-y-1.5 text-sm text-white/85 list-disc pl-5">
         <li>Aceitamos foto nítida ou PDF original com até 10 MB.</li>
         <li>O endereço deve mostrar rua, cidade e CEP legíveis.</li>
       </ul>
 
       {#if lastUpload?.extracted_data?.street || lastUpload?.extracted_data?.city}
-        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-xs text-slate-700 space-y-1">
-          <p class="font-bold text-[#0b1220]">Dados identificados:</p>
+        <div class="rounded-xl border border-white/15 bg-white/5 p-3 text-xs text-white/85 space-y-1">
+          <p class="font-bold text-white">Dados identificados:</p>
           <p>
             {[
               lastUpload.extracted_data.street,
@@ -176,7 +176,7 @@
       <label
         class={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl px-5 text-sm font-extrabold transition ${
           uploading
-            ? "bg-slate-200 text-slate-500 cursor-wait"
+            ? "bg-white/10 text-white/50 cursor-wait"
             : "bg-[#ffc400] text-[#0b1220] hover:brightness-95"
         }`}
       >
@@ -194,7 +194,7 @@
         <button
           type="button"
           onclick={() => { kinshipModalOpen = true; }}
-          class="min-h-11 w-full rounded-xl border border-[#002776] px-4 text-sm font-bold text-[#002776] hover:bg-[#002776]/5"
+          class="min-h-11 w-full rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 text-sm font-bold text-sky-200 hover:bg-sky-500/20"
         >
           Informar vínculo com o titular
         </button>
@@ -212,9 +212,9 @@
       {/if}
     </Card>
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Sem comprovante no seu nome?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar com atendimento</a>
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar com atendimento</a>
     </div>
   {/if}
 

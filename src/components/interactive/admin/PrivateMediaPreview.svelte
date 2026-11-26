@@ -75,23 +75,23 @@
 </script>
 
 {#if !path}
-  <p class="text-xs text-slate-400">Sem arquivo anexado</p>
+  <p class="text-xs text-white/60">Sem arquivo anexado</p>
 {:else}
   <div class="space-y-2">
     {#if loading}
-      <div class="flex h-28 items-center justify-center rounded-xl border border-black/10 bg-[#f6f6f2] text-xs text-slate-500">
+      <div class="flex h-28 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-xs text-white/60">
         Carregando mídia protegida...
       </div>
     {:else if errMsg}
-      <p class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">{errMsg}</p>
+      <p class="rounded-lg border border-rose-500/30 bg-rose-500/15 px-2.5 py-1.5 text-xs text-rose-200">{errMsg}</p>
     {:else if objectUrl && (!mimeType || mimeType.startsWith("image/"))}
       <img
         src={objectUrl}
         {alt}
-        class={`w-full rounded-xl border border-black/10 bg-black/5 object-contain ${compact ? "max-h-36" : "max-h-72"}`}
+        class={`w-full rounded-xl border border-white/15 bg-white/5 object-contain ${compact ? "max-h-36" : "max-h-72"}`}
       />
     {:else if objectUrl && mimeType === "application/pdf"}
-      <div class="rounded-xl border border-black/10 bg-[#f6f6f2] px-3 py-2.5 text-xs font-semibold text-[#0b1220]">
+      <div class="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white">
         Documento em PDF pronto para visualização.
       </div>
     {/if}
@@ -99,7 +99,7 @@
     <button
       type="button"
       onclick={handleOpen}
-      class="min-h-9 rounded-lg border border-black/15 bg-white px-3 text-xs font-bold text-[#002776] hover:bg-black/5"
+      class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-bold text-sky-300 hover:bg-white/10"
     >
       Abrir arquivo em nova aba
     </button>

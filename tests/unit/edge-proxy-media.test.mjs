@@ -201,3 +201,51 @@ test("confirm-link SSR route issues 302 redirect with mutable headers through mi
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.ok(res.headers.get("strict-transport-security"));
 });
+
+test("media and API proxies reject out-of-prefix traversal and force private no-store on errors", async () => {
+  const mediaMod = await loadTsModule("../../src/pages/media/[...path].ts");
+  const apiMod = await loadTsModule("../../src/pages/api/[...path].ts");
+  const origFetch = globalThis.fetch;
+
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: "not_found" }), {
+      status: 404,
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
+    });
+
+  try {
+    const badMediaReq = new Request("https://app.supletivo.net.br/media/../../v1/admin/students");
+    const badMediaRes = await mediaMod.ALL({
+      request: badMediaReq,
+      url: new URL(badMediaReq.url),
+    });
+    assert.equal(badMediaRes.status, 400);
+
+    const errMediaReq = new Request("https://app.supletivo.net.br/media/students/u1/missing.jpg");
+    const errMediaRes = await mediaMod.ALL({
+      request: errMediaReq,
+      url: new URL(errMediaReq.url),
+    });
+    assert.equal(errMediaRes.status, 404);
+    assert.equal(errMediaRes.headers.get("cache-control"), "private, no-store, max-age=0");
+    assert.equal(errMediaRes.headers.get("vary"), "Authorization");
+    assert.equal(errMediaRes.headers.get("x-content-type-options"), "nosniff");
+
+    const badApiReq = new Request("https://app.supletivo.net.br/api/v1/../../admin/secret");
+    const badApiRes = await apiMod.ALL({
+      request: badApiReq,
+      url: new URL(badApiReq.url),
+    });
+    assert.equal(badApiRes.status, 400);
+
+    const errApiReq = new Request("https://app.supletivo.net.br/api/v1/catalog/pricing");
+    const errApiRes = await apiMod.ALL({
+      request: errApiReq,
+      url: new URL(errApiReq.url),
+    });
+    assert.equal(errApiRes.status, 404);
+    assert.equal(errApiRes.headers.get("cache-control"), "private, no-store");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});

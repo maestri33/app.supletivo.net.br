@@ -185,21 +185,21 @@
   <header class="space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <Badge variant="info">Documento 1 de 5 — RG / CIN</Badge>
-      <a href="/student/enrollment" class="text-xs font-bold text-[#002776] underline">
+      <a href="/student/enrollment" class="text-xs font-bold text-[var(--yellow)] hover:underline">
         Voltar ao checklist
       </a>
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">Envio do RG ou CIN</h1>
-    <p class="text-sm text-slate-600">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">Envio do RG ou CIN</h1>
+    <p class="text-sm text-[var(--muted-on-dark)]">
       Fotografe seu RG em local iluminado com as quatro bordas visíveis. Aceitamos JPG, PNG ou WebP de até 10 MB.
     </p>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando dados do documento...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando dados do documento...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Ajuste necessário">{error}</Alert>
+      <Alert variant="danger" title="Ajuste necessário">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant="success">{notice}</Alert>
@@ -212,50 +212,50 @@
 
     <Card class="p-5 sm:p-6 space-y-4">
       {#if missingHint}
-        <p class="rounded-xl border border-[#ffc400]/50 bg-[#ffc400]/10 px-3.5 py-2.5 text-sm font-semibold text-[#0b1220]">
+        <p class="rounded-xl border border-[#ffc400]/40 bg-[#ffc400]/10 px-3.5 py-2.5 text-sm font-semibold text-amber-100">
           {missingHint}
         </p>
       {/if}
 
       <div class="grid gap-3 sm:grid-cols-3">
-        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-center">
-          <p class="text-xs font-bold text-slate-600 mb-2">Frente</p>
+        <div class="rounded-xl border border-white/15 bg-white/5 p-3 text-center">
+          <p class="text-xs font-bold text-white/75 mb-2">Frente</p>
           {#if previews.front}
             <img src={previews.front} alt="Frente do RG" class="mx-auto h-28 w-full rounded-lg object-cover" />
             <Badge variant="success" class="mt-2">Enviada</Badge>
           {:else if previews.full}
             <Badge variant="success">Coberta (RG aberto)</Badge>
           {:else}
-            <p class="text-xs text-slate-400 py-6">Aguardando foto</p>
+            <p class="text-xs text-white/50 py-6">Aguardando foto</p>
           {/if}
         </div>
 
-        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-center">
-          <p class="text-xs font-bold text-slate-600 mb-2">Verso</p>
+        <div class="rounded-xl border border-white/15 bg-white/5 p-3 text-center">
+          <p class="text-xs font-bold text-white/75 mb-2">Verso</p>
           {#if previews.back}
             <img src={previews.back} alt="Verso do RG" class="mx-auto h-28 w-full rounded-lg object-cover" />
             <Badge variant="success" class="mt-2">Enviado</Badge>
           {:else if previews.full}
             <Badge variant="success">Coberto (RG aberto)</Badge>
           {:else}
-            <p class="text-xs text-slate-400 py-6">Aguardando foto</p>
+            <p class="text-xs text-white/50 py-6">Aguardando foto</p>
           {/if}
         </div>
 
-        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-center">
-          <p class="text-xs font-bold text-slate-600 mb-2">RG Aberto</p>
+        <div class="rounded-xl border border-white/15 bg-white/5 p-3 text-center">
+          <p class="text-xs font-bold text-white/75 mb-2">RG Aberto</p>
           {#if previews.full}
             <img src={previews.full} alt="RG completo" class="mx-auto h-28 w-full rounded-lg object-cover" />
             <Badge variant="success" class="mt-2">Enviado</Badge>
           {:else}
-            <p class="text-xs text-slate-400 py-6">Opcional (frente e verso juntos)</p>
+            <p class="text-xs text-white/50 py-6">Opcional (frente e verso juntos)</p>
           {/if}
         </div>
       </div>
 
       {#if pendingManualFile}
-        <div class="rounded-2xl border border-[#002776]/25 bg-[#002776]/5 p-4 space-y-3">
-          <p class="text-sm font-bold text-[#0b1220]">
+        <div class="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-4 space-y-3">
+          <p class="text-sm font-bold text-white">
             Identificamos seu RG! Confirme com 1 toque qual lado está nessa foto:
           </p>
           <div class="grid gap-2 sm:grid-cols-3">
@@ -290,7 +290,7 @@
       <label
         class={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl px-5 text-sm font-extrabold transition ${
           uploading
-            ? "bg-slate-200 text-slate-500 cursor-wait"
+            ? "bg-white/10 text-white/50 cursor-wait"
             : "bg-[#ffc400] text-[#0b1220] hover:brightness-95"
         }`}
       >
@@ -317,9 +317,9 @@
       {/if}
     </Card>
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Precisa de ajuda com o documento?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar com atendimento</a>
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar com atendimento</a>
     </div>
   {/if}
 </section>

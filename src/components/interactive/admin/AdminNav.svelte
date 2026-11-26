@@ -21,8 +21,8 @@
       href={item.href}
       class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${
         active === item.key
-          ? "bg-[#0b1220] text-white"
-          : "bg-black/5 text-slate-700 hover:bg-black/10"
+          ? "bg-[var(--yellow)] text-[#0b1220]"
+          : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
       }`}
     >
       {item.label}

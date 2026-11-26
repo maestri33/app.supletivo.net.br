@@ -97,14 +97,14 @@
 <section class="mx-auto max-w-5xl px-4 pb-28 pt-6 space-y-5">
   <header class="space-y-2">
     <Badge variant="info">Conferência Documental</Badge>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Mesa de Revisão de Documentos
     </h1>
     <AdminNav active="documentos" />
   </header>
 
   {#if error}
-    <Alert variant="error" title="Erro">{error}</Alert>
+    <Alert variant="danger" title="Erro">{error}</Alert>
   {/if}
   {#if notice}
     <Alert variant="success">{notice}</Alert>
@@ -114,8 +114,10 @@
     <button
       type="button"
       onclick={() => { activeTab = "initial"; }}
-      class={`min-h-10 rounded-xl px-4 text-xs font-bold ${
-        activeTab === "initial" ? "bg-[#002776] text-white" : "bg-black/5 text-slate-700"
+      class={`min-h-10 rounded-xl px-4 text-xs font-bold transition ${
+        activeTab === "initial"
+          ? "bg-[var(--yellow)] text-[#0b1220]"
+          : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
       }`}
     >
       Documentos iniciais ({deskItems.length})
@@ -123,8 +125,10 @@
     <button
       type="button"
       onclick={() => { activeTab = "academic"; }}
-      class={`min-h-10 rounded-xl px-4 text-xs font-bold ${
-        activeTab === "academic" ? "bg-[#002776] text-white" : "bg-black/5 text-slate-700"
+      class={`min-h-10 rounded-xl px-4 text-xs font-bold transition ${
+        activeTab === "academic"
+          ? "bg-[var(--yellow)] text-[#0b1220]"
+          : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
       }`}
     >
       Documentos pós-SIGA ({academicStudents.reduce((acc, s) => acc + s.pending_documents.length, 0)})
@@ -132,28 +136,28 @@
   </div>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando fila de conferência...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando fila de conferência...</p></Card>
   {:else if activeTab === "initial"}
     {#if !deskItems.length}
-      <Card class="p-6"><p class="text-sm text-slate-500">Nenhum documento inicial pendente de revisão.</p></Card>
+      <Card class="p-6"><p class="text-sm text-white/60">Nenhum documento inicial pendente de revisão.</p></Card>
     {:else}
       <div class="grid gap-4 md:grid-cols-2">
         {#each deskItems as item}
           <Card class="p-4 sm:p-5 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 class="text-sm font-bold text-[#0b1220]">{item.student_name}</h2>
-                <p class="text-xs text-slate-600">{item.student_cpf} • {item.student_phone}</p>
+                <h2 class="text-sm font-bold text-white">{item.student_name}</h2>
+                <p class="text-xs text-white/75">{item.student_cpf} • {item.student_phone}</p>
               </div>
               <Badge variant={item.fast_ok_eligible ? "success" : "warning"}>
                 {item.document_type}
               </Badge>
             </div>
 
-            <div class="text-xs text-slate-600 space-y-1">
-              <p>Confiança IA: <strong>{Math.round((item.ai_confidence ?? 0) * 100)}%</strong> • Enviado em {dateTimeLabel(item.submitted_at)}</p>
+            <div class="text-xs text-white/75 space-y-1">
+              <p>Confiança IA: <strong class="text-white">{Math.round((item.ai_confidence ?? 0) * 100)}%</strong> • Enviado em {dateTimeLabel(item.submitted_at)}</p>
               {#if item.divergences?.length}
-                <p class="font-semibold text-amber-700">Divergências: {item.divergences.join("; ")}</p>
+                <p class="font-semibold text-amber-300">Divergências: {item.divergences.join("; ")}</p>
               {/if}
             </div>
 
@@ -174,7 +178,7 @@
                 type="button"
                 onclick={() => handleDecision(() => approveAdminDocument(item.id), "Documento aprovado.")}
                 disabled={busy}
-                class="min-h-10 rounded-xl bg-[#0b1220] px-3.5 text-xs font-bold text-white disabled:opacity-50"
+                class="min-h-10 rounded-xl bg-[#002776] px-3.5 text-xs font-bold text-white hover:opacity-95 disabled:opacity-50"
               >
                 Aprovar
               </button>
@@ -182,7 +186,7 @@
                 type="button"
                 onclick={() => { rejectModal = { id: item.id, kind: "initial", label: `${item.student_name} — ${item.document_type}` }; }}
                 disabled={busy}
-                class="min-h-10 rounded-xl border border-red-300 px-3.5 text-xs font-bold text-red-700 disabled:opacity-50"
+                class="min-h-10 rounded-xl border border-rose-400/40 bg-rose-500/10 px-3.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
               >
                 Reprovar
               </button>
@@ -193,15 +197,15 @@
     {/if}
   {:else}
     {#if !academicStudents.length}
-      <Card class="p-6"><p class="text-sm text-slate-500">Nenhum documento acadêmico pós-SIGA aguardando conferência.</p></Card>
+      <Card class="p-6"><p class="text-sm text-white/60">Nenhum documento acadêmico pós-SIGA aguardando conferência.</p></Card>
     {:else}
       <div class="space-y-4">
         {#each academicStudents as st}
           <Card class="p-4 sm:p-5 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 pb-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
               <div>
-                <h2 class="text-sm font-bold text-[#0b1220]">{st.student_name}</h2>
-                <p class="text-xs text-slate-600">
+                <h2 class="text-sm font-bold text-white">{st.student_name}</h2>
+                <p class="text-xs text-white/75">
                   CPF {st.cpf} • {st.phone} • Tipo sanguíneo: {st.blood_type || "—"}
                 </p>
               </div>
@@ -210,9 +214,9 @@
 
             <div class="grid gap-4 md:grid-cols-2">
               {#each st.pending_documents as doc}
-                <div class="rounded-xl border border-black/10 p-3 space-y-3">
+                <div class="rounded-xl border border-white/15 bg-white/5 p-3 space-y-3">
                   <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-[#0b1220]">{doc.document_type}</span>
+                    <span class="text-xs font-bold text-white">{doc.document_type}</span>
                     <Badge variant="warning">{doc.status}</Badge>
                   </div>
                   <PrivateMediaPreview path={doc.file_url_temporary} alt={doc.document_type} compact />
@@ -229,7 +233,7 @@
                       type="button"
                       onclick={() => { rejectModal = { id: doc.doc_id, kind: "academic", label: `${st.student_name} — ${doc.document_type}` }; }}
                       disabled={busy}
-                      class="min-h-9 rounded-lg border border-red-300 px-3 text-xs font-bold text-red-700 disabled:opacity-50"
+                      class="min-h-9 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
                     >
                       Reprovar
                     </button>
@@ -261,7 +265,7 @@
           required
           minlength="3"
           placeholder="Ex.: Foto cortada na parte inferior, envie o documento inteiro."
-          class="w-full rounded-xl border border-black/15 bg-white p-3 text-sm text-[#0b1220]"
+          class="w-full rounded-xl border border-white/20 bg-white/5 p-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         ></textarea>
       </div>
       <div class="flex justify-end gap-2">

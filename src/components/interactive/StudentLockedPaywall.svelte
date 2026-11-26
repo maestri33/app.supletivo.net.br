@@ -108,7 +108,7 @@
     stopPolling();
     try {
       const status = await getCheckoutStatus(paymentId);
-      if (status.paid || status.status === "paid") {
+      if (status.status === "paid") {
         paidConfirmed = true;
         notice = "Pagamento confirmado! Preparando suas etapas de matrícula...";
         await refreshSessionAndAdvance();
@@ -138,6 +138,7 @@
       const slug = url.searchParams.get("slug")?.trim();
       const receiptUrl = url.searchParams.get("receipt_url")?.trim();
       const paymentIdFromUrl = url.searchParams.get("payment_id")?.trim();
+      const fromInfinitePay = url.searchParams.get("from") === "infinitepay";
 
       const [userRes, pricingRes, contactRes, payRes] = await Promise.all([
         whoami().catch(() => null),
@@ -197,10 +198,13 @@
         }
         if (payRes?.checkout_url) {
           checkoutUrl = payRes.checkout_url;
-          activePaymentId = payRes.payment_attempt_id;
-        } else if (cachedId) {
-          activePaymentId = cachedId;
-          if (typeof cached?.checkout_url === "string") checkoutUrl = cached.checkout_url;
+        } else if (cachedId && typeof cached?.checkout_url === "string") {
+          checkoutUrl = cached.checkout_url;
+        }
+        activePaymentId = payRes?.payment_attempt_id ?? cachedId ?? null;
+        if ((fromInfinitePay || Boolean(orderNsu)) && activePaymentId && payRes?.status !== "paid") {
+          notice = "Verificando confirmação do seu pagamento na InfinitePay...";
+          void pollPaymentUntilPaid(activePaymentId, 5);
         }
       }
 
@@ -297,7 +301,7 @@
         return;
       }
 
-      if (res.checkout_url && /^https:\/\/|^http:\/\//i.test(res.checkout_url)) {
+      if (res.checkout_url && /^https:\/\//i.test(res.checkout_url)) {
         window.location.href = res.checkout_url;
         return;
       }
@@ -325,7 +329,7 @@
     try {
       if (activePaymentId) {
         const st = await getCheckoutStatus(activePaymentId);
-        if (st.paid || st.status === "paid") {
+        if (st.status === "paid") {
           paidConfirmed = true;
           notice = "Pagamento confirmado! Redirecionando...";
           await refreshSessionAndAdvance("/student/enrollment");
@@ -356,47 +360,47 @@
         <Badge variant="success">Pagamento confirmado</Badge>
       {/if}
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Finalize sua matrícula na EJA
     </h1>
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-[var(--muted-on-dark)]">
       Assim que o pagamento for confirmado pela InfinitePay, liberamos o envio dos seus documentos.
     </p>
   </header>
 
   {#if loading}
     <Card class="p-6">
-      <p class="text-sm text-slate-500">Carregando condições de matrícula...</p>
+      <p class="text-sm text-white/75">Carregando condições de matrícula...</p>
     </Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Atenção">{error}</Alert>
+      <Alert variant="danger" title="Atenção">{error}</Alert>
     {/if}
     {#if notice}
       <Alert variant={paidConfirmed ? "success" : "info"}>{notice}</Alert>
     {/if}
 
     <Card class="p-5 sm:p-6 space-y-4">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-black/10 pb-4">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-white/15 pb-4">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor promocional no Pix</p>
+          <p class="text-xs font-bold uppercase tracking-wider text-white/70">Valor promocional no Pix</p>
           <div class="flex items-baseline gap-2.5">
             {#if pixPriceText}
-              <span class="text-3xl font-black text-[#00734d]">{pixPriceText}</span>
-              <span class="text-sm font-semibold text-slate-700">à vista</span>
+              <span class="text-3xl font-black text-emerald-300">{pixPriceText}</span>
+              <span class="text-sm font-semibold text-white/80">à vista</span>
             {:else}
-              <span class="text-lg font-bold text-[#0b1220]">Consulte valores no checkout seguro</span>
+              <span class="text-lg font-bold text-white">Consulte valores no checkout seguro</span>
             {/if}
             {#if anchorPriceText}
-              <span class="text-sm text-slate-400 line-through">{anchorPriceText}</span>
+              <span class="text-sm text-white/50 line-through">{anchorPriceText}</span>
             {/if}
           </div>
         </div>
         <Badge variant="info">InfinitePay</Badge>
       </div>
 
-      <p class="text-sm text-slate-700">
-        Pix à vista ou cartão de crédito em até <strong>12x com juros calculados no checkout da InfinitePay</strong>.
+      <p class="text-sm text-white/85">
+        Pix à vista ou cartão de crédito em até <strong class="text-white">12x com juros calculados no checkout da InfinitePay</strong>.
       </p>
 
       <div class="grid gap-3 sm:grid-cols-2">
@@ -405,12 +409,12 @@
           onclick={() => { selectedMethod = "pix"; }}
           class={`min-h-12 rounded-xl border p-3.5 text-left transition ${
             selectedMethod === "pix"
-              ? "border-[#00734d] bg-[#00734d]/5 ring-2 ring-[#00734d]/20"
-              : "border-black/15 bg-white hover:border-black/30"
+              ? "border-emerald-400 bg-emerald-500/15 ring-2 ring-emerald-400/30"
+              : "border-white/15 bg-white/5 hover:border-white/30 hover:bg-white/10"
           }`}
         >
-          <p class="text-sm font-bold text-[#0b1220]">{PAYMENT_LABEL.pix}</p>
-          <p class="text-xs text-slate-600 mt-0.5">
+          <p class="text-sm font-bold text-white">{PAYMENT_LABEL.pix}</p>
+          <p class="text-xs text-white/75 mt-0.5">
             {pixPriceText ? `${pixPriceText} — compensação imediata` : "Compensação imediata"}
           </p>
         </button>
@@ -420,27 +424,27 @@
           onclick={() => { selectedMethod = "card"; }}
           class={`min-h-12 rounded-xl border p-3.5 text-left transition ${
             selectedMethod === "card"
-              ? "border-[#002776] bg-[#002776]/5 ring-2 ring-[#002776]/20"
-              : "border-black/15 bg-white hover:border-black/30"
+              ? "border-sky-400 bg-sky-500/15 ring-2 ring-sky-400/30"
+              : "border-white/15 bg-white/5 hover:border-white/30 hover:bg-white/10"
           }`}
         >
-          <p class="text-sm font-bold text-[#0b1220]">{PAYMENT_LABEL.card}</p>
-          <p class="text-xs text-slate-600 mt-0.5">Parcelamento calculado no checkout seguro</p>
+          <p class="text-sm font-bold text-white">{PAYMENT_LABEL.card}</p>
+          <p class="text-xs text-white/75 mt-0.5">Parcelamento calculado no checkout seguro</p>
         </button>
       </div>
 
       {#if needsCpf || needsEmail}
-        <form onsubmit={handleProfileSubmit} class="rounded-2xl border border-[#ffc400]/50 bg-[#ffc400]/10 p-4 space-y-4">
+        <form onsubmit={handleProfileSubmit} class="rounded-2xl border border-[#ffc400]/40 bg-[#ffc400]/10 p-4 space-y-4">
           <div>
-            <h2 class="text-sm font-bold text-[#0b1220]">Complete seu cadastro para emitir a cobrança</h2>
-            <p class="text-xs text-slate-700 mt-0.5">
+            <h2 class="text-sm font-bold text-white">Complete seu cadastro para emitir a cobrança</h2>
+            <p class="text-xs text-amber-100 mt-0.5">
               Estes dados são obrigatórios para registrar sua matrícula escolar.
             </p>
           </div>
 
           {#if needsCpf}
             <div class="space-y-2">
-              <label for="lead-cpf" class="block text-xs font-bold uppercase tracking-wide text-slate-700">
+              <label for="lead-cpf" class="block text-xs font-bold uppercase tracking-wide text-white/80">
                 CPF do aluno
               </label>
               <input
@@ -451,7 +455,7 @@
                 oninput={(e) => { cpfInput = maskCpf((e.currentTarget as HTMLInputElement).value); }}
                 placeholder="000.000.000-00"
                 disabled={busy}
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
               />
               <TurnstileWidget
                 resetKey={turnstileResetKey}
@@ -462,7 +466,7 @@
 
           {#if needsEmail}
             <div class="space-y-1.5">
-              <label for="lead-email" class="block text-xs font-bold uppercase tracking-wide text-slate-700">
+              <label for="lead-email" class="block text-xs font-bold uppercase tracking-wide text-white/80">
                 E-mail pessoal
               </label>
               <input
@@ -471,13 +475,13 @@
                 bind:value={emailInput}
                 placeholder="seuemail@exemplo.com"
                 disabled={busy}
-                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+                class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
               />
               {#if emailHint}
                 <button
                   type="button"
                   onclick={() => { emailInput = emailHint; }}
-                  class="text-xs font-semibold text-[#002776] underline"
+                  class="text-xs font-semibold text-[var(--yellow)] hover:underline"
                 >
                   Você quis dizer {emailHint}? Clique para corrigir
                 </button>
@@ -488,7 +492,7 @@
           <button
             type="submit"
             disabled={busy}
-            class="min-h-11 w-full rounded-xl bg-[#0b1220] px-4 text-sm font-bold text-white hover:opacity-95 disabled:opacity-50"
+            class="min-h-11 w-full rounded-xl bg-[#00734d] px-4 text-sm font-bold text-white hover:opacity-95 disabled:opacity-50"
           >
             {busy ? "Validando dados..." : "Salvar dados e ir para pagamento"}
           </button>
@@ -509,13 +513,13 @@
           </button>
 
           {#if checkoutUrl}
-            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 bg-[#f6f6f2] p-3">
-              <span class="text-xs text-slate-700">Já concluiu o Pix ou cartão na InfinitePay?</span>
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/5 p-3">
+              <span class="text-xs text-white/80">Já concluiu o Pix ou cartão na InfinitePay?</span>
               <button
                 type="button"
                 onclick={handleManualRecheck}
                 disabled={busy}
-                class="min-h-10 rounded-lg border border-[#00734d] px-3 text-xs font-bold text-[#00734d] hover:bg-[#00734d] hover:text-white disabled:opacity-50"
+                class="min-h-10 rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
               >
                 Verificar pagamento agora
               </button>
@@ -525,9 +529,9 @@
       {/if}
     </Card>
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Dúvidas sobre a taxa ou parcelamento?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">
         Falar com atendimento por e-mail
       </a>
     </div>

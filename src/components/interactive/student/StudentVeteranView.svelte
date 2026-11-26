@@ -84,7 +84,7 @@
         <Badge variant="info">Diploma retirado</Badge>
       {/if}
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       {#if view === "diploma"}
         Diploma digital e retirada
       {:else if view === "records"}
@@ -97,44 +97,44 @@
     </h1>
 
     <nav class="flex flex-wrap gap-2 pt-1 text-xs font-bold">
-      <a href="/student/veteran/dashboard" class={`rounded-lg px-3 py-1.5 ${view === "dashboard" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Resumo</a>
-      <a href="/student/veteran/diploma" class={`rounded-lg px-3 py-1.5 ${view === "diploma" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Diploma</a>
-      <a href="/student/veteran/records" class={`rounded-lg px-3 py-1.5 ${view === "records" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Histórico</a>
-      <a href="/student/veteran/assessments" class={`rounded-lg px-3 py-1.5 ${view === "assessments" ? "bg-[#0b1220] text-white" : "bg-black/5 text-slate-700"}`}>Provas</a>
-      <a href="/student/veteran/finance" class="rounded-lg bg-black/5 px-3 py-1.5 text-slate-700">Financeiro</a>
+      <a href="/student/veteran/dashboard" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "dashboard" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Resumo</a>
+      <a href="/student/veteran/diploma" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "diploma" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Diploma</a>
+      <a href="/student/veteran/records" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "records" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Histórico</a>
+      <a href="/student/veteran/assessments" class={`min-h-9 inline-flex items-center rounded-lg px-3 py-1.5 transition ${view === "assessments" ? "bg-[var(--yellow)] text-[#0b1220]" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white"}`}>Provas</a>
+      <a href="/student/veteran/finance" class="min-h-9 inline-flex items-center rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-white/80 hover:bg-white/10 hover:text-white transition">Financeiro</a>
     </nav>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando documentação de conclusão...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando documentação de conclusão...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Erro">{error}</Alert>
+      <Alert variant="danger" title="Erro">{error}</Alert>
     {/if}
 
     {#if view === "assessments"}
       <Card class="p-5 sm:p-6 space-y-3">
-        <h2 class="text-base font-bold text-[#0b1220]">Avaliações concluídas</h2>
+        <h2 class="text-base font-bold text-white">Avaliações concluídas</h2>
         {#if !examsData?.exams?.length}
-          <p class="text-sm text-slate-500">Nenhum registro de prova encontrado.</p>
+          <p class="text-sm text-white/60">Nenhum registro de prova encontrado.</p>
         {:else}
           <div class="space-y-3">
             {#each examsData.exams as exam}
-              <div class="rounded-xl border border-black/10 p-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="rounded-xl border border-white/15 bg-white/5 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-bold text-[#0b1220]">{exam.subject}</span>
-                    <Badge variant={exam.result === "passed" ? "success" : "error"}>
+                    <span class="text-sm font-bold text-white">{exam.subject}</span>
+                    <Badge variant={exam.result === "passed" ? "success" : "danger"}>
                       {exam.result === "passed" ? "Aprovado" : "Reprovado"}
                     </Badge>
                   </div>
-                  <p class="text-xs text-slate-600 mt-0.5">{dateTimeLabel(exam.scheduled_at)}</p>
+                  <p class="text-xs text-white/75 mt-0.5">{dateTimeLabel(exam.scheduled_at)}</p>
                 </div>
                 {#if exam.corrected_exam_file_key}
                   <button
                     type="button"
                     onclick={() => downloadExamPdf(exam.id, exam.attempt_number)}
-                    class="min-h-10 rounded-xl bg-[#002776] px-3.5 text-xs font-bold text-white"
+                    class="min-h-10 rounded-xl bg-[#002776] px-3.5 text-xs font-bold text-white hover:opacity-95"
                   >
                     Baixar prova corrigida
                   </button>
@@ -146,27 +146,27 @@
       </Card>
     {:else}
       <Card class="p-5 sm:p-6 space-y-4">
-        <p class="text-sm text-slate-700">
+        <p class="text-sm text-white/85">
           {diploma?.message || "Acompanhe abaixo o registro e os arquivos do seu diploma e histórico escolar."}
         </p>
 
         {#if diploma?.registration}
-          <dl class="grid gap-3 text-sm sm:grid-cols-2 border-y border-black/10 py-4">
+          <dl class="grid gap-3 text-sm sm:grid-cols-2 border-y border-white/15 py-4">
             <div>
-              <dt class="text-xs font-bold uppercase text-slate-500">Registro</dt>
-              <dd class="font-semibold text-[#0b1220]">{diploma.registration.registration_number || "Em processamento"}</dd>
+              <dt class="text-xs font-bold uppercase text-white/60">Registro</dt>
+              <dd class="font-semibold text-white">{diploma.registration.registration_number || "Em processamento"}</dd>
             </div>
             <div>
-              <dt class="text-xs font-bold uppercase text-slate-500">Processo</dt>
-              <dd class="font-semibold text-[#0b1220]">{diploma.registration.process_number || "—"}</dd>
+              <dt class="text-xs font-bold uppercase text-white/60">Processo</dt>
+              <dd class="font-semibold text-white">{diploma.registration.process_number || "—"}</dd>
             </div>
             <div>
-              <dt class="text-xs font-bold uppercase text-slate-500">Diário Oficial</dt>
-              <dd class="font-medium text-slate-700">{dateLabel(diploma.registration.gazette_publication_date)}</dd>
+              <dt class="text-xs font-bold uppercase text-white/60">Diário Oficial</dt>
+              <dd class="font-medium text-white/85">{dateLabel(diploma.registration.gazette_publication_date)}</dd>
             </div>
             <div>
-              <dt class="text-xs font-bold uppercase text-slate-500">Emissão</dt>
-              <dd class="font-medium text-slate-700">{dateLabel(diploma.registration.issued_at)}</dd>
+              <dt class="text-xs font-bold uppercase text-white/60">Emissão</dt>
+              <dd class="font-medium text-white/85">{dateLabel(diploma.registration.issued_at)}</dd>
             </div>
           </dl>
         {/if}
@@ -193,12 +193,12 @@
         </div>
 
         {#if diploma?.pickup}
-          <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-4 text-xs text-slate-700 space-y-1">
-            <p class="font-bold text-[#0b1220]">Entrega presencial — {diploma.pickup.hub_name}</p>
+          <div class="rounded-xl border border-white/15 bg-white/5 p-4 text-xs text-white/85 space-y-1">
+            <p class="font-bold text-white">Entrega presencial — {diploma.pickup.hub_name}</p>
             {#if diploma.pickup.address}<p>{diploma.pickup.address}</p>{/if}
             <p>
               Status da retirada:
-              <strong>
+              <strong class="text-white">
                 {diploma.pickup.picked_up
                   ? `Retirado em ${dateLabel(diploma.pickup.picked_up_at)}`
                   : "Aguardando retirada ou emissão final"}
@@ -209,9 +209,9 @@
       </Card>
     {/if}
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Dúvidas sobre certificação ou entrega?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar com atendimento</a>
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar com atendimento</a>
     </div>
   {/if}
 </section>

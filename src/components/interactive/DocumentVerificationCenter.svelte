@@ -72,11 +72,11 @@
 
   function statusBadge(item: EnrollmentChecklistItem | undefined): {
     label: string;
-    variant: "success" | "warning" | "error" | "info" | "default";
+    variant: "success" | "warning" | "danger" | "info" | "neutral";
   } {
     if (!item || !item.submitted) return { label: "Pendente", variant: "warning" };
     if (item.status === "approved") return { label: "Aprovado", variant: "success" };
-    if (item.status === "rejected") return { label: "Reprovado", variant: "error" };
+    if (item.status === "rejected") return { label: "Reprovado", variant: "danger" };
     if (item.status === "review" || item.needs_manual_review) {
       return { label: "Em revisão", variant: "info" };
     }
@@ -122,22 +122,22 @@
         {STUDENT_STATUS_LABELS[statusInfo?.substatus ?? statusInfo?.current_status ?? "pre_enrolled"] ?? "Matrícula em andamento"}
       </Badge>
       {#if me?.name}
-        <span class="text-xs font-semibold text-slate-600">{me.name}</span>
+        <span class="text-xs font-semibold text-white/75">{me.name}</span>
       {/if}
     </div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Central de documentos da matrícula
     </h1>
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-[var(--muted-on-dark)]">
       {statusInfo?.message || "Envie os 5 itens abaixo para liberarmos seu acesso ao portal acadêmico."}
     </p>
   </header>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando seu checklist de matrícula...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando seu checklist de matrícula...</p></Card>
   {:else}
     {#if error}
-      <Alert variant="error" title="Erro ao carregar checklist">{error}</Alert>
+      <Alert variant="danger" title="Erro ao carregar checklist">{error}</Alert>
     {/if}
 
     {#if statusInfo?.substatus === "pending_siga" || statusInfo?.all_basic_docs_ready}
@@ -145,14 +145,14 @@
         Seus documentos básicos já foram recebidos! A secretaria está preparando suas credenciais de acesso ao SIGA.
       </Alert>
     {:else}
-      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ffc400]/50 bg-[#ffc400]/15 p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ffc400]/40 bg-[#ffc400]/15 p-4">
         <div>
-          <p class="text-sm font-bold text-[#0b1220]">Próxima etapa pendente</p>
-          <p class="text-xs text-slate-700">Continue de onde você parou sem perder seus envios anteriores.</p>
+          <p class="text-sm font-bold text-white">Próxima etapa pendente</p>
+          <p class="text-xs text-amber-100">Continue de onde você parou sem perder seus envios anteriores.</p>
         </div>
         <a
           href={nextActionHref}
-          class="min-h-11 inline-flex items-center rounded-xl bg-[#0b1220] px-4 text-sm font-bold text-white hover:opacity-95"
+          class="min-h-11 inline-flex items-center rounded-xl bg-[#ffc400] px-4 text-sm font-extrabold text-[#0b1220] hover:brightness-95"
         >
           Continuar envio
         </a>
@@ -166,22 +166,22 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="space-y-1">
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-sm font-bold text-[#0b1220]">{step.title}</h2>
+                <h2 class="text-sm font-bold text-white">{step.title}</h2>
                 <Badge variant={badge.variant}>{badge.label}</Badge>
               </div>
               {#if step.item?.rejection_reason}
-                <p class="text-xs font-medium text-red-700">
+                <p class="text-xs font-medium text-rose-300">
                   Motivo da revisão: {step.item.rejection_reason}
                 </p>
               {/if}
               {#if step.key === "rg" && rg?.front_photo && !rg?.back_photo && !rg?.full_photo}
-                <p class="text-xs text-amber-700">Frente enviada; falta o verso do RG.</p>
+                <p class="text-xs text-amber-300">Frente enviada; falta o verso do RG.</p>
               {/if}
             </div>
 
             <a
               href={step.href}
-              class="min-h-10 inline-flex items-center rounded-xl border border-black/15 px-3.5 text-xs font-bold text-[#0b1220] hover:bg-black/5"
+              class="min-h-10 inline-flex items-center rounded-xl border border-white/20 bg-white/5 px-3.5 text-xs font-bold text-white hover:bg-white/10"
             >
               {step.item?.status === "approved"
                 ? "Ver etapa"
@@ -195,23 +195,23 @@
     </div>
 
     {#if payment}
-      <Card class="p-4 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
+      <Card class="p-4 text-xs text-white/75 flex flex-wrap items-center justify-between gap-2">
         <span>
-          Taxa de matrícula: <strong class="text-[#0b1220]">{payment.amount}</strong>
+          Taxa de matrícula: <strong class="text-white">{payment.amount}</strong>
           ({payment.status === "paid" ? "Confirmada" : payment.status})
           {#if payment.paid_at} — paga em {dateTimeLabel(payment.paid_at)}{/if}
         </span>
         {#if payment.receipt_url}
-          <a href={payment.receipt_url} target="_blank" rel="noopener noreferrer" class="font-bold text-[#002776] underline">
+          <a href={payment.receipt_url} target="_blank" rel="noopener noreferrer" class="font-bold text-[var(--yellow)] hover:underline">
             Abrir recibo InfinitePay
           </a>
         {/if}
       </Card>
     {/if}
 
-    <div class="text-center text-xs text-slate-500">
+    <div class="text-center text-xs text-white/60">
       Dúvidas sobre seus documentos?
-      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar com atendimento</a>
+      <a href={supportHref} class="font-semibold text-[var(--yellow)] hover:underline">Falar com atendimento</a>
     </div>
   {/if}
 </section>

@@ -133,57 +133,57 @@
 <section class="mx-auto max-w-6xl px-4 pb-28 pt-6 space-y-5">
   <header class="space-y-2">
     <Badge variant="info">Secretaria Central</Badge>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Painel Administrativo
     </h1>
     <AdminNav active="dashboard" />
   </header>
 
   {#if error}
-    <Alert variant="error" title="Erro">{error}</Alert>
+    <Alert variant="danger" title="Erro">{error}</Alert>
   {/if}
   {#if notice}
     <Alert variant="success">{notice}</Alert>
   {/if}
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando indicadores e alunos...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando indicadores e alunos...</p></Card>
   {:else}
     {#if summary}
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-bold uppercase tracking-wide text-slate-600">Resumo Financeiro (InfinitePay)</h2>
+        <h2 class="text-sm font-bold uppercase tracking-wide text-white/75">Resumo Financeiro (InfinitePay)</h2>
         <select
           bind:value={period}
           onchange={() => applyFilters()}
-          class="min-h-10 rounded-xl border border-black/15 bg-white px-3 text-xs font-bold text-[#0b1220]"
+          class="min-h-10 rounded-xl border border-white/20 bg-[#121d33] px-3 text-xs font-bold text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
         >
-          <option value="all">Todo o período</option>
-          <option value="month">Últimos 30 dias</option>
-          <option value="week">Últimos 7 dias</option>
-          <option value="today">Hoje</option>
+          <option value="all" class="bg-[#121d33] text-white">Todo o período</option>
+          <option value="month" class="bg-[#121d33] text-white">Últimos 30 dias</option>
+          <option value="week" class="bg-[#121d33] text-white">Últimos 7 dias</option>
+          <option value="today" class="bg-[#121d33] text-white">Hoje</option>
         </select>
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card class="p-4">
-          <p class="text-xs font-bold uppercase text-slate-500">Receita confirmada</p>
-          <p class="mt-1 text-2xl font-black text-[#00734d]">{summary.total_revenue}</p>
-          <p class="text-xs text-slate-600">{summary.total_paid_count} matrículas pagas</p>
+          <p class="text-xs font-bold uppercase text-white/60">Receita confirmada</p>
+          <p class="mt-1 text-2xl font-black text-emerald-300">{summary.total_revenue}</p>
+          <p class="text-xs text-white/75">{summary.total_paid_count} matrículas pagas</p>
         </Card>
         <Card class="p-4">
-          <p class="text-xs font-bold uppercase text-slate-500">Pagamentos pendentes</p>
-          <p class="mt-1 text-2xl font-black text-[#0b1220]">{summary.total_pending_count}</p>
-          <p class="text-xs text-slate-600">Aguardando compensação</p>
+          <p class="text-xs font-bold uppercase text-white/60">Pagamentos pendentes</p>
+          <p class="mt-1 text-2xl font-black text-white">{summary.total_pending_count}</p>
+          <p class="text-xs text-white/75">Aguardando compensação</p>
         </Card>
         <Card class="p-4">
-          <p class="text-xs font-bold uppercase text-slate-500">Estornos</p>
-          <p class="mt-1 text-2xl font-black text-red-700">{summary.total_refunded_amount}</p>
-          <p class="text-xs text-slate-600">{summary.total_refunded_count} estornados</p>
+          <p class="text-xs font-bold uppercase text-white/60">Estornos</p>
+          <p class="mt-1 text-2xl font-black text-rose-300">{summary.total_refunded_amount}</p>
+          <p class="text-xs text-white/75">{summary.total_refunded_count} estornados</p>
         </Card>
         <Card class="p-4">
-          <p class="text-xs font-bold uppercase text-slate-500">Total de alunos filtrados</p>
-          <p class="mt-1 text-2xl font-black text-[#002776]">{studentsTotal}</p>
-          <p class="text-xs text-slate-600">Página {studentsPage} de {Math.max(1, studentsTotalPages)}</p>
+          <p class="text-xs font-bold uppercase text-white/60">Total de alunos filtrados</p>
+          <p class="mt-1 text-2xl font-black text-sky-300">{studentsTotal}</p>
+          <p class="text-xs text-white/75">Página {studentsPage} de {Math.max(1, studentsTotalPages)}</p>
         </Card>
       </div>
     {/if}
@@ -194,34 +194,34 @@
           type="search"
           bind:value={search}
           placeholder="Buscar por nome, CPF ou telefone"
-          class="min-h-11 rounded-xl border border-black/15 bg-white px-3.5 text-sm sm:col-span-2"
+          class="min-h-11 rounded-xl border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none sm:col-span-2"
         />
         <select
           bind:value={statusFilter}
-          class="min-h-11 rounded-xl border border-black/15 bg-white px-3 text-sm"
+          class="min-h-11 rounded-xl border border-white/20 bg-[#121d33] px-3 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none"
         >
-          <option value="">Todos os status</option>
+          <option value="" class="bg-[#121d33] text-white">Todos os status</option>
           {#each Object.entries(STUDENT_STATUS_LABELS) as [key, label]}
             {#if ["lead", "payment_pending", "pre_enrolled", "enrolled", "exam_scheduled", "awaiting_pickup", "graduated", "cancelled"].includes(key)}
-              <option value={key}>{label}</option>
+              <option value={key} class="bg-[#121d33] text-white">{label}</option>
             {/if}
           {/each}
         </select>
         <button
           type="submit"
           disabled={busy}
-          class="min-h-11 rounded-xl bg-[#0b1220] px-4 text-sm font-bold text-white hover:opacity-95 disabled:opacity-50"
+          class="min-h-11 rounded-xl bg-[#ffc400] px-4 text-sm font-extrabold text-[#0b1220] hover:brightness-95 disabled:opacity-50"
         >
           {busy ? "Filtrando..." : "Buscar"}
         </button>
       </form>
 
       {#if !students.length}
-        <p class="text-sm text-slate-500 py-4">Nenhum aluno encontrado para os filtros atuais.</p>
+        <p class="text-sm text-white/60 py-4">Nenhum aluno encontrado para os filtros atuais.</p>
       {:else}
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs sm:text-sm">
-            <thead class="border-b border-black/10 text-xs uppercase text-slate-500">
+            <thead class="border-b border-white/15 text-xs uppercase text-white/60">
               <tr>
                 <th class="py-2 pr-3">Aluno</th>
                 <th class="py-2 pr-3">CPF / Tel</th>
@@ -231,14 +231,14 @@
                 <th class="py-2 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-black/5">
+            <tbody class="divide-y divide-white/10">
               {#each students as s}
-                <tr>
-                  <td class="py-3 pr-3 font-semibold text-[#0b1220]">
+                <tr class="hover:bg-white/5">
+                  <td class="py-3 pr-3 font-semibold text-white">
                     {s.full_name || s.name || "Sem nome"}
-                    {#if s.email}<p class="text-xs font-normal text-slate-500">{s.email}</p>{/if}
+                    {#if s.email}<p class="text-xs font-normal text-white/60">{s.email}</p>{/if}
                   </td>
-                  <td class="py-3 pr-3 font-mono text-xs text-slate-700">
+                  <td class="py-3 pr-3 font-mono text-xs text-white/80">
                     <p>{s.cpf || "—"}</p>
                     <p>{s.phone}</p>
                   </td>
@@ -247,14 +247,14 @@
                       {STUDENT_STATUS_LABELS[s.status] ?? s.status}
                     </Badge>
                     {#if s.substatus}
-                      <p class="mt-0.5 text-[11px] text-slate-500">
+                      <p class="mt-0.5 text-[11px] text-white/60">
                         {STUDENT_STATUS_LABELS[s.substatus] ?? s.substatus}
                       </p>
                     {/if}
                   </td>
-                  <td class="py-3 pr-3 font-bold text-slate-700">{s.pending_docs_count}</td>
+                  <td class="py-3 pr-3 font-bold text-white/85">{s.pending_docs_count}</td>
                   <td class="py-3 pr-3">
-                    <Badge variant={s.has_siga ? "success" : "default"}>
+                    <Badge variant={s.has_siga ? "success" : "neutral"}>
                       {s.has_siga ? "Emitido" : "Pendente"}
                     </Badge>
                   </td>
@@ -262,7 +262,7 @@
                     <button
                       type="button"
                       onclick={() => openStudentDetail(s.role_id)}
-                      class="min-h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-[#002776] hover:bg-black/5"
+                      class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-bold text-sky-300 hover:bg-white/10"
                     >
                       Abrir ficha
                     </button>
@@ -278,16 +278,16 @@
             type="button"
             onclick={() => changePage(studentsPage - 1)}
             disabled={studentsPage <= 1 || busy}
-            class="min-h-9 rounded-lg border border-black/15 px-3 font-bold disabled:opacity-40"
+            class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 font-bold text-white hover:bg-white/10 disabled:opacity-40"
           >
             Anterior
           </button>
-          <span class="text-slate-600">Página {studentsPage} / {Math.max(1, studentsTotalPages)}</span>
+          <span class="text-white/75">Página {studentsPage} / {Math.max(1, studentsTotalPages)}</span>
           <button
             type="button"
             onclick={() => changePage(studentsPage + 1)}
             disabled={studentsPage >= studentsTotalPages || busy}
-            class="min-h-9 rounded-lg border border-black/15 px-3 font-bold disabled:opacity-40"
+            class="min-h-9 rounded-lg border border-white/20 bg-white/5 px-3 font-bold text-white hover:bg-white/10 disabled:opacity-40"
           >
             Próxima
           </button>
@@ -296,19 +296,19 @@
     </Card>
 
     <Card class="p-4 sm:p-5 space-y-3">
-      <h2 class="text-base font-bold text-[#0b1220]">Últimas transações InfinitePay</h2>
+      <h2 class="text-base font-bold text-white">Últimas transações InfinitePay</h2>
       {#if !payments.length}
-        <p class="text-sm text-slate-500">Nenhuma transação recente.</p>
+        <p class="text-sm text-white/60">Nenhuma transação recente.</p>
       {:else}
         <div class="space-y-2">
           {#each payments as p}
-            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/5 p-3 text-xs">
               <div>
-                <p class="font-bold text-[#0b1220]">
+                <p class="font-bold text-white">
                   {p.student_name || p.student_phone || p.user_id} — {p.amount}
                 </p>
-                <p class="text-slate-600">
-                  Status: <strong>{p.status}</strong> • Criado em {dateTimeLabel(p.created_at)}
+                <p class="text-white/75">
+                  Status: <strong class="text-white">{p.status}</strong> • Criado em {dateTimeLabel(p.created_at)}
                 </p>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -317,7 +317,7 @@
                     type="button"
                     onclick={() => handleRecheckPayment(p.id)}
                     disabled={busy}
-                    class="min-h-9 rounded-lg border border-[#00734d] px-3 font-bold text-[#00734d]"
+                    class="min-h-9 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 font-bold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
                   >
                     Reconsultar
                   </button>
@@ -327,7 +327,7 @@
                     type="button"
                     onclick={() => { refundTargetId = p.id; }}
                     disabled={busy}
-                    class="min-h-9 rounded-lg border border-red-300 px-3 font-bold text-red-700"
+                    class="min-h-9 rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
                   >
                     Registrar estorno
                   </button>
@@ -347,14 +347,14 @@
   >
     {#if selectedDetail}
       <div class="space-y-4 max-h-[75vh] overflow-y-auto pr-1 text-xs">
-        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 space-y-1 text-[#0b1220]">
-          <p class="text-sm font-bold text-[#0b1220]">
+        <div class="rounded-xl border border-white/15 bg-white/5 p-3 space-y-1 text-white/85">
+          <p class="text-sm font-bold text-white">
             {selectedDetail.user.full_name || selectedDetail.user.name || "Sem nome"}
           </p>
           <p>CPF: {selectedDetail.user.cpf || "—"} • Tel: {selectedDetail.user.phone}</p>
           <p>E-mail: {selectedDetail.user.email || "—"} • Tipo sanguíneo: {selectedDetail.user.blood_type || "—"}</p>
           <p>
-            Status: <strong>{STUDENT_STATUS_LABELS[selectedDetail.role.status] ?? selectedDetail.role.status}</strong>
+            Status: <strong class="text-white">{STUDENT_STATUS_LABELS[selectedDetail.role.status] ?? selectedDetail.role.status}</strong>
             {#if selectedDetail.role.substatus} ({selectedDetail.role.substatus}){/if}
           </p>
         </div>
@@ -362,15 +362,15 @@
         <div class="space-y-2">
           <h3 class="font-bold text-white">Documentos enviados ({selectedDetail.documents.length})</h3>
           {#each selectedDetail.documents as doc}
-            <div class="rounded-xl border border-black/10 bg-white p-3 space-y-2 text-[#0b1220]">
+            <div class="rounded-xl border border-white/15 bg-white/5 p-3 space-y-2 text-white">
               <div class="flex items-center justify-between gap-2">
-                <span class="font-bold text-[#0b1220]">{doc.doc_type}</span>
-                <Badge variant={doc.status === "approved" ? "success" : doc.status === "rejected" ? "error" : "info"}>
+                <span class="font-bold text-white">{doc.doc_type}</span>
+                <Badge variant={doc.status === "approved" ? "success" : doc.status === "rejected" ? "danger" : "info"}>
                   {doc.status}
                 </Badge>
               </div>
               {#if doc.rejection_reason}
-                <p class="text-red-700">Rejeição: {doc.rejection_reason}</p>
+                <p class="text-rose-300">Rejeição: {doc.rejection_reason}</p>
               {/if}
               {#if doc.file_url || doc.r2_key}
                 <PrivateMediaPreview path={doc.file_url || doc.r2_key} alt={doc.doc_type} compact />
@@ -397,14 +397,14 @@
           required
           minlength="3"
           placeholder="Ex.: Desistência antes da emissão SIGA"
-          class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-[#0b1220]"
+          class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         />
       </div>
       <div>
         <label for="refund-action" class="mb-1 block text-xs font-bold text-white/80">Ação na matrícula</label>
-        <select id="refund-action" bind:value={refundAction} class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-[#0b1220]">
-          <option value="revert_to_pending">Voltar para aguardando pagamento</option>
-          <option value="cancel_enrollment">Cancelar matrícula</option>
+        <select id="refund-action" bind:value={refundAction} class="min-h-11 w-full rounded-xl border border-white/20 bg-[#121d33] px-3 text-sm text-white [color-scheme:dark] focus:border-[var(--yellow)] focus:outline-none">
+          <option value="revert_to_pending" class="bg-[#121d33] text-white">Voltar para aguardando pagamento</option>
+          <option value="cancel_enrollment" class="bg-[#121d33] text-white">Cancelar matrícula</option>
         </select>
       </div>
       <div class="flex justify-end gap-2">

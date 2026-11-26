@@ -102,7 +102,7 @@
       }
       widgetId = ts.render(container, {
         sitekey: SITE_KEY,
-        theme: "light",
+        theme: "dark",
         callback: (token: string) => {
           onToken(token);
         },
@@ -161,7 +161,7 @@
   {#if !fallbackMode}
     <div bind:this={container} class="min-h-[66px]"></div>
   {:else if statusNote}
-    <p class="rounded-lg border border-black/10 bg-[#f6f6f2] px-3 py-2 text-xs text-slate-600">
+    <p class="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/75">
       {statusNote}
     </p>
   {/if}

@@ -77,21 +77,21 @@
 <section class="mx-auto max-w-5xl px-4 pb-28 pt-6 space-y-5">
   <header class="space-y-2">
     <Badge variant="info">Emissão de Portal</Badge>
-    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+    <h1 class="text-2xl font-extrabold tracking-tight text-white">
       Credenciais SIGA
     </h1>
     <AdminNav active="credenciais-siga" />
   </header>
 
   {#if error}
-    <Alert variant="error" title="Erro">{error}</Alert>
+    <Alert variant="danger" title="Erro">{error}</Alert>
   {/if}
   {#if notice}
     <Alert variant="success">{notice}</Alert>
   {/if}
 
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <label class="flex items-center gap-2 text-xs font-bold text-[#0b1220]">
+    <label class="flex items-center gap-2 text-xs font-bold text-white">
       <input
         type="checkbox"
         checked={readyOnly}
@@ -100,23 +100,23 @@
           loading = true;
           try { await loadList(); } catch (err) { error = getErrorMessage(err); } finally { loading = false; }
         }}
-        class="h-4 w-4 accent-[#00734d]"
+        class="h-4 w-4 accent-[#ffc400]"
       />
       <span>Mostrar apenas alunos prontos para SIGA (5 docs básicos enviados + 1ª parcela confirmada)</span>
     </label>
   </div>
 
   {#if loading}
-    <Card class="p-6"><p class="text-sm text-slate-500">Carregando matrículas...</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/75">Carregando matrículas...</p></Card>
   {:else if !enrollments.length}
-    <Card class="p-6"><p class="text-sm text-slate-500">Nenhum aluno encontrado nessa fila.</p></Card>
+    <Card class="p-6"><p class="text-sm text-white/60">Nenhum aluno encontrado nessa fila.</p></Card>
   {:else}
     <div class="space-y-3">
       {#each enrollments as item}
         <Card class="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
           <div class="space-y-1.5">
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-sm font-bold text-[#0b1220]">{item.full_name || item.name || item.phone}</h2>
+              <h2 class="text-sm font-bold text-white">{item.full_name || item.name || item.phone}</h2>
               <Badge variant={item.ready_for_siga ? "success" : "warning"}>
                 {item.ready_for_siga ? "Pronto para SIGA" : item.substatus || item.status}
               </Badge>
@@ -124,8 +124,8 @@
                 <Badge variant="info">SIGA emitido</Badge>
               {/if}
             </div>
-            <p class="text-xs text-slate-600">CPF: {item.cpf || "—"} • Tel: {item.phone}</p>
-            <p class="text-[11px] text-slate-500">
+            <p class="text-xs text-white/75">CPF: {item.cpf || "—"} • Tel: {item.phone}</p>
+            <p class="text-[11px] text-white/60">
               RG: {item.doc_statuses.rg ?? "—"} • Endereço: {item.doc_statuses.proof_of_residence ?? "—"} •
               Escolaridade: {item.doc_statuses.education_level ?? "—"} • Selfie: {item.doc_statuses.selfie ?? "—"} •
               1ª Taxa: {item.fee_1_status ?? "—"}
@@ -160,7 +160,7 @@
           type="text"
           bind:value={sigaUsername}
           required
-          class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-[#0b1220]"
+          class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         />
       </div>
       <div>
@@ -170,7 +170,7 @@
           type="text"
           bind:value={sigaPassword}
           required
-          class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-[#0b1220]"
+          class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         />
       </div>
       <div>
@@ -180,7 +180,7 @@
           type="url"
           bind:value={sigaUrl}
           placeholder="https://..."
-          class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-[#0b1220]"
+          class="min-h-11 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-white placeholder-white/40 focus:border-[var(--yellow)] focus:outline-none"
         />
       </div>
       <div class="flex justify-end gap-2">
