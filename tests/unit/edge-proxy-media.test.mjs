@@ -128,3 +128,63 @@ test("API proxy removes legacy recovery/contact & clients/auth rewrites and midd
     "public, max-age=604800, s-maxage=2592000, immutable",
   );
 });
+
+test("media proxy + middleware chain protects .png and .webp under /media/ with private no-store", async () => {
+  const mediaMod = await loadTsModule("../../src/pages/media/[...path].ts");
+  const middlewareSource = fs.readFileSync(
+    new URL("../../src/middleware.ts", import.meta.url),
+    "utf8",
+  )
+    .replace(/import\s*\{\s*defineMiddleware\s*\}\s*from\s*['"]astro:middleware['"];?/, "const defineMiddleware = (fn) => fn;");
+  const mw = await import(`data:text/javascript;base64,${Buffer.from(transpile(middlewareSource)).toString("base64")}`);
+
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response("webp-bytes", {
+      status: 206,
+      headers: {
+        "content-type": "image/webp",
+        "cache-control": "public, max-age=31536000, immutable",
+      },
+    });
+
+  try {
+    for (const ext of ["png", "webp"]) {
+      const req = new Request(`https://app.supletivo.net.br/media/students/u1/rg.${ext}`, {
+        headers: { Authorization: "Bearer jwt-media-check" },
+      });
+      const finalRes = await mw.onRequest(
+        { url: new URL(req.url) },
+        () =>
+          mediaMod.ALL({
+            request: req,
+            url: new URL(req.url),
+            locals: { runtime: { env: { URL_BACKEND: "https://api.supletivo.net.br" } } },
+          }),
+      );
+
+      assert.equal(finalRes.status, 206);
+      assert.equal(finalRes.headers.get("Cache-Control"), "private, no-store, max-age=0");
+      assert.equal(finalRes.headers.get("Vary"), "Authorization");
+      assert.equal(finalRes.headers.get("X-Content-Type-Options"), "nosniff");
+    }
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("confirm-link SSR route issues 302 redirect preserving token query to backend /v1/auth/confirm-link", async () => {
+  const mod = await loadTsModule("../../src/pages/auth/confirm-link.ts");
+  const req = new Request("https://app.supletivo.net.br/auth/confirm-link?token=abc-123&next=/student");
+  const res = await mod.GET({
+    request: req,
+    url: new URL(req.url),
+    locals: { runtime: { env: { URL_BACKEND: "https://api.supletivo.net.br" } } },
+  });
+
+  assert.equal(res.status, 302);
+  assert.equal(
+    res.headers.get("location"),
+    "https://api.supletivo.net.br/v1/auth/confirm-link?token=abc-123&next=/student",
+  );
+});
