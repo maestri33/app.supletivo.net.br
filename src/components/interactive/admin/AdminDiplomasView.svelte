@@ -10,10 +10,11 @@
   } from "@/lib/api";
   import { compressImage } from "@/lib/image-compression";
   import {
+    ADMIN_PDF_MAX_UPLOAD_BYTES,
     dateLabel,
     dateTimeLabel,
-    documentFileError,
     imageError,
+    pdfFileError,
     STUDENT_STATUS_LABELS,
   } from "@/components/interactive/student/workflow";
   import AdminNav from "@/components/interactive/admin/AdminNav.svelte";
@@ -48,10 +49,15 @@
     students = res.items ?? [];
   }
 
-  async function selectStudent(st: AdminStudentListItem) {
+  async function selectStudent(
+    st: AdminStudentListItem,
+    options?: { preserveFeedback?: boolean },
+  ) {
     selectedStudent = st;
-    error = "";
-    notice = "";
+    if (!options?.preserveFeedback) {
+      error = "";
+      notice = "";
+    }
     busy = true;
     try {
       const detail = await getAdminStudentDiploma(st.role_id);
@@ -83,7 +89,7 @@
     const input = event.currentTarget as HTMLInputElement;
     const f = input.files?.[0] ?? null;
     if (f) {
-      const err = documentFileError(f);
+      const err = pdfFileError(f, ADMIN_PDF_MAX_UPLOAD_BYTES);
       if (err) {
         error = err;
         input.value = "";
@@ -120,7 +126,7 @@
 
       const res = await issueAdminDiploma(target.role_id, fd);
       notice = res.message || "Diploma e histórico registrados com sucesso.";
-      await Promise.all([selectStudent(target), loadStudents()]);
+      await Promise.all([selectStudent(target, { preserveFeedback: true }), loadStudents()]);
     });
   }
 
@@ -144,7 +150,7 @@
 
       const res = await pickupAdminDiploma(target.role_id, compressed);
       notice = res.message || "Retirada do diploma registrada.";
-      await Promise.all([selectStudent(target), loadStudents()]);
+      await Promise.all([selectStudent(target, { preserveFeedback: true }), loadStudents()]);
     });
   }
 </script>
@@ -186,7 +192,7 @@
           />
           <select bind:value={statusFilter} class="min-h-10 rounded-xl border border-black/15 px-3 text-xs">
             <option value="">Todos</option>
-            <option value="academic_ready">Aguardando emissão</option>
+            <option value="awaiting_pickup">Aguardando retirada do diploma</option>
             <option value="graduated">Concluintes</option>
           </select>
           <button type="submit" class="min-h-10 rounded-xl bg-[#0b1220] px-4 text-xs font-bold text-white">
@@ -252,7 +258,7 @@
 
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
-                <label for="dip-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Diploma (até 10 MB)</label>
+                <label for="dip-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Diploma (até 15 MB)</label>
                 <input
                   id="dip-pdf"
                   type="file"
@@ -262,7 +268,7 @@
                 />
               </div>
               <div>
-                <label for="trans-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Histórico (até 10 MB)</label>
+                <label for="trans-pdf" class="mb-1 block text-[11px] font-bold text-slate-600">PDF do Histórico (até 15 MB)</label>
                 <input
                   id="trans-pdf"
                   type="file"

@@ -202,7 +202,7 @@
         >
           <option value="">Todos os status</option>
           {#each Object.entries(STUDENT_STATUS_LABELS) as [key, label]}
-            {#if ["lead", "payment_pending", "pre_enrolled", "enrolled_docs_pending", "enrolled", "under_review", "academic_ready", "exam_scheduled", "graduated"].includes(key)}
+            {#if ["lead", "payment_pending", "pre_enrolled", "enrolled", "exam_scheduled", "awaiting_pickup", "graduated", "cancelled"].includes(key)}
               <option value={key}>{label}</option>
             {/if}
           {/each}

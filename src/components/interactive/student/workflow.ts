@@ -69,14 +69,32 @@ export function dateTimeLabel(value: string | number | null | undefined): string
     : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export function imageError(file: File): string | null {
-  return ["image/jpeg", "image/png", "image/webp"].includes(file.type)
-    ? null
-    : "Envie uma imagem JPG, PNG ou WebP legível.";
+export const DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const ADMIN_PDF_MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+function fileSizeError(file: File, maxBytes: number): string | null {
+  if (file.size <= maxBytes) return null;
+  const maxMb = Math.round(maxBytes / (1024 * 1024));
+  return `Escolha um arquivo de até ${maxMb} MB.`;
 }
 
-export function documentFileError(file: File): string | null {
-  return ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)
-    ? null
-    : "Envie uma imagem (JPG, PNG, WebP) ou arquivo PDF legível.";
+export function imageError(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): string | null {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    return "Envie uma imagem JPG, PNG ou WebP legível.";
+  }
+  return fileSizeError(file, maxBytes);
+}
+
+export function documentFileError(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): string | null {
+  if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) {
+    return "Envie uma imagem (JPG, PNG, WebP) ou arquivo PDF legível.";
+  }
+  return fileSizeError(file, maxBytes);
+}
+
+export function pdfFileError(file: File, maxBytes = ADMIN_PDF_MAX_UPLOAD_BYTES): string | null {
+  if (file.type !== "application/pdf") {
+    return "Envie um arquivo PDF válido.";
+  }
+  return fileSizeError(file, maxBytes);
 }

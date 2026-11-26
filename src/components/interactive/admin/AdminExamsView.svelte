@@ -7,7 +7,7 @@
     uploadAdminCorrectedExamPdf,
     type AdminScheduledExamItem,
   } from "@/lib/api";
-  import { dateTimeLabel, documentFileError } from "@/components/interactive/student/workflow";
+  import { ADMIN_PDF_MAX_UPLOAD_BYTES, dateTimeLabel, documentFileError } from "@/components/interactive/student/workflow";
   import AdminNav from "@/components/interactive/admin/AdminNav.svelte";
   import PrivateMediaPreview from "@/components/interactive/admin/PrivateMediaPreview.svelte";
   import { Alert, Badge, Card } from "@/components/ui";
@@ -71,7 +71,7 @@
     input.value = "";
     if (!file) return;
 
-    const validationError = documentFileError(file);
+    const validationError = documentFileError(file, ADMIN_PDF_MAX_UPLOAD_BYTES);
     if (validationError) {
       error = validationError;
       return;

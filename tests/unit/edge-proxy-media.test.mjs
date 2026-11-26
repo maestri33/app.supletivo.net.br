@@ -173,18 +173,31 @@ test("media proxy + middleware chain protects .png and .webp under /media/ with 
   }
 });
 
-test("confirm-link SSR route issues 302 redirect preserving token query to backend /v1/auth/confirm-link", async () => {
+test("confirm-link SSR route issues 302 redirect with mutable headers through middleware", async () => {
   const mod = await loadTsModule("../../src/pages/auth/confirm-link.ts");
+  const middlewareSource = fs.readFileSync(
+    new URL("../../src/middleware.ts", import.meta.url),
+    "utf8",
+  )
+    .replace(/import\s*\{\s*defineMiddleware\s*\}\s*from\s*['"]astro:middleware['"];?/, "const defineMiddleware = (fn) => fn;");
+  const mw = await import(`data:text/javascript;base64,${Buffer.from(transpile(middlewareSource)).toString("base64")}`);
+
   const req = new Request("https://app.supletivo.net.br/auth/confirm-link?token=abc-123&next=/student");
-  const res = await mod.GET({
-    request: req,
-    url: new URL(req.url),
-    locals: { runtime: { env: { URL_BACKEND: "https://api.supletivo.net.br" } } },
-  });
+  const res = await mw.onRequest(
+    { url: new URL(req.url) },
+    () =>
+      mod.GET({
+        request: req,
+        url: new URL(req.url),
+        locals: { runtime: { env: { URL_BACKEND: "https://api.supletivo.net.br" } } },
+      }),
+  );
 
   assert.equal(res.status, 302);
   assert.equal(
     res.headers.get("location"),
     "https://api.supletivo.net.br/v1/auth/confirm-link?token=abc-123&next=/student",
   );
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.ok(res.headers.get("strict-transport-security"));
 });

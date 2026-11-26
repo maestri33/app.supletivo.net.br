@@ -37,8 +37,16 @@
   let objectUrls: string[] = [];
 
   const supportHref = $derived(resolveSupportHref(contact));
+  const isRgComplete = $derived(
+    Boolean(
+      lastAck?.rg_complete ||
+        rg?.full_photo ||
+        (rg?.front_photo && rg?.back_photo) ||
+        statusInfo?.checklist?.rg?.status === "approved",
+    ),
+  );
   const missingHint = $derived.by(() => {
-    if (lastAck?.rg_complete || statusInfo?.checklist?.rg?.submitted) return null;
+    if (isRgComplete) return null;
     if (lastAck?.next_slot === "rg_back" || (rg?.front_photo && !rg?.back_photo && !rg?.full_photo)) {
       return "Falta enviar o verso do RG.";
     }
@@ -297,7 +305,7 @@
         />
       </label>
 
-      {#if statusInfo?.checklist?.rg?.submitted || rg?.full_photo || (rg?.front_photo && rg?.back_photo)}
+      {#if isRgComplete}
         <div class="flex justify-end pt-2">
           <a
             href="/student/enrollment/address"

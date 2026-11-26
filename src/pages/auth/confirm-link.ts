@@ -10,5 +10,11 @@ export const GET: APIRoute = async (context) => {
     'https://api.supletivo.net.br';
 
   const target = new URL(`/v1/auth/confirm-link${context.url.search}`, backendUrl);
-  return Response.redirect(target.toString(), 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target.toString(),
+      'Cache-Control': 'no-store',
+    },
+  });
 };

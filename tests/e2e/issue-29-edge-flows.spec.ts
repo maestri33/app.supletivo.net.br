@@ -575,4 +575,62 @@ test.describe("Fluxos Críticos e Edge Cases Issue #29", () => {
     const location = res.headers().location ?? "";
     expect(location).toMatch(/\/v1\/auth\/confirm-link\?token=magic-tok-29$/);
   });
+
+  test("RG parcial com checklist.rg.submitted=true e status=pending mantém aviso de verso e bloqueia avanço", async ({ page }) => {
+    await signInStudent(page, "pre_enrolled", "rg_pending");
+
+    await page.route("**/api/v1/auth/whoami", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          id: "u-rg-partial",
+          external_id: "u-rg-partial",
+          phone: "5543999991119",
+          roles: ["client"],
+          active_role: "client",
+          role_statuses: { client: "pre_enrolled" },
+          status: "pre_enrolled",
+          substatus: "rg_pending",
+        },
+      }),
+    );
+
+    await page.route("**/api/v1/enrollment/status", (route) =>
+      route.fulfill({
+        json: {
+          student_role_id: "r1",
+          current_status: "pre_enrolled",
+          substatus: "rg_pending",
+          step: 1,
+          all_basic_docs_ready: false,
+          checklist: {
+            rg: { submitted: true, status: "pending" },
+          },
+        },
+      }),
+    );
+
+    await page.route("**/api/v1/enrollment/documents/rg", (route) =>
+      route.fulfill({
+        json: {
+          submitted: true,
+          rg_section: {
+            front_photo: "/v1/media/rg/f.png",
+            back_photo: null,
+            full_photo: null,
+            next_slot: "rg_back",
+            analysis_status: "pending",
+          },
+        },
+      }),
+    );
+
+    await page.route("**/media/**", (route) =>
+      route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG }),
+    );
+
+    await page.goto("/student/enrollment/rg");
+    await expect(page.getByText("Falta enviar o verso do RG.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Avançar para comprovante de endereço" })).toHaveCount(0);
+  });
 });

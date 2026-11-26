@@ -244,6 +244,23 @@ test.describe("Módulo Administrativo Unificado (/admin/*)", () => {
     await expect(page.getByText("R$ 1.998,00")).toBeVisible();
     await expect(page.getByText("Maria Oliveira").first()).toBeVisible();
 
+    const dashboardStatusValues = await page
+      .locator("select")
+      .nth(1)
+      .locator("option")
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value));
+    expect(dashboardStatusValues).toEqual([
+      "",
+      "lead",
+      "payment_pending",
+      "pre_enrolled",
+      "enrolled",
+      "exam_scheduled",
+      "awaiting_pickup",
+      "graduated",
+      "cancelled",
+    ]);
+
     await page.getByPlaceholder("Buscar por nome, CPF ou telefone").fill("Maria");
     await page.getByRole("button", { name: "Buscar" }).click();
     await expect.poll(() => studentListUrls.some((u) => u.includes("search=Maria"))).toBe(true);
@@ -659,8 +676,9 @@ test.describe("Módulo Administrativo Unificado (/admin/*)", () => {
     });
     await page.getByRole("button", { name: "Salvar emissão de diploma / histórico" }).click();
 
-    await expect(page.getByText("Diploma emitido")).toBeVisible();
-    await expect(page.getByText("Histórico emitido")).toBeVisible();
+    await expect(page.getByText("Diploma e histórico emitidos!", { exact: true })).toBeVisible();
+    await expect(page.getByText("Diploma emitido", { exact: true })).toBeVisible();
+    await expect(page.getByText("Histórico emitido", { exact: true })).toBeVisible();
     await expect(page.getByText("Documento em PDF pronto para visualização.")).toHaveCount(2);
 
     const pickupInput = page.locator('label:has-text("Registrar retirada com foto") input[type="file"]');
@@ -669,7 +687,13 @@ test.describe("Módulo Administrativo Unificado (/admin/*)", () => {
       mimeType: "image/png",
       buffer: TINY_PNG,
     });
+    await expect(page.getByText("Retirada presencial registrada.")).toBeVisible();
     await expect(page.locator("img[src^='blob:']")).toHaveCount(1);
     expect(mediaHeaders.every((h) => h === "Bearer admin-jwt-fixture")).toBe(true);
+
+    const diplomaFilterValues = await page.locator("select option").evaluateAll((opts) =>
+      opts.map((o) => (o as HTMLOptionElement).value),
+    );
+    expect(diplomaFilterValues).toEqual(["", "awaiting_pickup", "graduated"]);
   });
 });

@@ -12,7 +12,7 @@
     "sync": "astro sync",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test tests/unit/roles.test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts tests/unit/camera-session.test.ts tests/unit/otp-input.test.ts tests/unit/deadline.test.ts tests/unit/api-session.test.mjs tests/unit/edge-proxy-media.test.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/unit/roles.test.ts tests/unit/rg-capture.test.ts tests/unit/address-proof.test.ts tests/unit/camera-session.test.ts tests/unit/otp-input.test.ts tests/unit/deadline.test.ts tests/unit/workflow.test.ts tests/unit/api-session.test.mjs tests/unit/edge-proxy-media.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:cli": "playwright-cli",
