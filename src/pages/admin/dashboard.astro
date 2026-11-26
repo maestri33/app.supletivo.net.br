@@ -1,0 +1,8 @@
+---
+import RootLayout from "../../layouts/RootLayout.astro";
+import AdminDashboardView from "../../components/interactive/admin/AdminDashboardView.svelte";
+export const prerender = false;
+---
+<RootLayout title="Administração — Painel Geral | Supletivo Brasil">
+  <AdminDashboardView client:load />
+</RootLayout>

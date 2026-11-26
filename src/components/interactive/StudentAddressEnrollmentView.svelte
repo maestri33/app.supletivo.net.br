@@ -1,324 +1,228 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import RelationshipPicker from "./RelationshipPicker.svelte";
-  import { classifyDocument, whoami, getEnrollmentMe, uploadEnrollmentAddressProof, submitAddressProofKinship, getErrorMessage, type EnrollmentMe } from "@/lib/api";
-  import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
-  import { enrollmentPath } from "./student/workflow";
-  import { addressClassificationError, addressPollDelay } from "@/lib/address-proof";
-  import UtilityBillIcon from "@/components/icons/UtilityBillIcon.svelte";
-  import CameraIcon from "@/components/icons/CameraIcon.svelte";
-  import UploadFileIcon from "@/components/icons/UploadFileIcon.svelte";
-  import BankTlsSeal from "@/components/icons/BankTlsSeal.svelte";
-  import Alert from "@/components/ui/Alert.svelte";
-  import Badge from "@/components/ui/Badge.svelte";
-  type StepStatus = "pending" | "under_review" | "review" | "needs_kinship" | "approved";
-  let status = $state<StepStatus>("pending"), studentName = $state("Titular da matrícula");
-  let isAnalyzing = $state(false), isExtracting = $state(false), triageError = $state<string | null>(null);
-  let isRelationshipModalOpen = $state(false), latestEnrollment = $state<EnrollmentMe | null>(null);
-  let previewData = $state<string | null>(null), extractedHolder = $state("Titular não informado");
-  let confirmedAddress = $state<{ street: string | null; number: string | null; neighborhood: string | null; city: string | null; uf: string | null; cep: string | null; holderName: string; relationship?: string } | null>(null);
-  let nextPath = $state("/student/enrollment");
-  let active = true;
-  let pollTimer: ReturnType<typeof setTimeout>, pollUntil = 0;
-  let revision = 0, sequence = 0, appliedSequence = 0, checking = false;
-  function failure(cause: unknown) { return cause instanceof Error ? cause.message : getErrorMessage(cause); }
-  function notifyDock(addressStatus: "pending" | "under_review" | "approved" | "rejected") { window.dispatchEvent(new CustomEvent("supletivo:student-state", { detail: { addressStatus } })); }
-  function apply(me: EnrollmentMe) {
-    latestEnrollment = me; nextPath = enrollmentPath(me.status) ?? "/student/enrollment";
-    extractedHolder = me.address_proof?.holder_name || "Titular não informado";
-    const proof = me.address_proof;
-    const expiry = Date.parse(proof?.expires_at ?? "");
-    if (Number.isFinite(expiry)) pollUntil = expiry + 5000;
-    else if (!pollUntil) pollUntil = Date.now() + 300_000;
-    if (proof?.status === "approved" && me.address_complete === true && me.address) {
-      status = "approved"; notifyDock("approved");
-      confirmedAddress = { street: me.address.street, number: me.address.number, neighborhood: me.address.neighborhood,
-        city: me.address.city, uf: me.address.state, cep: me.address.cep || me.address.zipcode,
-        holderName: extractedHolder, relationship: proof.kinship_relation || undefined };
-    } else if (proof?.needs_kinship) {
-      status = "needs_kinship"; isRelationshipModalOpen = true; notifyDock("under_review");
-    } else if (proof?.status === "rejected" || proof?.needs_new_proof) {
-      status = "pending"; notifyDock("rejected"); triageError = proof.reason || "Envie um novo comprovante legível.";
-    } else if (proof?.exists) {
-      status = proof.status === "review" || proof.status === "approved" ? "review" : "under_review"; notifyDock("under_review");
-      if (proof.status === "approved" && !me.address_complete) triageError = "O comprovante foi aprovado, mas o endereço está incompleto. O polo precisa conferir os dados extraídos.";
-    } else { status = "pending"; notifyDock("pending"); }
-  }
-  function scheduleRefresh() {
-    clearTimeout(pollTimer);
-    const delay = addressPollDelay(latestEnrollment?.address_proof);
-    if (!active || isAnalyzing || isExtracting || delay === null) return;
-    if (Date.now() >= pollUntil) { triageError = "O resultado ainda não está disponível. Consulte novamente ou peça a conferência do polo."; return; }
-    pollTimer = setTimeout(() => {
-      if (document.visibilityState === "visible") void refresh();
-      else scheduleRefresh();
-    }, delay);
-  }
-  async function refresh() {
-    if (!active || checking) return;
-    checking = true;
-    const snapshot = { revision, sequence: ++sequence };
+  import {
+    fetchContact,
+    getEnrollmentStatus,
+    getErrorMessage,
+    submitAddressProofKinship,
+    uploadEnrollmentAddressProof,
+    type AddressProofUploadResponse,
+    type EnrollmentStatusResponse,
+  } from "@/lib/api";
+  import { resolveSupportHref, type InstitutionalContact } from "@/lib/config";
+  import { compressImage } from "@/lib/image-compression";
+  import RelationshipPicker from "@/components/interactive/RelationshipPicker.svelte";
+  import { documentFileError, enrollmentPath } from "@/components/interactive/student/workflow";
+  import { Alert, Badge, Card } from "@/components/ui";
+
+  let loading = $state(true);
+  let uploading = $state(false);
+  let kinshipBusy = $state(false);
+  let error = $state("");
+  let notice = $state("");
+
+  let statusInfo = $state<EnrollmentStatusResponse | null>(null);
+  let contact = $state<InstitutionalContact | null>(null);
+  let lastUpload = $state<AddressProofUploadResponse | null>(null);
+
+  let kinshipModalOpen = $state(false);
+  let extractedHolder = $state("");
+
+  const supportHref = $derived(resolveSupportHref(contact));
+
+  onMount(async () => {
     try {
-      const me = await getEnrollmentMe();
-      if (active && snapshot.revision === revision && snapshot.sequence >= appliedSequence) {
-        appliedSequence = snapshot.sequence; triageError = null; apply(me);
+      const [st, contactRes] = await Promise.all([
+        getEnrollmentStatus().catch(() => null),
+        fetchContact().catch(() => null),
+      ]);
+      statusInfo = st;
+      contact = contactRes;
+      if (st?.substatus === "needs_kinship") {
+        kinshipModalOpen = true;
       }
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      loading = false;
     }
-    catch (cause) { if (active && snapshot.revision === revision) triageError = failure(cause); }
-    finally { checking = false; scheduleRefresh(); }
-  }
-  async function processSelectedFile(file: File) {
-    if (isAnalyzing || isExtracting) return;
-    triageError = null; isAnalyzing = true; let received = false;
-    revision += 1; clearTimeout(pollTimer);
-    try {
-      if (!file.size || file.size > 15 * 1024 * 1024) throw new Error("Envie um arquivo não vazio de até 15 MB.");
-      if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) throw new Error("Envie JPG, PNG, WebP ou PDF.");
-      const result = await classifyDocument(file);
-      const classificationError = addressClassificationError(result);
-      if (classificationError) throw new Error(classificationError);
-      isAnalyzing = false; isExtracting = true;
-      const me = await uploadEnrollmentAddressProof(file); received = true;
-      if (active) { pollUntil = 0; apply(me); }
-    } catch (cause) {
-      triageError = received ? `Comprovante recebido. Não foi possível consultar a análise: ${failure(cause)}. Consulte novamente antes de reenviar.` : `Não foi possível enviar o comprovante: ${failure(cause)}`;
-    } finally { isAnalyzing = false; isExtracting = false; scheduleRefresh(); }
-  }
-  async function handleRelationshipSelected(relation: string) {
-    if (isExtracting) return;
-    isRelationshipModalOpen = false; isExtracting = true; triageError = null; revision += 1;
-    try { const me = await submitAddressProofKinship(relation); if (active) apply(me); }
-    catch (cause) { triageError = failure(cause); }
-    finally { isExtracting = false; scheduleRefresh(); }
-  }
-  function onFileInputChange(event: Event) { const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; input.value = ""; if (file) void processSelectedFile(file); }
-  function resetUpload() { previewData = null; confirmedAddress = null; status = "pending"; }
-  onMount(() => {
-    void refresh(); void whoami().then(me => { if (active && me.name) studentName = me.name; }).catch(() => {});
-    const focused = () => { if (!isAnalyzing && !isExtracting) void refresh(); };
-    window.addEventListener("focus", focused);
-    return () => { active = false; clearTimeout(pollTimer); window.removeEventListener("focus", focused); };
   });
+
+  async function goToNextStep() {
+    const st = await getEnrollmentStatus().catch(() => null);
+    if (st) statusInfo = st;
+    const nextUrl = enrollmentPath(st?.substatus ?? st?.step) ?? "/student/enrollment/education";
+    window.location.href =
+      nextUrl === "/student/enrollment/address" || nextUrl === "/student/enrollment/rg"
+        ? "/student/enrollment/education"
+        : nextUrl;
+  }
+
+  async function handleFileSelected(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const rawFile = input.files?.[0];
+    input.value = "";
+    if (!rawFile) return;
+
+    const validationError = documentFileError(rawFile);
+    if (validationError) {
+      error = validationError;
+      return;
+    }
+
+    uploading = true;
+    error = "";
+    notice = "";
+
+    try {
+      const isPdf = rawFile.type === "application/pdf" || rawFile.name.toLowerCase().endsWith(".pdf");
+      const fileToSend = isPdf ? rawFile : await compressImage(rawFile, { maxSizeMB: 2 });
+      const postCompressError = documentFileError(fileToSend);
+      if (postCompressError) throw new Error(postCompressError);
+
+      // Direct upload without prior /documents/classify
+      const res = await uploadEnrollmentAddressProof(fileToSend);
+      lastUpload = res;
+
+      const holder = res.extracted_data?.residentName ?? res.extracted_data?.resident_name ?? "";
+      extractedHolder = typeof holder === "string" ? holder : "";
+
+      if (res.needs_kinship || res.extracted_data?.name_matched === false || res.substatus === "needs_kinship") {
+        kinshipModalOpen = true;
+        notice = "Comprovante enviado! Informe agora o titular da conta para concluir esta etapa.";
+        return;
+      }
+
+      notice = "Comprovante recebido! Avançando para escolaridade...";
+      await goToNextStep();
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      uploading = false;
+    }
+  }
+
+  async function handleKinshipSelect(relation: string, ownerName: string) {
+    kinshipBusy = true;
+    error = "";
+    try {
+      await submitAddressProofKinship(relation, ownerName);
+      kinshipModalOpen = false;
+      notice = "Vínculo confirmado! Avançando para escolaridade...";
+      await goToNextStep();
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      kinshipBusy = false;
+    }
+  }
 </script>
 
-<div class="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
-  <!-- Cabeçalho Institucional de Matrícula -->
-  <div class="text-center space-y-2">
-    <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-1">
-      <span class="size-2 rounded-full bg-blue-400 animate-pulse"></span>
-      <span>Documentação Obrigatória · Etapa 2 de 4</span>
+<section class="mx-auto max-w-2xl px-4 pb-28 pt-6 space-y-5">
+  <header class="space-y-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <Badge variant="info">Documento 2 de 5 — Comprovante de residência</Badge>
+      <a href="/student/enrollment" class="text-xs font-bold text-[#002776] underline">
+        Voltar ao checklist
+      </a>
     </div>
-
-    <h1 class="text-2xl sm:text-4xl font-display tracking-tight text-white">
-      Comprovante de Residência
+    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+      Comprovante de residência
     </h1>
-    <p class="text-xs sm:text-sm text-white/70 max-w-lg mx-auto leading-relaxed">
-      Envie uma fatura recente de consumo para conferência do seu endereço de atendimento do polo.
+    <p class="text-sm text-slate-600">
+      Envie conta de luz, água, internet ou contrato recente (foto ou PDF de até 10 MB). Se estiver em nome de outra pessoa, pediremos o vínculo.
     </p>
-  </div>
+  </header>
 
-  <!-- Chips de Contas Aceitas -->
-  <div class="flex items-center justify-center gap-2 flex-wrap">
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-white/80">
-      <span class="text-amber-400">⚡</span> Luz / Energia
-    </span>
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-white/80">
-      <span class="text-blue-400">💧</span> Água / Saneamento
-    </span>
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-white/80">
-      <span class="text-emerald-400">🌐</span> Internet / Telefone
-    </span>
-    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-white/80">
-      <span class="text-rose-400">🔥</span> Gás Canalizado
-    </span>
-  </div>
-
-  <!-- Card Principal de Upload (Física Zero-G & Glassmorphism) -->
-  <div class="payment-card-zero-g w-full p-6 sm:p-8 flex flex-col gap-6 shadow-2xl relative overflow-hidden">
-    <!-- Aviso Amigável de Titularidade de Terceiro -->
-    <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3 text-left">
-      <div class="size-6 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
-        ℹ
-      </div>
-      <p class="text-xs text-white/80 leading-relaxed">
-        <strong>A conta não está no seu nome?</strong> Não tem problema! Se estiver no nome dos seus pais, cônjuge ou proprietário do imóvel, a plataforma solicita apenas o grau de parentesco em 1 clique.
-      </p>
-    </div>
-
-    <!-- Estado de Triagem / Análise da IA -->
-    {#if isAnalyzing || isExtracting}
-      <Alert
-        variant="info"
-        title={isAnalyzing ? "Conferindo o arquivo" : "Enviando o comprovante"}
-        description={isAnalyzing ? "Identificando o documento e sua legibilidade…" : "A análise do endereço continua no servidor após o envio."}
-        class="animate-in fade-in"
-      />
-    {:else if triageError}
-      <Alert
-        variant="danger"
-        title="Atenção no comprovante:"
-        description={triageError}
-      />
+  {#if loading}
+    <Card class="p-6"><p class="text-sm text-slate-500">Carregando etapa...</p></Card>
+  {:else}
+    {#if error}
+      <Alert variant="error" title="Não foi possível enviar">{error}</Alert>
+    {/if}
+    {#if notice}
+      <Alert variant="success">{notice}</Alert>
+    {/if}
+    {#if statusInfo?.checklist?.proof_of_residence?.rejection_reason}
+      <Alert variant="warning" title="Motivo da reprovação anterior">
+        {statusInfo.checklist.proof_of_residence.rejection_reason}
+      </Alert>
     {/if}
 
-    <!-- Visualização do Comprovante ou Slot de Envio -->
-    {#if status === "under_review" || status === "review" || status === "needs_kinship"}
-      <div class="address-state" role="status" aria-live="polite">
-        <h2>{status === "under_review" ? "Comprovante recebido" : status === "needs_kinship" ? "Quem é o titular da conta?" : "Conferência pelo polo"}</h2>
-        <p>{status === "under_review" ? "Estamos lendo seu endereço. Você pode sair desta tela e voltar; não precisa reenviar." : latestEnrollment?.address_proof?.reason || "O polo fará a revisão do comprovante recebido. Não precisa reenviar agora."}</p>
-        {#if status === "needs_kinship"}<button type="button" class="btn" onclick={() => isRelationshipModalOpen = true}>Informar vínculo com o titular</button>{/if}
-        <button type="button" class="address-secondary" disabled={isAnalyzing || isExtracting} onclick={() => void refresh()}>Consultar resultado</button>
-        {#if status !== "under_review"}<button type="button" class="address-secondary" onclick={resetUpload}>Enviar outro comprovante</button>{/if}
-      </div>
-    {:else if status !== "approved"}
-      <div class="p-5 rounded-2xl border {previewData ? 'border-emerald-500/50 bg-emerald-950/25' : 'border-white/10 bg-white/[0.02]'} flex flex-col items-center justify-center text-center min-h-[180px] relative overflow-hidden">
-        {#if previewData}
-          <div class="w-full flex items-center justify-between pb-3 border-b border-white/10">
-            <span class="text-xs font-bold text-white flex items-center gap-2">
-              <UtilityBillIcon class="size-4 text-emerald-400" />
-              <span>Fatura Recebida</span>
-            </span>
-            <Badge variant="success" size="sm" pulse>
-              ✓ Análise em Andamento
-            </Badge>
-          </div>
+    <Card class="p-5 sm:p-6 space-y-4">
+      <ul class="space-y-1.5 text-sm text-slate-700 list-disc pl-5">
+        <li>Aceitamos foto nítida ou PDF original com até 10 MB.</li>
+        <li>O endereço deve mostrar rua, cidade e CEP legíveis.</li>
+      </ul>
 
-          <div class="mt-3 relative rounded-xl overflow-hidden border border-white/20 max-h-48 w-full bg-black/60 flex items-center justify-center">
-            <img src={previewData} alt="Comprovante de Residência" class="size-full object-contain max-h-44" />
-          </div>
-
-          <button
-            type="button"
-            onclick={resetUpload}
-            class="mt-3 text-[11px] text-white/50 hover:text-white underline cursor-pointer"
-          >
-            Substituir comprovante
-          </button>
-        {:else}
-          <div class="flex flex-col items-center justify-center space-y-2 py-4">
-            <UtilityBillIcon class="size-12 text-white/25" />
-            <span class="text-xs font-bold text-white/90">Envie uma conta emitida nos últimos 90 dias</span>
-            <p class="text-[11px] text-white/50 max-w-xs">
-              Pode ser foto da folha impressa ou o arquivo PDF original baixado do app da concessionária.
-            </p>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Botões de Ação Ergonômicos (Mínimo 48px) -->
-      <div class="flex flex-col sm:flex-row gap-3 pt-2">
-        <label class="flex-1 min-h-[48px] py-3.5 px-6 rounded-full bg-[var(--yellow)] hover:bg-[var(--yellow)]/90 text-[var(--ink)] font-black text-xs uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.985] text-center">
-          <CameraIcon class="size-4 text-[var(--ink)]" />
-          <span>Tirar Foto da Fatura</span>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            class="hidden"
-            disabled={isAnalyzing || isExtracting}
-            onchange={onFileInputChange}
-          />
-        </label>
-
-        <label class="flex-1 min-h-[48px] py-3.5 px-6 rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-[0.985]">
-          <UploadFileIcon class="size-4 text-white" />
-          <span>Anexar Arquivo ou PDF</span>
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            class="hidden"
-            disabled={isAnalyzing || isExtracting}
-            onchange={onFileInputChange}
-          />
-        </label>
-      </div>
-    {:else}
-      <!-- Estado Homologado / Concluído com Resumo do Endereço -->
-      <div class="p-6 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-center flex flex-col items-center gap-4">
-        <div class="size-14 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
-          <svg class="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-
-        <div>
-          <h3 class="text-lg font-display text-white">Endereço aprovado pelo servidor</h3>
-          <p class="text-xs text-emerald-200/90 mt-1 max-w-md mx-auto">
-            Os dados do seu comprovante foram validados e vinculados à sua matrícula oficial.
+      {#if lastUpload?.extracted_data?.street || lastUpload?.extracted_data?.city}
+        <div class="rounded-xl border border-black/10 bg-[#f6f6f2] p-3 text-xs text-slate-700 space-y-1">
+          <p class="font-bold text-[#0b1220]">Dados identificados:</p>
+          <p>
+            {[
+              lastUpload.extracted_data.street,
+              lastUpload.extracted_data.number,
+              lastUpload.extracted_data.neighborhood,
+              lastUpload.extracted_data.city,
+              lastUpload.extracted_data.state,
+              lastUpload.extracted_data.cep,
+            ]
+              .filter(Boolean)
+              .join(", ")}
           </p>
         </div>
+      {/if}
 
-        <!-- Ficha Resumo do Endereço Extraído -->
-        {#if confirmedAddress}
-          <div class="w-full max-w-md p-4 rounded-xl bg-black/40 border border-white/10 text-left text-xs space-y-1.5">
-            <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
-              <span class="text-white/60">Titular da Conta:</span>
-              <strong class="text-white">{confirmedAddress.holderName}</strong>
-            </div>
-            {#if confirmedAddress.relationship}
-              <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
-                <span class="text-white/60">Vínculo Declarado:</span>
-                <span class="text-emerald-400 font-semibold">{confirmedAddress.relationship}</span>
-              </div>
-            {/if}
-            <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
-              <span class="text-white/60">Logradouro:</span>
-              <span class="text-white font-medium">{confirmedAddress.street}, {confirmedAddress.number}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-white/60">Cidade / CEP:</span>
-              <span class="text-white font-medium">{confirmedAddress.city} - {confirmedAddress.uf} · CEP {confirmedAddress.cep}</span>
-            </div>
-          </div>
-        {/if}
+      <label
+        class={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl px-5 text-sm font-extrabold transition ${
+          uploading
+            ? "bg-slate-200 text-slate-500 cursor-wait"
+            : "bg-[#ffc400] text-[#0b1220] hover:brightness-95"
+        }`}
+      >
+        <span>{uploading ? "Enviando comprovante..." : "Enviar comprovante (Foto ou PDF)"}</span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          onchange={handleFileSelected}
+          disabled={uploading}
+          class="sr-only"
+        />
+      </label>
 
-        <div class="w-full max-w-sm mt-2">
+      {#if statusInfo?.substatus === "needs_kinship" || lastUpload?.needs_kinship}
+        <button
+          type="button"
+          onclick={() => { kinshipModalOpen = true; }}
+          class="min-h-11 w-full rounded-xl border border-[#002776] px-4 text-sm font-bold text-[#002776] hover:bg-[#002776]/5"
+        >
+          Informar vínculo com o titular
+        </button>
+      {/if}
+
+      {#if statusInfo?.checklist?.proof_of_residence?.submitted && statusInfo.substatus !== "needs_kinship"}
+        <div class="flex justify-end pt-1">
           <a
-            href={nextPath}
-            class="w-full min-h-[48px] py-3.5 px-4 rounded-full bg-[var(--yellow)] hover:bg-[var(--yellow)]/90 text-[var(--ink)] font-black text-xs uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.985] text-center"
+            href="/student/enrollment/education"
+            class="min-h-11 inline-flex items-center rounded-xl bg-[#00734d] px-5 text-sm font-bold text-white hover:opacity-95"
           >
-            <span>Avançar: Escolaridade →</span>
+            Avançar para escolaridade
           </a>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </Card>
 
-    <!-- Rodapé de Proteção de Dados -->
-    <div class="flex items-center justify-center gap-2 text-[11px] text-[var(--muted-on-dark)] pt-2 border-t border-white/10">
-      <BankTlsSeal class="size-4 text-emerald-400" />
-      <span>Documento recebido por conexão segura para conferência do cadastro.</span>
+    <div class="text-center text-xs text-slate-500">
+      Sem comprovante no seu nome?
+      <a href={supportHref} class="font-semibold text-[#002776] underline">Falar com atendimento</a>
     </div>
-  </div>
+  {/if}
 
-  <!-- Botão de Suporte de Contingência -->
-  <div class="text-center">
-    <a
-      href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20estou%20na%20etapa%20de%20envio%20do%20Comprovante%20de%20Resid%C3%AAncia%20do%20Supletivo%20e%20preciso%20de%20ajuda.`}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-white/70 text-xs hover:text-white transition-all cursor-pointer"
-    >
-      <svg class="size-3.5 fill-emerald-400" viewBox="0 0 24 24">
-        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"/>
-      </svg>
-      <span>Dúvidas sobre o comprovante de endereço? Fale no WhatsApp</span>
-    </a>
-  </div>
-</div>
-
-<!-- Modal de Vínculo de Terceiro (1 Toque) -->
-<RelationshipPicker
-  isOpen={isRelationshipModalOpen}
-  holderName={extractedHolder}
-  onSelect={handleRelationshipSelected}
-  onClose={() => { isRelationshipModalOpen = false; }}
-/>
-
-<style>
-  .address-state { background: var(--paper); color: var(--ink); border: 1px solid var(--line-light); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; text-align: center; }
-  .address-state h2 { font: 400 var(--text-h3)/1.3 var(--font-display); margin: 0; }
-  .address-state p { color: var(--muted-on-light); line-height: 1.5; margin: 0; }
-  .address-secondary { min-height: var(--input-height); padding: .75rem 1rem; border: 1px solid var(--line-light); border-radius: var(--radius-pill); background: var(--paper); color: var(--ink); font: 700 .925rem var(--font-sans); cursor: pointer; }
-  .address-state button:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
-  @media (prefers-reduced-motion: reduce) { :global(.animate-ping), :global(.animate-spin), :global(.animate-pulse) { animation: none; } }
-</style>
+  <RelationshipPicker
+    holderName={extractedHolder}
+    isOpen={kinshipModalOpen}
+    busy={kinshipBusy}
+    onSelect={handleKinshipSelect}
+    onClose={() => { kinshipModalOpen = false; }}
+  />
+</section>

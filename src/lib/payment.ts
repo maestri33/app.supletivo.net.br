@@ -8,51 +8,46 @@ export interface CardPricing {
   total: string;
 }
 
-/** Shape of GET /api/v1/clients/pricing. */
+/** Shape of GET /api/v1/catalog/pricing. */
 export interface Pricing {
   pix: string;
-  card: CardPricing;
+  card?: CardPricing | null;
   promo_pix?: string | null;
   promo_card?: CardPricing | null;
+  anchor_full?: string | null;
   has_discount?: boolean;
-  promoter_name?: string | null;
+  updated_at?: string;
 }
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: "Pix à vista",
-  card: "Cartão de crédito",
+  card: "Cartão de crédito (até 12x na InfinitePay)",
 };
 
-/** Validate a raw query value into a known payment method (else null). */
 export function parsePaymentMethod(raw: string | null | undefined): PaymentMethod | null {
   return raw === "pix" || raw === "card" ? raw : null;
 }
 
-/** Short price line, e.g. "R$ 999,00 à vista" or "12× de R$ 99,00". */
 export function priceLine(method: PaymentMethod, pricing: Pricing): string {
-  if (method === "pix") return `${formatBRL(pricing.pix)} à vista`;
-  return `${pricing.card.installments}× de ${formatBRL(pricing.card.installment)}`;
+  const pixValue = pricing.promo_pix ?? pricing.pix;
+  if (method === "pix") return `${formatBRL(pixValue)} à vista`;
+  return `em até 12x no cartão pela InfinitePay (${formatBRL(pixValue)} à vista no Pix)`;
 }
 
 export interface TierPricing {
   hasRef: boolean;
   pix: string;
-  card: CardPricing;
+  card: CardPricing | null;
   economyBrl?: string;
   label?: string;
 }
 
-/**
- * Retorna a oferta canônica universal: 12x R$ 99 / R$ 999 no Pix (Economia de R$ 616,00 sobre a âncora R$ 1.615).
- * Universalizada para todo o tráfego (modelo de promotor descontinuado).
- */
 export function getConsultantPricing(_hasRef?: boolean): TierPricing {
   return {
     hasRef: true,
     pix: "999.00",
-    card: { installments: 12, installment: "99.00", total: "1188.00" },
+    card: null,
     economyBrl: "616,00",
     label: "Condição Especial de Matrícula (Desconto de R$ 616)",
   };
 }
-

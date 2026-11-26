@@ -1,7 +1,5 @@
 /**
  * Lightweight client-side session cache (low sensitivity).
- * phone -> register flow. externalId (UUID) -> login flow. ref -> affiliate attribution
- * carried into register (only kept for new users; discarded when check finds the user).
  * Uses localStorage; all calls are safe to run before hydration (guarded).
  */
 export interface SessionCache {
@@ -11,7 +9,6 @@ export interface SessionCache {
   role?: string | null;
   cpf?: string | null;
   email?: string | null;
-  hub?: string | null;
 }
 
 const KEY = "supletivo.session";
@@ -25,7 +22,6 @@ export function getSession(): SessionCache | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(KEY);
   if (!raw) {
-    // Check first-party cookie "supletivo.session" written across .supletivo.net.br
     try {
       const match = document.cookie.match(/(?:^|;\s*)supletivo\.session=([^;]+)/);
       if (match && match[1]) {
@@ -57,7 +53,7 @@ export function clearLogin(): void {
   loginCache = { raw: null, value: null };
   window.localStorage.removeItem(LOGIN_KEY);
   try {
-    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
+    const secureFlag = typeof location !== "undefined" && location.protocol === "https:" ? ";Secure" : "";
     document.cookie = `${AUTH_COOKIE}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax${secureFlag}`;
     document.cookie = `${AUTH_COOKIE}=;path=/;max-age=0;SameSite=Lax${secureFlag}`;
   } catch {}
@@ -68,23 +64,15 @@ export function clearSession(): void {
   clearLogin();
   window.localStorage.removeItem(KEY);
   try {
-    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
+    const secureFlag = typeof location !== "undefined" && location.protocol === "https:" ? ";Secure" : "";
     document.cookie = `${KEY}=;path=/;domain=.supletivo.net.br;max-age=0;SameSite=Lax${secureFlag}`;
     document.cookie = `${KEY}=;path=/;max-age=0;SameSite=Lax${secureFlag}`;
   } catch {}
 }
 
 const LOGIN_KEY = "supletivo.login";
-
-/** Fast-path cache do refresh token; hidratado do storage no 1º getRefreshToken pós-reload. */
 let refreshTokenMemory: string | null = null;
 
-/**
- * Raw /auth/login response (roles, token, ...). Shape still settling backend-side.
- * O refresh_token é PERSISTIDO junto (mesmo localStorage do access token): sem isso o
- * silent-refresh no 1º 401 morria após um reload (memória zerada) e deslogava o aluno.
- * O access token já mora aqui, então co-localizar o refresh não muda a postura de segurança.
- */
 export function saveLogin(payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   const refresh = payload.refresh_token;
@@ -93,11 +81,20 @@ export function saveLogin(payload: Record<string, unknown>): void {
   }
   window.localStorage.setItem(LOGIN_KEY, JSON.stringify(payload));
   try {
-    const secureFlag = typeof location !== 'undefined' && location.protocol === 'https:' ? ';Secure' : '';
-    const roles = Array.isArray(payload.roles) ? (payload.roles as string[]) : [];
-    const statuses = (payload.role_statuses && typeof payload.role_statuses === "object") ? Object.keys(payload.role_statuses as Record<string, unknown>) : [];
-    const isPromoter = roles.some(r => ["promoter", "promotor", "candidate"].includes(r)) || statuses.includes("promoter");
-    const roleValue = isPromoter ? "promoter" : "student";
+    const secureFlag = typeof location !== "undefined" && location.protocol === "https:" ? ";Secure" : "";
+    const roles = Array.isArray(payload.roles)
+      ? (payload.roles as string[]).map((r) => String(r).toLowerCase().trim())
+      : [];
+    const activeRole =
+      typeof payload.active_role === "string"
+        ? payload.active_role.toLowerCase().trim()
+        : typeof payload.activeRole === "string"
+        ? payload.activeRole.toLowerCase().trim()
+        : "";
+    const hasStudent = roles.some((r) => ["client", "student", "aluno"].includes(r));
+    const isAdminPrimary =
+      roles.includes("admin") && (activeRole === "admin" || !hasStudent);
+    const roleValue = isAdminPrimary ? "admin" : "student";
     document.cookie = `${AUTH_COOKIE}=${roleValue};path=/;domain=.supletivo.net.br;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
     document.cookie = `${AUTH_COOKIE}=${roleValue};path=/;max-age=${AUTH_COOKIE_MAX_AGE};SameSite=Lax${secureFlag}`;
   } catch {}
@@ -114,14 +111,11 @@ export function getLogin(): Record<string, unknown> | null {
   }
 }
 
-/* ---- useSyncExternalStore helpers (referentially stable snapshots) ---- */
-
 let loginCache: { raw: string | null; value: Record<string, unknown> | null } = {
   raw: null,
   value: null,
 };
 
-/** Stable snapshot of the stored login payload (for useSyncExternalStore). */
 export function getLoginSnapshot(): Record<string, unknown> | null {
   const raw = window.localStorage.getItem(LOGIN_KEY);
   if (raw !== loginCache.raw) {
@@ -142,28 +136,21 @@ export function getServerLoginSnapshot(): Record<string, unknown> | null {
   return null;
 }
 
-/** Re-render on cross-tab storage changes; same-tab writes happen before navigation. */
 export function subscribeStorage(callback: () => void): () => void {
   window.addEventListener("storage", callback);
   return () => window.removeEventListener("storage", callback);
 }
 
-/** Bearer token from the stored login payload, if any. */
 export function getAccessToken(): string | null {
   const login = getLogin();
   const token = login?.access_token;
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
-/** Server snapshot for useSyncExternalStore(token). */
 export function getServerAccessToken(): string | null {
   return null;
 }
 
-/**
- * Refresh token pro silent-refresh (api.ts). Lê da memória; se vazia (ex.: após reload),
- * hidrata do mesmo payload persistido do login — assim o refresh no 1º 401 sobrevive a reload.
- */
 export function getRefreshToken(): string | null {
   if (refreshTokenMemory) return refreshTokenMemory;
   if (typeof window === "undefined") return null;
@@ -177,7 +164,6 @@ export function getRefreshToken(): string | null {
 
 const CHECKOUT_KEY = "supletivo.checkout";
 
-/** Checkout returned by register (CheckoutOut) — kept for the payment step. */
 export function saveCheckout(checkout: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(CHECKOUT_KEY, JSON.stringify(checkout));

@@ -1,11 +1,19 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 
 export const prerender = false;
 
-const URL_BACKEND = process.env.URL_BACKEND ?? 'https://backend.supletivo.net.br';
+export const ALL: APIRoute = async (context) => {
+  const { request, url } = context;
+  const backendUrl =
+    (env as { URL_BACKEND?: string })?.URL_BACKEND ??
+    import.meta.env.URL_BACKEND ??
+    'https://api.supletivo.net.br';
 
-export const ALL: APIRoute = async ({ request, url }) => {
-  const targetUrl = new URL(url.pathname + url.search, URL_BACKEND);
+  const targetPath = url.pathname.startsWith('/v1/media/')
+    ? url.pathname
+    : `/v1${url.pathname}`;
+  const targetUrl = new URL(targetPath + url.search, backendUrl);
 
   const headers = new Headers();
   for (const [key, val] of request.headers.entries()) {
@@ -37,13 +45,10 @@ export const ALL: APIRoute = async ({ request, url }) => {
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-length');
 
-    // Otimização de Edge Cache para arquivos de mídia (imagens, documentos e uploads imutáveis)
-    // Reduz drasticamente o tráfego da origem (saving ~5 GB/mês) servindo hits na borda Cloudflare
     if (res.ok || res.status === 206) {
-      responseHeaders.set(
-        'Cache-Control',
-        'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400'
-      );
+      responseHeaders.set('Cache-Control', 'private, no-store, max-age=0');
+      responseHeaders.set('Vary', 'Authorization');
+      responseHeaders.set('X-Content-Type-Options', 'nosniff');
     }
 
     return new Response(res.body, {

@@ -1,48 +1,44 @@
 <script lang="ts">
-  import { fetchJsonWithDeadline } from "@/lib/deadline";
+  import {
+    recoverLookup,
+    recoverSendOtp,
+    recoverVerifyAndLink,
+    getErrorMessage,
+  } from "@/lib/api";
   import { maskBrPhone, isValidBrMobile } from "@/lib/phone";
   import Modal from "@/components/ui/Modal.svelte";
   import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
 
   interface Props {
     isOpen?: boolean;
-    currentPhone?: string;
     initialCpf?: string;
     initialNewPhone?: string;
     onClose: () => void;
-    onSuccess?: (protocol: string) => void;
+    onSuccess?: (newPhone: string) => void;
   }
 
   let {
     isOpen = false,
-    currentPhone = "",
     initialCpf = "",
     initialNewPhone = "",
     onClose,
     onSuccess,
   }: Props = $props();
 
-  // Estados do fluxo
-  let step = $state<"form" | "challenge" | "loading" | "success">("form");
+  let step = $state<"lookup" | "challenge" | "loading" | "success">("lookup");
   let cpf = $state("");
   let newPhone = $state("");
-  let birthDate = $state("");
   let otpCode = $state("");
-  let selectedMethod = $state<"email" | "birth_date" | "biometric" | "secretaria">("email");
   let errorMessage = $state<string | null>(null);
   let isErrorDialogOpen = $state(false);
-  let protocol = $state<string | null>(null);
-  let instructions = $state<string | null>(null);
+  let firstName = $state<string | null>(null);
   let maskedEmail = $state<string | null>(null);
+  let maskedPhone = $state<string | null>(null);
   let maskedNewPhone = $state<string | null>(null);
 
   $effect(() => {
-    if (initialCpf && !cpf) {
-      cpf = formatCpf(initialCpf);
-    }
-    if (initialNewPhone && !newPhone) {
-      newPhone = maskBrPhone(initialNewPhone);
-    }
+    if (initialCpf && !cpf) cpf = formatCpf(initialCpf);
+    if (initialNewPhone && !newPhone) newPhone = maskBrPhone(initialNewPhone);
   });
 
   function formatCpf(val: string) {
@@ -51,13 +47,6 @@
     if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
     if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-  }
-
-  function formatBirthDate(val: string) {
-    const digits = val.replace(/\D/g, "").slice(0, 8);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   }
 
   function onCpfInput(e: Event) {
@@ -74,14 +63,7 @@
     errorMessage = null;
   }
 
-  function onBirthDateInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    birthDate = formatBirthDate(target.value);
-    target.value = birthDate;
-    errorMessage = null;
-  }
-
-  async function submitRecovery() {
+  async function submitLookupAndSendOtp() {
     const cleanCpf = cpf.replace(/\D/g, "");
     const cleanPhone = newPhone.replace(/\D/g, "");
 
@@ -97,54 +79,35 @@
       return;
     }
 
-    if (selectedMethod === "birth_date" && birthDate.replace(/\D/g, "").length !== 8) {
-      errorMessage = "Por favor, informe a data de nascimento completa (DD/MM/AAAA).";
-      isErrorDialogOpen = true;
-      return;
-    }
-
     step = "loading";
     errorMessage = null;
 
     try {
-      const { response: res, data } = await fetchJsonWithDeadline<Record<string, any>>("/api/v1/auth/recovery/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cpf: cleanCpf,
-          new_phone: cleanPhone,
-          birth_date: selectedMethod === "birth_date" ? birthDate : undefined,
-          otp: otpCode.trim() || undefined,
-          method: selectedMethod,
-          current_phone: currentPhone,
-        }),
-      });
+      const lookup = await recoverLookup(cleanCpf);
+      if (!lookup.found) {
+        throw new Error(lookup.error || "Nenhum cadastro localizado para este CPF.");
+      }
+      firstName = lookup.first_name ?? null;
+      maskedEmail = lookup.masked_email ?? null;
+      maskedPhone = lookup.masked_phone ?? null;
 
-
-      if (!res.ok || (!data.success && !data.requires_challenge)) {
-        throw new Error(data.error || "Não foi possível processar a recuperação de contato.");
+      if (!lookup.has_email) {
+        throw new Error(
+          "Esta conta não possui e-mail cadastrado para receber o código de recuperação. Entre em contato com contato@supletivo.net.br."
+        );
       }
 
-      protocol = data.protocol;
-      instructions = data.instructions;
-      maskedEmail = data.masked_email;
-      maskedNewPhone = data.masked_new_phone;
-
-      if (data.requires_challenge || data.status === "CHALLENGE_REQUIRED") {
-        step = "challenge";
-        return;
-      }
-
-      step = "success";
-      onSuccess?.(data.protocol);
-    } catch (err: any) {
-      step = "form";
-      errorMessage = err.message || "Erro de conexão ao processar recuperação.";
+      const dispatch = await recoverSendOtp(cleanCpf, "email");
+      maskedEmail = dispatch.masked_email ?? maskedEmail;
+      step = "challenge";
+    } catch (err: unknown) {
+      step = "lookup";
+      errorMessage = getErrorMessage(err);
       isErrorDialogOpen = true;
     }
   }
 
-  async function submitChallengeOtp() {
+  async function submitVerifyAndLink() {
     const cleanOtp = otpCode.replace(/\D/g, "");
     if (cleanOtp.length !== 6) {
       errorMessage = "Informe o código de segurança com 6 dígitos.";
@@ -158,44 +121,26 @@
     try {
       const cleanCpf = cpf.replace(/\D/g, "");
       const cleanPhone = newPhone.replace(/\D/g, "");
-
-      const { response: res, data } = await fetchJsonWithDeadline<Record<string, any>>("/api/v1/auth/recovery/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cpf: cleanCpf,
-          new_phone: cleanPhone,
-          otp: cleanOtp,
-          method: selectedMethod,
-          current_phone: currentPhone,
-        }),
-      });
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Código de verificação incorreto ou expirado.");
-      }
-
-      protocol = data.protocol || protocol;
-      instructions = data.instructions || "Telefone atualizado com sucesso no cadastro.";
+      const res = await recoverVerifyAndLink(cleanCpf, cleanOtp, cleanPhone);
+      maskedNewPhone = res.user?.masked_new_phone ?? maskBrPhone(cleanPhone);
       step = "success";
-      onSuccess?.(protocol ?? "");
-    } catch (err: any) {
+      onSuccess?.(cleanPhone);
+    } catch (err: unknown) {
       step = "challenge";
-      errorMessage = err.message || "Erro ao validar código OTP.";
+      errorMessage = getErrorMessage(err);
       isErrorDialogOpen = true;
     }
   }
 
   function resetAndClose() {
-    step = "form";
+    step = "lookup";
     cpf = "";
     newPhone = "";
-    birthDate = "";
     otpCode = "";
     errorMessage = null;
-    protocol = null;
-    instructions = null;
+    firstName = null;
     maskedEmail = null;
+    maskedPhone = null;
     maskedNewPhone = null;
     onClose();
   }
@@ -206,17 +151,16 @@
   onClose={resetAndClose}
   eyebrow="Segurança de Conta"
   eyebrowVariant="amber"
-  title="Atualização Segura de Contato"
-  description="Autoatendimento para recuperação de acesso vinculado ao seu CPF."
+  title="Recuperação de Número por CPF"
+  description="Confirme sua identidade pelo e-mail cadastrado para vincular o novo WhatsApp."
   testId="contact-recovery-modal"
   size="lg"
 >
-  {#if step === "form"}
+  {#if step === "lookup"}
     <div class="flex flex-col gap-4">
-      <!-- Campo CPF -->
       <div class="flex flex-col gap-1.5">
         <label for="recovery-cpf" class="text-xs font-bold text-white/90">
-          Confirme seu CPF cadastrado
+          CPF cadastrado
         </label>
         <input
           id="recovery-cpf"
@@ -230,7 +174,6 @@
         />
       </div>
 
-      <!-- Campo Novo Telefone -->
       <div class="flex flex-col gap-1.5">
         <label for="recovery-new-phone" class="text-xs font-bold text-white/90">
           Novo celular / WhatsApp (com DDD)
@@ -247,93 +190,6 @@
         />
       </div>
 
-      <!-- Métodos de Validação Secundária (Prevenção de Sequestro de Conta) -->
-      <div class="flex flex-col gap-2 pt-2">
-        <span class="text-xs font-bold text-white/90">
-          Escolha o método de validação de segurança:
-        </span>
-
-        <div class="grid grid-cols-1 gap-2.5">
-          <label class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition {selectedMethod === 'email' ? 'border-yellow bg-yellow/10' : 'border-white/10 bg-white/5 hover:border-white/20'}">
-            <input
-              type="radio"
-              name="recovery_method"
-              value="email"
-              checked={selectedMethod === "email"}
-              onchange={() => { selectedMethod = "email"; }}
-              class="mt-1 accent-yellow"
-            />
-            <div class="flex flex-col text-left">
-              <span class="text-xs font-bold text-white">Link de confirmação no e-mail cadastrado</span>
-              <span class="text-[11px] text-white/60">Enviaremos um código OTP de 6 dígitos para o e-mail registrado na sua conta.</span>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition {selectedMethod === 'birth_date' ? 'border-yellow bg-yellow/10' : 'border-white/10 bg-white/5 hover:border-white/20'}">
-            <input
-              type="radio"
-              name="recovery_method"
-              value="birth_date"
-              checked={selectedMethod === "birth_date"}
-              onchange={() => { selectedMethod = "birth_date"; }}
-              class="mt-1 accent-yellow"
-            />
-            <div class="flex flex-col text-left">
-              <span class="text-xs font-bold text-white">Confirmação por Data de Nascimento</span>
-              <span class="text-[11px] text-white/60">Validação instantânea através da data de nascimento registrada no CPF.</span>
-            </div>
-          </label>
-
-          {#if selectedMethod === "birth_date"}
-            <div class="p-3 bg-white/5 border border-yellow/30 rounded-xl flex flex-col gap-1.5 ml-6">
-              <label for="recovery-birth-date" class="text-xs font-bold text-yellow">
-                Sua Data de Nascimento:
-              </label>
-              <input
-                id="recovery-birth-date"
-                data-testid="recovery-birthdate-input"
-                type="text"
-                inputmode="numeric"
-                placeholder="DD/MM/AAAA"
-                value={birthDate}
-                oninput={onBirthDateInput}
-                class="h-12 w-full rounded-xl bg-white/10 border border-white/20 px-4 text-sm font-mono text-white focus:border-yellow focus:outline-none focus:ring-2 focus:ring-yellow/30 transition"
-              />
-            </div>
-          {/if}
-
-          <label class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition {selectedMethod === 'biometric' ? 'border-yellow bg-yellow/10' : 'border-white/10 bg-white/5 hover:border-white/20'}">
-            <input
-              type="radio"
-              name="recovery_method"
-              value="biometric"
-              checked={selectedMethod === "biometric"}
-              onchange={() => { selectedMethod = "biometric"; }}
-              class="mt-1 accent-yellow"
-            />
-            <div class="flex flex-col text-left">
-              <span class="text-xs font-bold text-white">Reconhecimento facial biométrico</span>
-              <span class="text-[11px] text-white/60">Selfie rápida comparada à foto do RG/CNH arquivado no sistema.</span>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition {selectedMethod === 'secretaria' ? 'border-yellow bg-yellow/10' : 'border-white/10 bg-white/5 hover:border-white/20'}">
-            <input
-              type="radio"
-              name="recovery_method"
-              value="secretaria"
-              checked={selectedMethod === "secretaria"}
-              onchange={() => { selectedMethod = "secretaria"; }}
-              class="mt-1 accent-yellow"
-            />
-            <div class="flex flex-col text-left">
-              <span class="text-xs font-bold text-white">Atendimento humano na secretaria acadêmica</span>
-              <span class="text-[11px] text-white/60">Gera um protocolo prioritário para atendimento manual seguro.</span>
-            </div>
-          </label>
-        </div>
-      </div>
-
       {#if errorMessage}
         <div class="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-xs flex items-center gap-2" data-testid="recovery-error">
           <span>⚠️</span>
@@ -341,25 +197,23 @@
         </div>
       {/if}
 
-      <!-- Ação Principal -->
       <button
         type="button"
-        onclick={submitRecovery}
+        onclick={submitLookupAndSendOtp}
         data-testid="recovery-submit-btn"
-        class="mt-2 flex items-center justify-center h-12 w-full rounded-full bg-yellow hover:bg-yellow/90 text-ink font-bold text-sm transition shadow-lg active:scale-[0.99]"
+        class="mt-2 flex items-center justify-center h-12 w-full rounded-full bg-yellow hover:bg-yellow/90 text-ink font-bold text-sm transition shadow-lg active:scale-[0.99] cursor-pointer"
       >
-        Solicitar Atualização de Contato
+        Enviar código para meu e-mail
       </button>
     </div>
   {:else if step === "challenge"}
-    <!-- Etapa de Desafio de Código OTP no e-mail -->
     <div class="flex flex-col gap-4" data-testid="recovery-challenge-box">
       <div class="p-3.5 rounded-xl bg-yellow/10 border border-yellow/30 text-xs text-yellow-100 flex items-start gap-2.5">
         <span class="text-base">📧</span>
         <div>
-          <span class="font-bold text-white">Código de Confirmação Enviado:</span>
+          <span class="font-bold text-white">Olá{firstName ? `, ${firstName}` : ""}! Código enviado:</span>
           <p class="text-white/80 mt-0.5">
-            {instructions || `Enviamos um código de 6 dígitos para ${maskedEmail || 'o seu e-mail'}. Digite-o abaixo:`}
+            Enviamos um código de 6 dígitos para {maskedEmail || "seu e-mail cadastrado"}{maskedPhone ? ` (número anterior ${maskedPhone})` : ""}.
           </p>
         </div>
       </div>
@@ -389,63 +243,51 @@
 
       <button
         type="button"
-        onclick={submitChallengeOtp}
+        onclick={submitVerifyAndLink}
         data-testid="recovery-verify-otp-btn"
-        class="mt-2 flex items-center justify-center h-12 w-full rounded-full bg-yellow hover:bg-yellow/90 text-ink font-bold text-sm transition shadow-lg active:scale-[0.99]"
+        class="mt-2 flex items-center justify-center h-12 w-full rounded-full bg-yellow hover:bg-yellow/90 text-ink font-bold text-sm transition shadow-lg active:scale-[0.99] cursor-pointer"
       >
-        Confirmar Código e Atualizar Telefone
+        Confirmar Código e Vincular Novo Número
       </button>
 
       <button
         type="button"
-        onclick={() => { step = "form"; }}
+        onclick={() => { step = "lookup"; }}
         class="text-xs text-white/60 hover:text-white transition text-center underline cursor-pointer"
       >
-        Voltar e escolher outro método
+        Alterar CPF ou novo número
       </button>
     </div>
   {:else if step === "loading"}
     <div class="flex flex-col items-center justify-center py-10 text-center gap-3">
       <div class="size-10 animate-spin rounded-full border-4 border-yellow border-t-transparent"></div>
-      <p class="text-sm font-bold text-white">Validando protocolo de segurança…</p>
-      <span class="text-xs text-white/60">Processando e gravando log auditável contra sequestro de conta.</span>
+      <p class="text-sm font-bold text-white">Validando recuperação segura…</p>
+      <span class="text-xs text-white/60">Verificando seu cadastro e enviando o código de segurança.</span>
     </div>
   {:else if step === "success"}
     <div class="flex flex-col gap-4 text-center items-center py-4" data-testid="recovery-success-box">
       <div class="size-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl font-black">
         ✓
       </div>
-
       <div>
-        <h4 class="text-lg font-black text-white">Solicitação Protocolada</h4>
+        <h4 class="text-lg font-black text-white">Novo celular vinculado</h4>
         <p class="text-xs text-white/70 mt-1">
-          {instructions || "Seu novo número de telefone foi validado e atualizado na base oficial."}
+          Seu novo número foi atualizado com segurança no cadastro.
         </p>
       </div>
-
-      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left backdrop-blur-md">
-        <span class="text-[10px] font-bold text-white/50 uppercase tracking-wider">Número de Protocolo</span>
-        <p class="font-mono text-base font-black text-yellow mt-0.5" data-testid="recovery-protocol-number">
-          {protocol}
-        </p>
-        {#if maskedNewPhone}
-          <div class="mt-2 pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-            <span class="text-white/60">Novo telefone:</span>
-            <span class="font-mono text-white font-bold">{maskedNewPhone}</span>
-          </div>
-        {/if}
-        <p class="text-[11px] text-white/60 mt-2">
-          Guarde este código. Uma cópia do registro de auditoria foi vinculada com segurança ao seu histórico acadêmico.
-        </p>
-      </div>
-
+      {#if maskedNewPhone}
+        <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-xs flex justify-between items-center">
+          <span class="text-white/60">Novo WhatsApp:</span>
+          <span class="font-mono text-white font-bold">{maskedNewPhone}</span>
+        </div>
+      {/if}
       <button
         type="button"
         onclick={resetAndClose}
         data-testid="recovery-close-btn"
-        class="w-full h-11 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition"
+        class="w-full h-11 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition cursor-pointer"
       >
-        Entendido, voltar para o login
+        Entrar com meu novo número
       </button>
     </div>
   {/if}

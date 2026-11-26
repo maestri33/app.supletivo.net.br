@@ -1,98 +1,148 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from "@playwright/test";
 
-async function identity(page: Page, role: string, status: string) {
-  await page.addInitScript(({ role, status }) => localStorage.setItem('supletivo.login', JSON.stringify({
-    access_token: 'fixture-token', refresh_token: 'fixture-refresh', roles: [role], role_statuses: { [role]: status },
-  })), { role, status });
-  await page.route('**/api/**', route => route.fulfill({ status: 404, json: { detail: 'No fixture' } }));
-  await page.route('**/api/v1/clients/whoami', route => route.fulfill({ json: {
-    external_id: 'user-id', roles: [role], role_statuses: { [role]: status }, name: 'Pessoa de teste',
-  } }));
+async function identity(page: Page, role: "client" | "admin", status: string) {
+  await page.addInitScript(
+    ({ role, status }) =>
+      localStorage.setItem(
+        "supletivo.login",
+        JSON.stringify({
+          access_token: "fixture-token",
+          refresh_token: "fixture-refresh",
+          roles: [role],
+          role_statuses: { [role]: status },
+        }),
+      ),
+    { role, status },
+  );
+  await page.route("**/api/v1/auth/whoami", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        id: "user-id",
+        external_id: "user-id",
+        phone: "5511999999999",
+        name: "Pessoa Teste",
+        roles: [role],
+        active_role: role,
+        role_statuses: { [role]: status },
+        status,
+      },
+    }),
+  );
 }
 
-const profile = { external_id: 'promoter-entity-id', status: 'active', locked: false, payout_locked: false,
-  ref_url: 'https://supletivo.net.br/?ref=user-id', name: 'Pessoa de teste', pending_materials: [], pix_key: 'fixture-key' };
-const ledger = [
-  { status: 'pending', amount: '25.10' }, { status: 'processed', amount: '50.01' },
-  { status: 'cancelled', amount: '999.00' }, { status: 'failed', amount: '999.00' }, { status: 'paid', amount: '100.00' },
-].map((item, index) => ({ ...item, external_id: `commission-${index}`, source: 'lead', created_at: '2026-10-09T12:00:00Z' }));
+test("admin documents desk fetches private images via /media with Bearer JWT and approves both queues", async ({ page }) => {
+  await identity(page, "admin", "active");
 
-test('promoter dashboard uses the backend referral URL, summary and real ledger', async ({ page }) => {
-  await identity(page, 'promoter', 'active');
-  await page.route('**/api/v1/collaborators/promoter/me', route => route.fulfill({ json: profile }));
-  await page.route('**/api/v1/collaborators/promoter/summary', route => route.fulfill({ json: {
-    week_paid_leads: 1, week_goal: 5, week_commission_total: '25.10', lifetime: { total_students: 3, total_received: '100.00', goals_hit: 0 },
-  } }));
-  await page.route('**/api/v1/collaborators/promoter/leads', route => route.fulfill({ json: Array.from({ length: 5 }, (_, index) => ({ external_id: `lead-${index}`, status: 'paid' })) }));
-  await page.route('**/api/v1/collaborators/promoter/commissions', route => route.fulfill({ json: ledger }));
-  await page.goto('/promoter/active');
-  await expect(page.locator('code')).toHaveText(profile.ref_url);
-  await expect(page.getByText('Comissões Recebidas')).toBeVisible();
-  await expect(page.getByText(/100,00/)).toBeVisible();
-  await expect(page.getByText('Comissão a Receber na Semana')).toBeVisible();
-  await expect(page.getByText(/75,11/)).toBeVisible();
-  await expect(page.getByText('Nesta semana: 1 matrícula(s) paga(s)')).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveCount(0);
-});
-
-test('failed promoter summary remains visibly unavailable instead of showing zero sales', async ({ page }) => {
-  await identity(page, 'promoter', 'active');
-  await page.route('**/api/v1/collaborators/promoter/me', route => route.fulfill({ json: profile }));
-  await page.route('**/api/v1/collaborators/promoter/summary', route => route.fulfill({ status: 503, json: { detail: 'Resumo indisponível' } }));
-  await page.route('**/api/v1/collaborators/promoter/leads', route => route.fulfill({ json: [] }));
-  await page.route('**/api/v1/collaborators/promoter/commissions', route => route.fulfill({ json: [] }));
-  await page.goto('/promoter/active');
-  await expect(page.getByRole('alert')).toContainText('Resumo indisponível');
-  await expect(page.getByText('Matrículas Pagas', { exact: true })).not.toBeVisible();
-});
-
-test('commission balance excludes cancelled and failed records and exposes their actual status', async ({ page }) => {
-  await identity(page, 'promoter', 'active');
-  await page.route('**/api/v1/collaborators/promoter/me', route => route.fulfill({ json: profile }));
-  await page.route('**/api/v1/collaborators/promoter/commissions', route => route.fulfill({ json: ledger }));
-  await page.goto('/promoter/active/commissions');
-  await expect(page.getByText(/75,11/)).toBeVisible();
-  await expect(page.getByText('Comissão cancelada')).toBeVisible();
-  await expect(page.getByText('Falha no repasse')).toBeVisible();
-  await expect(page.getByText('Repasse em processamento')).toBeVisible();
-});
-
-test('RG and selfie for the same enrollment remain distinct and student documents use the document endpoint', async ({ page }) => {
-  await identity(page, 'hub', 'active');
-  await page.route('**/api/v1/leadership/reviews', route => route.fulfill({ json: {
-    enrollment_rg: [{ external_id: 'enrollment-id', type: 'enrollment', kind: 'rg', name: 'Pessoa RG' }],
-    enrollment_selfie: [{ external_id: 'enrollment-id', type: 'enrollment', kind: 'selfie', name: 'Pessoa selfie' }],
-    enrollment_address_proof: [{ external_id: 'enrollment-id', type: 'enrollment', kind: 'address_proof', name: 'Pessoa endereço' }],
-    student_documents: [{ external_id: 'document-id', student_external_id: 'student-id', document_external_id: 'document-id', type: 'student', kind: 'document', name: 'Pessoa histórico', doc_type: 'transcript' }],
-  } }));
-  const actions: string[] = [];
-  await page.route('**/api/v1/leadership/**/decide', route => {
-    actions.push(new URL(route.request().url()).pathname);
-    return route.fulfill({ json: { status: 'approved' } });
+  const mediaAuthHeaders: string[] = [];
+  const pngBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  await page.route("**/media/**", async (route) => {
+    mediaAuthHeaders.push(route.request().headers().authorization ?? "");
+    await route.fulfill({ status: 200, contentType: "image/png", body: pngBytes });
   });
-  await page.goto('/hub/review');
-  await expect(page.getByRole('button', { name: '✓ Aprovar', exact: true })).toHaveCount(4);
-  await page.getByRole('button', { name: '✓ Aprovar', exact: true }).nth(0).click();
-  await expect(page.getByRole('button', { name: '✓ Aprovar', exact: true })).toHaveCount(3);
-  await page.getByRole('button', { name: '✓ Aprovar', exact: true }).nth(0).click();
-  await expect(page.getByRole('button', { name: '✓ Aprovar', exact: true })).toHaveCount(2);
-  await page.getByRole('button', { name: '✓ Aprovar', exact: true }).nth(0).click();
-  await expect(page.getByRole('button', { name: '✓ Aprovar', exact: true })).toHaveCount(1);
-  await page.getByRole('button', { name: '✓ Aprovar', exact: true }).click();
-  await expect(page.getByText('✓ Aprovação registrada')).toHaveCount(4);
-  expect(actions).toEqual([
-    '/api/v1/leadership/enrollments/enrollment-id/rg/decide',
-    '/api/v1/leadership/enrollments/enrollment-id/selfie/decide',
-    '/api/v1/leadership/enrollments/enrollment-id/address-proof/decide',
-    '/api/v1/leadership/students/student-id/documents/document-id/decide',
-  ]);
+
+  await page.route("**/api/v1/admin/documents/review-desk", (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        total: 1,
+        documents: [
+          {
+            id: "doc-rg-1",
+            student_role_id: "role-1",
+            student_name: "Aluno Review",
+            student_cpf: "11144477735",
+            student_phone: "5511999999999",
+            document_type: "rg",
+            file_url: "/v1/media/enrollments/rg/doc-rg-1.png",
+            status: "review",
+            ai_confidence: 0.92,
+            ai_readable: true,
+            ai_extracted_data: {},
+            divergences: [],
+            fast_ok_eligible: true,
+            submitted_at: Date.now(),
+          },
+        ],
+      },
+    }),
+  );
+
+  await page.route("**/api/v1/admin/student-documents/pending", (route) =>
+    route.fulfill({
+      json: {
+        total_students: 1,
+        students: [
+          {
+            student_role_id: "role-2",
+            user_id: "u2",
+            student_name: "Aluno Pós-SIGA",
+            cpf: "22255588811",
+            phone: "5511988887777",
+            gender: "M",
+            blood_type: "O+",
+            current_status: "enrolled",
+            submitted_at: Date.now(),
+            pending_documents: [
+              {
+                doc_id: "acad-1",
+                document_type: "school_records",
+                file_url_temporary: "/v1/media/student/acad-1.png",
+                status: "pending",
+                submitted_at: Date.now(),
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  let fastOkHit = false;
+  await page.route("**/api/v1/admin/documents/doc-rg-1/fast-ok", (route) => {
+    fastOkHit = true;
+    return route.fulfill({ json: { success: true, doc_id: "doc-rg-1", status: "approved", message: "Fast OK aplicado" } });
+  });
+
+  await page.goto("/admin/documentos");
+  await expect(page.getByText("Aluno Review")).toBeVisible();
+  await expect(page.locator("img[src^='blob:']")).toHaveCount(1);
+  expect(mediaAuthHeaders[0]).toBe("Bearer fixture-token");
+
+  await page.getByRole("button", { name: "Fast OK" }).click();
+  await expect(page.getByText("Fast OK aplicado")).toBeVisible();
+  expect(fastOkHit).toBe(true);
 });
 
-test('an active student keeps active navigation while academic documents await review', async ({ page }) => {
-  await identity(page, 'student', 'active');
-  await page.route('**/api/v1/clients/student/me', route => route.fulfill({ json: { status: 'documents_under_review', documents: [], pendencies: [] } }));
-  await page.goto('/student/active/documents');
-  await expect(page.getByRole('link', { name: 'Documentos', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: '1. RG / CNH', exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('Enviar comprovante de documento militar')).toBeVisible();
+test("an enrolled student keeps active navigation and sees only school_records and military_certificate", async ({ page }) => {
+  await identity(page, "client", "enrolled");
+  await page.route("**/api/v1/student/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "u1", phone: "5511999999999", cpf: "11144477735", name: "Aluno Ativo", full_name: "Aluno Ativo", gender: "M", blood_type: "O+" },
+        role: { id: "r1", role: "client", status: "enrolled", substatus: "pending_post_siga_docs", paid_at: Date.now() },
+        siga_credentials: { username: "11144477735", url: "https://siga.supletivo.net.br" },
+        document_progress: {
+          blood_type_registered: true,
+          military_exempt: false,
+          academic_documents_ready: false,
+          checklist: {},
+        },
+      },
+    }),
+  );
+  await page.route("**/api/v1/student/documents", (route) =>
+    route.fulfill({ json: { student_role_id: "r1", user_id: "u1", gender: "M", blood_type: "O+", military_exempt: false, is_fully_compliant: false, documents: [], pending_requirements: ["school_records", "military_certificate"] } }),
+  );
+  await page.route("**/api/v1/student/exams", (route) =>
+    route.fulfill({ json: { student_role_id: "r1", current_status: "enrolled", current_substatus: "pending_post_siga_docs", eligibility: { exam_can_schedule: false, exam_available_at: "" }, exams: [] } }),
+  );
+
+  await page.goto("/student/active/documents");
+  await expect(page.getByRole("heading", { name: "Histórico escolar anterior" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Certificado militar / Reservista" })).toBeVisible();
+  await expect(page.getByText(/Taxa parceira/i)).toHaveCount(0);
 });

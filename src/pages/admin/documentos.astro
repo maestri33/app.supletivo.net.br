@@ -1,0 +1,8 @@
+---
+import RootLayout from "../../layouts/RootLayout.astro";
+import AdminDocumentsView from "../../components/interactive/admin/AdminDocumentsView.svelte";
+export const prerender = false;
+---
+<RootLayout title="Administração — Mesa de Documentos | Supletivo Brasil">
+  <AdminDocumentsView client:load />
+</RootLayout>

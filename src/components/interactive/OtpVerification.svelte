@@ -2,17 +2,17 @@
   import { onMount } from "svelte";
   import {
     loginOtp,
+    sendOtp,
     checkPhone,
     whoami,
-    getLeadMe,
     getErrorMessage,
+    ApiError,
   } from "@/lib/api";
   import {
     getSession,
     saveLogin,
     saveSession,
     getAccessToken,
-    clearSession,
     clearLogin,
   } from "@/lib/session";
   import { getRoleDestination } from "@/lib/roles";
@@ -30,7 +30,6 @@
   let resendCooldown = $state(60);
   let phone = $state("");
   let externalId = $state("");
-  let role = $state("");
   let isRecoveryOpen = $state(false);
   let recoveryCpf = $state("");
   let recoveryNewPhone = $state("");
@@ -38,104 +37,73 @@
 
   let isComplete = $derived(code.length === 6);
 
-  onMount(async () => {
+  onMount(() => {
     mounted = true;
 
-    // Lê parâmetros da URL ou recupera da sessão salva PRIMEIRO
     const urlParams = new URLSearchParams(window.location.search);
     const urlId = urlParams.get("id");
     const urlTel = urlParams.get("tel");
-    const urlRole = urlParams.get("role");
-    const urlRef = urlParams.get("ref");
     const urlCpf = urlParams.get("cpf");
-    const urlEmail = urlParams.get("email");
     const urlNovoTelefone = urlParams.get("novo_telefone") || urlParams.get("new_phone");
     const urlOpenRecovery = urlParams.get("open_recovery") === "true";
 
     const saved = getSession();
 
-    if (getAccessToken()) {
-      if (urlId || urlTel) {
-        // Usuário chegou com novo desafio OTP explícito na URL; descarta JWT antigo sem apagar supletivo.session
-        clearLogin();
-      } else {
-        try {
-          const who = await whoami();
-          const target = getRoleDestination(who);
-          if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
-          window.location.replace(target);
-          return;
-        } catch {
+    const init = async () => {
+      if (getAccessToken()) {
+        if (urlId || urlTel) {
           clearLogin();
+        } else {
+          try {
+            const who = await whoami();
+            const target = getRoleDestination(who);
+            if (!target) throw new Error("Não foi possível identificar a etapa da sua conta.");
+            window.location.replace(target);
+            return;
+          } catch {
+            clearLogin();
+          }
         }
       }
-    }
 
-    if (urlCpf) {
-      recoveryCpf = urlCpf;
-    }
-    if (urlNovoTelefone) {
-      recoveryNewPhone = urlNovoTelefone;
-    }
-    if (urlOpenRecovery || urlNovoTelefone || (urlCpf && !urlTel && !saved?.phone)) {
-      isRecoveryOpen = true;
-    }
+      if (urlCpf) recoveryCpf = urlCpf;
+      if (urlNovoTelefone) recoveryNewPhone = urlNovoTelefone;
+      if (urlOpenRecovery || urlNovoTelefone || (urlCpf && !urlTel && !saved?.phone)) {
+        isRecoveryOpen = true;
+      }
 
-    const rawTel = urlTel || saved?.phone || "";
-    phone = rawTel.replace(/\D/g, "");
-    externalId = urlId || saved?.externalId || "";
-    role = urlRole || saved?.role || "";
+      const rawTel = urlTel || saved?.phone || "";
+      phone = rawTel.replace(/\D/g, "");
+      externalId = urlId || saved?.externalId || "";
 
-    if (externalId && phone) {
-      saveSession({
-        phone,
-        externalId,
-        role: role || undefined,
-        ref: urlRef || saved?.ref,
-        cpf: urlCpf || saved?.cpf,
-        email: urlEmail || saved?.email,
-      });
-    } else if (phone && !externalId) {
-      // Auto-recuperação (Self-Healing): se o usuário chega com telefone mas sem externalId (ex.: timeout na landing)
-      busy = true;
-      const checkPromise = isPromoter
-        ? checkCollaboratorPhone(phone, {
-            cpf: urlCpf || saved?.cpf,
-            hub: urlRef || saved?.hub || saved?.ref,
-            ref: urlRef || saved?.hub || saved?.ref,
-            email: urlEmail || saved?.email,
-          })
-        : checkPhone(phone, urlRef || saved?.ref || undefined);
-
-      checkPromise
-        .then((res) => {
-          if (res && res.external_id) {
-            externalId = res.external_id;
-            saveSession({
-              phone,
-              externalId: res.external_id,
-              role: role || undefined,
-              ref: urlRef || saved?.ref,
-              cpf: urlCpf || saved?.cpf,
-              email: urlEmail || saved?.email,
-            });
-            busy = false;
-          } else {
-            window.location.replace("/");
-          }
-        })
-        .catch(() => {
-          window.location.replace("/");
+      if (phone) {
+        saveSession({
+          phone,
+          externalId: externalId || null,
+          cpf: urlCpf || saved?.cpf,
         });
-    } else if (isRecoveryOpen) {
-      // Modo de autoatendimento / recuperação de conta por CPF: permanece com modal aberto
-      return;
-    } else {
-      window.location.replace("/");
-      return;
-    }
+        if (!externalId) {
+          busy = true;
+          try {
+            const res = await checkPhone(phone);
+            if (res?.external_id) {
+              externalId = res.external_id;
+              saveSession({ phone, externalId: res.external_id, cpf: urlCpf || saved?.cpf });
+            }
+          } catch {
+            // Keep screen active if phone is available
+          } finally {
+            busy = false;
+          }
+        }
+      } else if (!isRecoveryOpen) {
+        window.location.replace("/");
+        return;
+      }
+    };
 
-    // Inicia contagem regressiva
+    void init();
+
     const timer = setInterval(() => {
       if (resendCooldown > 0) {
         resendCooldown -= 1;
@@ -146,36 +114,42 @@
   });
 
   async function submitCode() {
-    if (!isComplete || busy) return;
+    if (!isComplete || busy || !phone) return;
 
     busy = true;
     errorMessage = null;
 
     try {
-      const tokens = await loginOtp(externalId, code, phone);
-      saveLogin(tokens);
+      const tokens = await loginOtp(phone, code, "whatsapp");
+      saveLogin(tokens as unknown as Record<string, unknown>);
 
       try {
         const who = await whoami();
         saveLogin({
           ...tokens,
-          roles: who?.roles || [],
-          role_statuses: who?.role_statuses || {},
-          name: who?.name || null,
+          roles: who.roles || [],
+          role_statuses: who.role_statuses || {},
+          active_role: who.active_role ?? null,
+          status: who.status ?? null,
+          substatus: who.substatus ?? null,
+          name: who.name || null,
         });
         const target = getRoleDestination(who);
-        if (!target) throw new Error('Não foi possível identificar a etapa da sua conta.');
+        if (!target) throw new Error("Não foi possível identificar a etapa da sua conta.");
         const urlParams = new URLSearchParams(window.location.search);
         const returnTo = urlParams.get("return_to");
-        const safeReturnTo = (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) ? returnTo : null;
+        const safeReturnTo =
+          returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+            ? returnTo
+            : null;
         window.location.href = safeReturnTo || target;
         return;
       } catch {
-        window.location.href = '/autenticacao/conta';
+        window.location.href = "/autenticacao/conta";
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       errorMessage = getErrorMessage(err);
-      errorCode = err?.code || "";
+      errorCode = err instanceof ApiError ? err.code || "" : "";
       isErrorDialogOpen = true;
       code = "";
       otpInputRef?.clear();
@@ -190,21 +164,16 @@
     errorMessage = null;
 
     try {
-      const saved = getSession();
-      const res = await checkPhone(phone, saved?.ref || undefined);
-
-      if (res.external_id) {
-        externalId = res.external_id;
-        saveSession({ ...saved, phone, externalId: res.external_id });
-      }
-      resendCooldown = res.otp_wait || 60;
+      await sendOtp(phone, "whatsapp");
+      resendCooldown = 60;
       code = "";
       otpInputRef?.clear();
       isErrorDialogOpen = false;
       toast.success("Novo código enviado para seu WhatsApp!");
-    } catch (err: any) {
-      if (err?.status === 429) {
-        const retrySec = Number(err?.extra?.retry_after_s) || 60;
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 429) {
+        const retrySec =
+          Number(err.extra?.wait_seconds ?? err.extra?.retry_after_s) || 60;
         resendCooldown = retrySec;
         errorMessage = `Aguarde ${retrySec}s antes de pedir outro código.`;
         errorCode = "RATE_LIMITED";
@@ -248,17 +217,15 @@
   </div>
 
   <div class="space-y-6">
-    <!-- Grid dos 6 dígitos (InputOTP Component) -->
     <InputOtp
       bind:this={otpInputRef}
       bind:value={code}
       length={6}
       disabled={busy}
       error={isErrorDialogOpen || !!errorMessage}
-      oncomplete={() => { submitCode(); }}
+      oncomplete={() => { void submitCode(); }}
     />
 
-    <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
     <ErrorDialog
       isOpen={isErrorDialogOpen}
       error={errorMessage}
@@ -274,7 +241,6 @@
       onClose={() => { isErrorDialogOpen = false; }}
     />
 
-    <!-- Indicador Passivo Zero-Button (sem dependência de clique manual) -->
     <div class="pt-1">
       {#if busy}
         <div class="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-white/10 text-yellow text-sm font-semibold border border-yellow/30" role="status" aria-live="polite">
@@ -310,7 +276,6 @@
       </button>
     {/if}
 
-    <!-- Opção Amigável de Autoatendimento para Troca Segura de Contato (Issue #1) -->
     <button
       type="button"
       onclick={() => { isRecoveryOpen = true; }}
@@ -322,10 +287,8 @@
     </button>
   </div>
 
-  <!-- Modal de Recuperação Segura com Validação Secundária e Log de Auditoria -->
   <ContactRecoveryModal
     isOpen={isRecoveryOpen}
-    currentPhone={phone}
     initialCpf={recoveryCpf}
     initialNewPhone={recoveryNewPhone}
     onClose={() => { isRecoveryOpen = false; }}

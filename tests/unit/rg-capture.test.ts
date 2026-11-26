@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   applyRgSnapshot,
+  classifyRgWithFallback as rgCaptureFallback,
   createRgCaptureState,
   deriveRgCapture,
   recordRgUpload,
@@ -279,4 +280,19 @@ test("rejected full CNH exposes a new capture even when its visual check passed"
   }, "cnh"));
   assert.equal(capture.nextSlot, "full");
   assert.ok(capture.error);
+});
+
+test("classifyRgWithFallback triggers manual side confirmation only when RG is legible without completeness", () => {
+  assert.deepEqual(
+    rgCaptureFallback({ is_document: true, doc_type: "rg", is_legible: true, completeness: "front" }),
+    { kind: "slot", slot: "front" },
+  );
+  assert.deepEqual(
+    rgCaptureFallback({ is_document: true, doc_type: "rg", is_legible: true, completeness: null }),
+    { kind: "manual_side_required" },
+  );
+  assert.throws(
+    () => rgCaptureFallback({ is_document: true, doc_type: "cnh", is_legible: true, completeness: null }),
+    /envie seu RG/,
+  );
 });

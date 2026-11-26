@@ -27,7 +27,7 @@ afterEach(() => { globalThis.fetch = originalFetch; delete globalThis.window; })
 test('a lost checkout response is surfaced without creating a second request', async () => {
   let attempts = 0;
   globalThis.fetch = async () => { attempts += 1; throw new TypeError('Connection closed after response'); };
-  await assert.rejects(api.setLeadCheckout('pix'), TypeError);
+  await assert.rejects(api.createCheckout('pix', 'stable-idemp-key'), TypeError);
   assert.equal(attempts, 1);
 });
 

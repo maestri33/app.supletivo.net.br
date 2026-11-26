@@ -1,20 +1,20 @@
 import type { APIRoute } from 'astro';
-import { POST as contactRecoveryPost } from './v1/auth/recovery/contact';
+import { env } from 'cloudflare:workers';
 
 export const prerender = false;
 
-const URL_BACKEND = process.env.URL_BACKEND ?? 'https://backend.supletivo.net.br';
-
 export const ALL: APIRoute = async (context) => {
   const { request, url } = context;
-  if (url.pathname === '/api/v1/auth/recovery/contact' && request.method === 'POST') {
-    return contactRecoveryPost(context);
-  }
-  let pathname = url.pathname;
-  if (pathname.startsWith('/api/v1/auth/')) {
-    pathname = pathname.replace('/api/v1/auth/', '/api/v1/clients/auth/');
-  }
-  const targetUrl = new URL(pathname + url.search, URL_BACKEND);
+  const backendUrl =
+    (env as { URL_BACKEND?: string })?.URL_BACKEND ??
+    import.meta.env.URL_BACKEND ??
+    'https://api.supletivo.net.br';
+
+  const pathname = url.pathname;
+  const targetPath = pathname.startsWith('/api/v1/')
+    ? pathname.slice('/api'.length)
+    : pathname;
+  const targetUrl = new URL(targetPath + url.search, backendUrl);
 
   const headers = new Headers();
   for (const [key, val] of request.headers.entries()) {
@@ -58,13 +58,21 @@ export const ALL: APIRoute = async (context) => {
     });
 
     const responseHeaders = new Headers(res.headers);
-    // Remove headers that should not be forwarded
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-length');
 
-    // Otimização de Edge Cache para dados públicos de vitrine e catálogo
-    if (request.method === 'GET' && res.ok && pathname === '/api/v1/clients/pricing') {
-      responseHeaders.set('Cache-Control', 'public, max-age=10, s-maxage=30, stale-while-revalidate=60');
+    const isPublicCatalog =
+      request.method === 'GET' &&
+      res.ok &&
+      (targetPath === '/v1/catalog/pricing' || targetPath === '/v1/catalog/contact');
+
+    if (isPublicCatalog) {
+      responseHeaders.set(
+        'Cache-Control',
+        'public, max-age=30, s-maxage=300, stale-while-revalidate=60'
+      );
+    } else if (request.headers.has('authorization')) {
+      responseHeaders.set('Cache-Control', 'private, no-store');
     }
 
     return new Response(res.body, {

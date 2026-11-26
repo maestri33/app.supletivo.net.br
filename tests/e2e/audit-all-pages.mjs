@@ -4,12 +4,12 @@ const sessionData = {
   access_token: process.env.AUDIT_ACCESS_TOKEN || "mock-audit-access-token",
   refresh_token: process.env.AUDIT_REFRESH_TOKEN || "mock-audit-refresh-token",
   external_id: "9823a0a4-223a-4e15-9522-192ceb89315c",
-  roles: ["student", "promoter", "hub", "admin", "candidate", "enrollment", "staff"],
-  phone: "5542984321915",
+  roles: ["client", "admin"],
+  phone: "5543996648750",
   user: {
     external_id: "9823a0a4-223a-4e15-9522-192ceb89315c",
-    name: "Victor Vanderley Maestri",
-    phone: "5542984321915",
+    name: "Admin Audit",
+    phone: "5543996648750",
     is_superuser: true,
     is_staff: true,
   }
@@ -24,24 +24,14 @@ const pagesToTest = [
   { url: "https://app.supletivo.net.br/student/enrollment", name: "Student Enrollment (Envio Documentos)" },
   { url: "https://app.supletivo.net.br/student/lead", name: "Student Lead / Checkout" },
   { url: "https://app.supletivo.net.br/tabs-status", name: "Tabs Status Demo / Auditoria" },
-  { url: "https://app.supletivo.net.br/promoter/candidate", name: "Promotor Candidato" },
-  { url: "https://app.supletivo.net.br/promoter/active", name: "Promotor Ativo" },
-  { url: "https://app.supletivo.net.br/promoter/leads", name: "Promotor Leads" },
-  { url: "https://app.supletivo.net.br/promoter/comissoes", name: "Promotor Comissões" },
-  { url: "https://app.supletivo.net.br/promoter/training", name: "Promotor Treinamento" },
-  { url: "https://app.supletivo.net.br/hub/index", name: "Hub Triage" },
-  { url: "https://app.supletivo.net.br/hub/active", name: "Hub Ativo" },
-  { url: "https://app.supletivo.net.br/hub/review", name: "Hub Revisão" },
 
-  // Admin pages
-  { url: "https://admin.supletivo.net.br/auditoria", name: "Admin Auditoria" },
-  { url: "https://admin.supletivo.net.br/documentos", name: "Admin Documentos / Dossiê" },
-  { url: "https://admin.supletivo.net.br/financeiro", name: "Admin Financeiro" },
-  { url: "https://admin.supletivo.net.br/polos", name: "Admin Polos" },
-  { url: "https://admin.supletivo.net.br/precos", name: "Admin Preços" },
-  { url: "https://admin.supletivo.net.br/treinamento", name: "Admin Treinamento" },
-  { url: "https://admin.supletivo.net.br/usuarios", name: "Admin Usuários" },
-  { url: "https://admin.supletivo.net.br/notificacoes", name: "Admin Notificações" },
+  // Unified Admin pages (/admin/*)
+  { url: "https://app.supletivo.net.br/admin/dashboard", name: "Admin Painel Geral" },
+  { url: "https://app.supletivo.net.br/admin/documentos", name: "Admin Mesa de Documentos" },
+  { url: "https://app.supletivo.net.br/admin/credenciais-siga", name: "Admin Credenciais SIGA" },
+  { url: "https://app.supletivo.net.br/admin/taxa-parceira", name: "Admin Taxa Parceira" },
+  { url: "https://app.supletivo.net.br/admin/provas", name: "Admin Provas" },
+  { url: "https://app.supletivo.net.br/admin/diplomas", name: "Admin Diplomas" },
 ];
 
 async function run() {
@@ -58,13 +48,6 @@ async function run() {
       name: "supletivo.session",
       value: sessionData.access_token,
       domain: "app.supletivo.net.br",
-      path: "/",
-      secure: true,
-    },
-    {
-      name: "supletivo.admin.session",
-      value: sessionData.access_token,
-      domain: "admin.supletivo.net.br",
       path: "/",
       secure: true,
     },

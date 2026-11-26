@@ -1,795 +1,534 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
+  import { onDestroy, onMount } from "svelte";
   import {
-    setLeadCheckout, getLeadMe, confirmLeadCardPayment, confirmIdentity, confirmIdentityWithRetry, setLeadEmail,
-    ApiError, getErrorMessage, type CheckoutOut, type LeadMe, type CardPaymentReferences,
+    ApiError,
+    confirmCardPayment,
+    confirmIdentity,
+    createCheckout,
+    fetchContact,
+    fetchPricing,
+    getCheckoutStatus,
+    getCurrentPayment,
+    getErrorMessage,
+    setLeadEmail,
+    whoami,
+    type StudentCurrentPayment,
+    type WhoAmI,
   } from "@/lib/api";
-  import { SUPPORT_WHATSAPP_NUMBER } from "@/lib/config";
-  import type { Pricing } from "@/lib/payment";
-  import { setLeadCheckoutReadyState } from "@/components/interactive/dock";
-  import PixCheckout from "./PixCheckout.svelte";
-  import PixIcon from "@/components/icons/PixIcon.svelte";
-  import CreditCardIcon from "@/components/icons/CreditCardIcon.svelte";
-  import ErrorDialog from "@/components/ui/ErrorDialog.svelte";
-  import Skeleton from "@/components/ui/Skeleton.svelte";
-  import Alert from "@/components/ui/Alert.svelte";
+  import { resolveSupportHref, type InstitutionalContact } from "@/lib/config";
+  import { isValidCpf, maskCpf } from "@/lib/cpf";
+  import { isEmailFormatValid, isTempEmail, suggestEmail } from "@/lib/email";
+  import { formatBRL } from "@/lib/money";
+  import { parsePaymentMethod, PAYMENT_LABEL, type PaymentMethod, type Pricing } from "@/lib/payment";
+  import { getRoleDestination } from "@/lib/roles";
+  import { getCheckout, getLogin, saveCheckout, saveLogin } from "@/lib/session";
+  import TurnstileWidget from "@/components/interactive/TurnstileWidget.svelte";
+  import { Alert, Badge, Card } from "@/components/ui";
 
-  interface Props { initialPhase?: "selection" | "checkout"; }
+  interface Props {
+    initialPhase?: "selection" | "checkout";
+  }
+
   let { initialPhase = "selection" }: Props = $props();
-  type PaywallMode = "selection" | "preparing" | "pix" | "profile" | "card_waiting";
-  type PaymentMethod = "pix" | "credit_card";
 
-  let mode = $state<PaywallMode>("selection");
+  let loading = $state(true);
   let busy = $state(false);
-  let querying = $state(false);
-  let errorMessage = $state<string | null>(null);
-  let isErrorDialogOpen = $state(false);
-  let recoveryAction = $state<"retry" | "login" | "environment">("retry");
-  let isCheckoutReady = $state(false);
-  let selectedModality = $state<PaymentMethod | null>(null);
-  let checkoutData = $state<CheckoutOut | null>(null);
-  let preparingTitle = $state("Preparando sua cobrança...");
-  let preparingMessage = $state("Consultando sua proposta no servidor...");
-  let preparingStep = $state(1);
-  let pendingPaymentMethod = $state<PaymentMethod>("pix");
-  let missingFields = $state<string[]>([]);
-  let profileCpf = $state("");
-  let profileEmail = $state("");
-  let profileBusy = $state(false);
-  let profileError = $state<string | null>(null);
-  let livePricing = $state<Pricing | null>(null);
-  let leadSnapshot = $state<LeadMe | null>(null);
-  let hasRef = $state(false);
-  let lastCheckedAt = $state<string | null>(null);
-  let returnReferences: CardPaymentReferences | null = null;
-  let active = true;
+  let error = $state("");
+  let notice = $state("");
 
-  let canonicalPix = $derived(livePricing?.promo_pix ?? (livePricing?.pix === "1615.00" ? "999.00" : livePricing?.pix) ?? "999.00");
-  let canonicalCard = $derived(livePricing?.promo_card ?? { installments: 12, installment: "99.00", total: "1188.00" });
-  let quotedCard = $derived(canonicalCard);
-  let pricingAvailable = $derived(Boolean(leadSnapshot && livePricing &&
-    Number(canonicalPix) > 0 &&
-    Number(quotedCard?.total) > 0));
-  let paymentStage = $derived(leadSnapshot?.payment_status?.stage ??
-    (leadSnapshot?.checkout?.is_paid || leadSnapshot?.status === "paid" ? "completed" : "pending"));
-  let paymentTitle = $derived(paymentStage === "provider_confirmed"
-    ? "Pagamento recebido; finalizando matrícula"
-    : paymentStage === "review" ? "Pagamento precisa de conferência"
-    : paymentStage === "completed" ? "Pagamento confirmado" : "Aguardando confirmação do pagamento");
-  let canPay = $derived(pricingAvailable && paymentStage === "pending" && recoveryAction === "retry" && !errorMessage);
+  let me = $state<WhoAmI | null>(null);
+  let pricing = $state<Pricing | null>(null);
+  let contact = $state<InstitutionalContact | null>(null);
+  let currentPayment = $state<StudentCurrentPayment | null>(null);
 
-  function formatMoney(value: string | undefined): string {
-    const amount = Number(value);
-    return Number.isFinite(amount) && amount > 0
-      ? amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "Preço indisponível";
-  }
-  let pixPrice = $derived(formatMoney(canonicalPix));
-  let creditPrice = $derived(formatMoney(quotedCard?.total));
-  let creditInstallmentPrice = $derived(formatMoney(quotedCard?.installment));
-  let discountBadge = "Condição Especial: Economia de R$ 616,00 sobre a tabela de R$ 1.615";
+  let selectedMethod = $state<PaymentMethod>("pix");
+  let checkoutUrl = $state<string | null>(null);
+  let activePaymentId = $state<string | null>(null);
+  let paidConfirmed = $state(false);
 
-  function notifyDock(phase: "selection" | "checkout", ready: boolean, modality = selectedModality) {
-    setLeadCheckoutReadyState(ready);
-    window.dispatchEvent(new CustomEvent("supletivo:lead-checkout-status", { detail: { ready, phase, modality } }));
-    window.dispatchEvent(new CustomEvent("supletivo:lead-wizard-phase", { detail: { phase } }));
-  }
+  let needsCpf = $state(false);
+  let needsEmail = $state(false);
+  let cpfInput = $state("");
+  let emailInput = $state("");
+  let turnstileToken = $state("");
+  let turnstileResetKey = $state(0);
+  let pendingRetryCheckout = $state(false);
 
-  function checkoutUrl(checkout: CheckoutOut | null): string | null {
-    return checkout?.checkout_url || checkout?.url || checkout?.short_url || null;
-  }
+  let pollTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
-  function restoreCheckout(checkout: CheckoutOut | null) {
-    checkoutData = checkout;
-    selectedModality = checkout?.payment_method === "pix" || checkout?.payment_method === "credit_card"
-      ? checkout.payment_method : null;
-    isCheckoutReady = Boolean(selectedModality &&
-      (checkout?.qrcode_payload || checkout?.qrcode_image || checkoutUrl(checkout)));
-  }
+  const supportHref = $derived(resolveSupportHref(contact));
+  const pixPriceText = $derived.by(() => {
+    if (!pricing) return null;
+    const raw = pricing.promo_pix ?? pricing.pix;
+    return formatBRL(raw);
+  });
+  const anchorPriceText = $derived.by(() => {
+    if (!pricing?.anchor_full) return null;
+    return formatBRL(pricing.anchor_full);
+  });
+  const emailHint = $derived(emailInput.trim() ? suggestEmail(emailInput) : null);
 
-  function applyLead(lead: LeadMe) {
-    leadSnapshot = lead;
-    livePricing = lead.pricing ?? null;
-    hasRef = Boolean(lead.pricing?.has_discount);
-    restoreCheckout(lead.checkout ?? null);
-    lastCheckedAt = new Date().toLocaleTimeString("pt-BR");
-    errorMessage = null;
-    recoveryAction = "retry";
-    const stage = lead.payment_status?.stage ?? (lead.checkout?.is_paid || lead.status === "paid" ? "completed" : "pending");
-    if (stage !== "pending") {
-      mode = "card_waiting";
-      const destination = lead.payment_status?.continuation_url;
-      if (stage === "completed" && destination && /^\/student\/(enrollment|active|veteran)(?:[/?#]|$)/.test(destination)) {
-        window.location.href = destination;
-        return;
-      }
-    }
-    notifyDock(mode === "selection" || mode === "profile" ? "selection" : "checkout", isCheckoutReady);
-  }
-
-  function showError(error: unknown) {
-    if (error instanceof ApiError && error.status === 401) {
-      recoveryAction = "login";
-      errorMessage = "Sua sessão expirou. Entre novamente para consultar a proposta e o pagamento.";
-    } else if (error instanceof ApiError && error.status === 403) {
-      recoveryAction = "environment";
-      errorMessage = "Esta conta não tem acesso à proposta de aluno. Abra o ambiente autorizado da sua conta.";
-    } else if (error instanceof ApiError && error.status === 404) {
-      recoveryAction = "environment";
-      errorMessage = "Não há uma proposta de matrícula disponível para esta conta. Abra seu ambiente ou fale com o atendimento.";
-    } else {
-      recoveryAction = "retry";
-      const message = error instanceof Error && !(error instanceof TypeError) && error.name !== "AbortError"
-        ? error.message : getErrorMessage(error);
-      errorMessage = message + " Se já pagou, aguarde a confirmação e evite pagar novamente.";
-    }
-    isErrorDialogOpen = true;
-  }
-
-  async function refreshLead(verifyReturn = false) {
-    if (querying || !active) return;
-    querying = true;
-    try {
-      const lead = verifyReturn && returnReferences
-        ? await confirmLeadCardPayment(returnReferences) : await getLeadMe();
-      if (active) applyLead(lead);
-    } catch (error) {
-      if (active) showError(error);
-    } finally {
-      querying = false;
+  function stopPolling() {
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
     }
   }
 
-  function openCheckout() {
-    if (!isCheckoutReady || paymentStage !== "pending") return;
-    if (selectedModality === "pix") {
-      mode = "pix";
-      notifyDock("checkout", true);
-    } else if (selectedModality === "credit_card") {
-      mode = "card_waiting";
-      notifyDock("checkout", true);
-    }
-  }
-
-  onMount(() => {
-    notifyDock("selection", false, null);
-    // Old global browser hints are retired. The authenticated proposal decides the provider.
-    localStorage.removeItem("supletivo_pending_card_checkout");
-    localStorage.removeItem("supletivo_card_checkout_url");
-    const params = new URLSearchParams(window.location.search);
-    const order = params.get("order_nsu");
-    const transaction = params.get("transaction_nsu");
-    const slug = params.get("slug");
-    if (order && transaction && slug) {
-      returnReferences = { order_nsu: order, transaction_nsu: transaction, slug };
-      mode = "card_waiting";
-    }
-    void refreshLead(Boolean(returnReferences)).then(() => {
-      if (active && initialPhase === "checkout" && mode === "selection") openCheckout();
-    });
-
-    const handleWizardStep = (event: Event) => {
-      if (busy) return;
-      const step = (event as CustomEvent<{ step: "selection" | "checkout" }>).detail?.step;
-      if (step === "selection") backToSelection();
-      else if (step === "checkout") openCheckout();
-    };
-    const handleVisible = () => {
-      if (document.visibilityState === "visible" && !busy) void refreshLead();
-    };
-    window.addEventListener("supletivo:lead-wizard-step", handleWizardStep);
-    document.addEventListener("visibilitychange", handleVisible);
-    const timer = setInterval(() => {
-      if (!busy && document.visibilityState !== "hidden" && recoveryAction === "retry") void refreshLead();
-    }, 3500);
-    return () => {
-      active = false;
-      clearInterval(timer);
-      window.removeEventListener("supletivo:lead-wizard-step", handleWizardStep);
-      document.removeEventListener("visibilitychange", handleVisible);
-    };
+  onDestroy(() => {
+    stopPolling();
   });
 
-  function handleProfileIncomplete(method: PaymentMethod, extra?: Record<string, unknown>) {
-    pendingPaymentMethod = method;
-    const rawMissing = extra?.missing_fields;
-    missingFields = Array.isArray(rawMissing) ? rawMissing as string[] : ["cpf", "email"];
-    mode = "profile";
-    notifyDock("selection", false, method);
+  function syncProfileNeeds(user: WhoAmI | null | undefined) {
+    needsCpf = !user?.cpf;
+    needsEmail = !user?.email;
+    if (user?.cpf && !cpfInput) cpfInput = maskCpf(user.cpf);
+    if (user?.email && !emailInput) emailInput = user.email;
   }
 
-  async function submitProfileCompletion() {
-    profileBusy = true;
-    profileError = null;
+  async function refreshSessionAndAdvance() {
+    const updated = await whoami();
+    me = updated;
+    saveLogin({ ...getLogin(), ...updated });
+    const dest = getRoleDestination(updated);
+    const currentStatus = updated.role_statuses?.client ?? updated.status;
+    const isAdminOnly = updated.roles?.includes("admin") && !updated.roles?.includes("client");
+    if (dest && (isAdminOnly || (currentStatus && currentStatus !== "lead" && currentStatus !== "payment_pending"))) {
+      window.location.href = dest;
+      return true;
+    }
+    return false;
+  }
+
+  async function pollPaymentUntilPaid(paymentId: string, remaining = 6) {
+    stopPolling();
     try {
-      if (missingFields.includes("cpf") && profileCpf.trim()) {
-        const cleanCpf = profileCpf.replace(/\D/g, "");
-        if (cleanCpf.length !== 11) throw new Error("CPF deve conter 11 dígitos numéricos.");
-        await confirmIdentityWithRetry(cleanCpf);
+      const status = await getCheckoutStatus(paymentId);
+      if (status.paid || status.status === "paid") {
+        paidConfirmed = true;
+        notice = "Pagamento confirmado! Preparando suas etapas de matrícula...";
+        await refreshSessionAndAdvance();
+        return;
       }
-      if (missingFields.includes("email") && profileEmail.trim()) {
-        if (!profileEmail.includes("@") || !profileEmail.includes(".")) throw new Error("Informe um endereço de e-mail válido.");
-        await setLeadEmail(profileEmail.trim());
+      if (status.checkout_url && !checkoutUrl) {
+        checkoutUrl = status.checkout_url;
       }
-      await selectPayment(pendingPaymentMethod);
-    } catch (error) {
-      profileError = error instanceof Error ? error.message : "Erro ao salvar seus dados cadastrais.";
-      errorMessage = profileError;
-      recoveryAction = "retry";
-      isErrorDialogOpen = true;
-    } finally {
-      profileBusy = false;
+    } catch {
+      // keep silent during background poll; user has manual button
+    }
+    if (remaining > 0) {
+      pollTimer = setTimeout(() => {
+        void pollPaymentUntilPaid(paymentId, remaining - 1);
+      }, 4000);
     }
   }
 
-  async function selectPayment(method: PaymentMethod) {
-    if (!canPay || busy) return;
-    busy = true;
-    errorMessage = null;
-    mode = "preparing";
-    selectedModality = method;
-    preparingStep = 1;
-    preparingTitle = method === "pix" ? "Preparando cobrança PIX..." : "Conectando à InfinitePay...";
-    preparingMessage = "Retomando ou preparando a cobrança vinculada à sua proposta.";
-    notifyDock("selection", false, method);
+  onMount(async () => {
     try {
-      restoreCheckout(await setLeadCheckout(method));
-      preparingStep = 2;
-      for (let attempt = 0; !isCheckoutReady && attempt < 18; attempt++) {
-        preparingMessage = `Aguardando confirmação do gateway bancário... (${attempt + 1}/18)`;
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        if (!active) return;
-        const lead = await getLeadMe();
-        applyLead(lead);
-        if (paymentStage !== "pending") return;
+      const url = new URL(window.location.href);
+      const urlMethod = parsePaymentMethod(url.searchParams.get("method"));
+      if (urlMethod) selectedMethod = urlMethod;
+
+      const orderNsu = url.searchParams.get("order_nsu")?.trim();
+      const transactionNsu = url.searchParams.get("transaction_nsu")?.trim();
+      const slug = url.searchParams.get("slug")?.trim();
+      const receiptUrl = url.searchParams.get("receipt_url")?.trim();
+      const paymentIdFromUrl = url.searchParams.get("payment_id")?.trim();
+
+      const [userRes, pricingRes, contactRes, payRes] = await Promise.all([
+        whoami().catch(() => null),
+        fetchPricing().catch(() => null),
+        fetchContact().catch(() => null),
+        getCurrentPayment().catch(() => null),
+      ]);
+
+      me = userRes;
+      pricing = pricingRes;
+      contact = contactRes;
+      currentPayment = payRes;
+
+      if (userRes) {
+        syncProfileNeeds(userRes);
       }
-      if (!isCheckoutReady) {
-        const lead = await getLeadMe();
-        applyLead(lead);
-        if (!isCheckoutReady) {
-          throw new Error("A emissão no banco está levando mais tempo que o normal. Sua cobrança já foi registrada; clique em 'Consultar Proposta Novamente' para verificar o QR Code sem cancelá-la.");
+
+      const currentStatus = userRes?.role_statuses?.client ?? userRes?.status;
+      const isAdminOnly = userRes?.roles?.includes("admin") && !userRes?.roles?.includes("client");
+      if (userRes && (isAdminOnly || (currentStatus && currentStatus !== "lead" && currentStatus !== "payment_pending"))) {
+        const moved = await refreshSessionAndAdvance();
+        if (moved) return;
+      }
+
+      if (orderNsu && transactionNsu && slug) {
+        busy = true;
+        notice = "Confirmando seu pagamento na InfinitePay...";
+        try {
+          const confirmed = await confirmCardPayment({
+            order_nsu: orderNsu,
+            transaction_nsu: transactionNsu,
+            slug,
+            ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
+          });
+          activePaymentId = confirmed.payment_id;
+          if (confirmed.paid || confirmed.already_paid || confirmed.status === "paid") {
+            paidConfirmed = true;
+            notice = "Pagamento confirmado! Redirecionando para o envio de documentos...";
+            const moved = await refreshSessionAndAdvance();
+            if (!moved) window.location.href = "/student/enrollment";
+            return;
+          }
+          await pollPaymentUntilPaid(confirmed.payment_id, 5);
+        } catch (err) {
+          error = getErrorMessage(err);
+          notice = "";
+        } finally {
+          busy = false;
+        }
+      } else {
+        const cached = getCheckout();
+        const cachedId = paymentIdFromUrl ?? (typeof cached?.payment_id === "string" ? cached.payment_id : null);
+        if (payRes && payRes.status === "paid") {
+          paidConfirmed = true;
+          notice = "Pagamento já confirmado. Redirecionando...";
+          await refreshSessionAndAdvance();
+          return;
+        }
+        if (payRes?.checkout_url) {
+          checkoutUrl = payRes.checkout_url;
+          activePaymentId = payRes.payment_attempt_id;
+        } else if (cachedId) {
+          activePaymentId = cachedId;
+          if (typeof cached?.checkout_url === "string") checkoutUrl = cached.checkout_url;
         }
       }
-      preparingStep = 3;
-      if (selectedModality === "pix") {
-        mode = "pix";
-        notifyDock("checkout", true);
-      } else if (selectedModality === "credit_card" && checkoutUrl(checkoutData)) {
-        notifyDock("checkout", true);
-        window.location.href = checkoutUrl(checkoutData)!;
-      } else {
-        throw new Error("O servidor não informou um meio de pagamento disponível para esta cobrança.");
+
+      if (initialPhase === "checkout" && !checkoutUrl && !needsCpf && !needsEmail && me) {
+        // User navigated directly to /student/lead/checkout with complete profile
+        notice = "Clique abaixo para gerar seu link seguro na InfinitePay.";
       }
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "PROFILE_INCOMPLETE") {
-        handleProfileIncomplete(method, error.extra);
-        return;
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      loading = false;
+    }
+  });
+
+  async function saveMissingProfile(): Promise<boolean> {
+    error = "";
+    if (needsCpf) {
+      const digits = cpfInput.replace(/\D/g, "");
+      if (!isValidCpf(digits)) {
+        error = "Informe um CPF válido com 11 dígitos.";
+        return false;
       }
-      mode = "selection";
-      notifyDock("selection", isCheckoutReady);
-      showError(error);
+      await confirmIdentity(digits, turnstileToken || undefined);
+    }
+    if (needsEmail) {
+      const trimmed = emailInput.trim();
+      if (!isEmailFormatValid(trimmed)) {
+        error = "Informe um e-mail válido.";
+        return false;
+      }
+      if (isTempEmail(trimmed)) {
+        error = "Use um e-mail pessoal permanente para receber seus comprovantes e acesso.";
+        return false;
+      }
+      await setLeadEmail(trimmed);
+    }
+    const refreshed = await whoami().catch(() => null);
+    if (refreshed) {
+      me = refreshed;
+      syncProfileNeeds(refreshed);
+    } else {
+      needsCpf = false;
+      needsEmail = false;
+    }
+    return true;
+  }
+
+  async function handleProfileSubmit(event: Event) {
+    event.preventDefault();
+    busy = true;
+    error = "";
+    try {
+      const ok = await saveMissingProfile();
+      if (ok && pendingRetryCheckout) {
+        pendingRetryCheckout = false;
+        await startCheckout();
+      }
+    } catch (err) {
+      error = getErrorMessage(err);
+      turnstileResetKey += 1;
     } finally {
       busy = false;
     }
   }
 
-  function selectPix() { return selectPayment("pix"); }
-  function selectCredit() { return selectPayment("credit_card"); }
-  function checkCardPaymentStatus() { return refreshLead(Boolean(returnReferences)); }
+  async function startCheckout() {
+    error = "";
+    notice = "";
 
-  function backToSelection() {
-    if (busy || paymentStage !== "pending") return;
-    mode = "selection";
-    profileError = null;
-    notifyDock("selection", isCheckoutReady);
+    if (needsCpf || needsEmail) {
+      pendingRetryCheckout = true;
+      error = "Complete seu CPF e e-mail abaixo antes de ir para o pagamento.";
+      return;
+    }
+
+    busy = true;
+    try {
+      const idemp =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `chk-${Date.now()}`;
+      const res = await createCheckout(selectedMethod, idemp);
+      activePaymentId = res.payment_id;
+      checkoutUrl = res.checkout_url;
+      saveCheckout({
+        payment_id: res.payment_id,
+        checkout_url: res.checkout_url,
+        payment_method: selectedMethod,
+      });
+
+      if (res.status === "paid") {
+        paidConfirmed = true;
+        await refreshSessionAndAdvance();
+        return;
+      }
+
+      if (res.checkout_url && /^https:\/\/|^http:\/\//i.test(res.checkout_url)) {
+        window.location.href = res.checkout_url;
+        return;
+      }
+      await pollPaymentUntilPaid(res.payment_id, 5);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && err.code === "PROFILE_INCOMPLETE") {
+        const missing = Array.isArray(err.extra.missing_fields)
+          ? (err.extra.missing_fields as string[])
+          : [];
+        needsCpf = missing.includes("cpf") || !me?.cpf;
+        needsEmail = missing.includes("email") || !me?.email;
+        pendingRetryCheckout = true;
+        error = "Antes de continuar, precisamos confirmar os dados cadastrais faltantes abaixo.";
+      } else {
+        error = getErrorMessage(err);
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function handleManualRecheck() {
+    busy = true;
+    error = "";
+    try {
+      if (activePaymentId) {
+        const st = await getCheckoutStatus(activePaymentId);
+        if (st.paid || st.status === "paid") {
+          paidConfirmed = true;
+          notice = "Pagamento confirmado! Redirecionando...";
+          const moved = await refreshSessionAndAdvance();
+          if (!moved) window.location.href = "/student/enrollment";
+          return;
+        }
+      }
+      const pay = await getCurrentPayment().catch(() => null);
+      currentPayment = pay;
+      if (pay?.status === "paid") {
+        paidConfirmed = true;
+        const moved = await refreshSessionAndAdvance();
+        if (!moved) window.location.href = "/student/enrollment";
+        return;
+      }
+      notice = "Pagamento ainda pendente de confirmação bancária. Aguarde alguns instantes e tente novamente.";
+    } catch (err) {
+      error = getErrorMessage(err);
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
-<div class="w-full max-w-3xl mx-auto p-4 sm:p-6 text-white pb-24">
-  {#if mode === "selection"}
-    <!-- Cabeçalho & Aleta Conforme supletivo.net.br / Pricing.astro -->
-    <div class="text-center mb-8 space-y-3" in:fly={{ y: 16, duration: 280, easing: cubicOut }} out:fade={{ duration: 150 }}>
-      <!-- Aleta de Destaque com Cores Fortes -->
-      <div class="card-aleta">
-        <div class="aleta-flag">
-          <span class="aleta-dot" aria-hidden="true"></span>
-          <span class="aleta-text">OFERTA ESPECIAL VIGENTE · 12x DE R$ 99 OU R$ 999 NO PIX</span>
+<section class="mx-auto max-w-2xl px-4 pb-28 pt-6 space-y-5">
+  <header class="space-y-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <Badge variant="warning">Etapa 1 de 2 — Taxa de matrícula</Badge>
+      {#if paidConfirmed}
+        <Badge variant="success">Pagamento confirmado</Badge>
+      {/if}
+    </div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-[#0b1220]">
+      Finalize sua matrícula na EJA
+    </h1>
+    <p class="text-sm text-slate-600">
+      Assim que o pagamento for confirmado pela InfinitePay, liberamos o envio dos seus documentos.
+    </p>
+  </header>
+
+  {#if loading}
+    <Card class="p-6">
+      <p class="text-sm text-slate-500">Carregando condições de matrícula...</p>
+    </Card>
+  {:else}
+    {#if error}
+      <Alert variant="error" title="Atenção">{error}</Alert>
+    {/if}
+    {#if notice}
+      <Alert variant={paidConfirmed ? "success" : "info"}>{notice}</Alert>
+    {/if}
+
+    <Card class="p-5 sm:p-6 space-y-4">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-black/10 pb-4">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Valor promocional no Pix</p>
+          <div class="flex items-baseline gap-2.5">
+            {#if pixPriceText}
+              <span class="text-3xl font-black text-[#00734d]">{pixPriceText}</span>
+              <span class="text-sm font-semibold text-slate-700">à vista</span>
+            {:else}
+              <span class="text-lg font-bold text-[#0b1220]">Consulte valores no checkout seguro</span>
+            {/if}
+            {#if anchorPriceText}
+              <span class="text-sm text-slate-400 line-through">{anchorPriceText}</span>
+            {/if}
+          </div>
         </div>
+        <Badge variant="info">InfinitePay</Badge>
       </div>
 
-      <h1 class="text-2xl sm:text-4xl font-display tracking-tight text-white">
-        Conclua sua matrícula para acessar a etapa de liberação
-      </h1>
-      <p class="text-xs sm:text-sm text-white/70 max-w-lg mx-auto">
-        Escolha abaixo como prefere realizar o pagamento único da sua formação do Ensino Médio.
+      <p class="text-sm text-slate-700">
+        Pix à vista ou cartão de crédito em até <strong>12x com juros calculados no checkout da InfinitePay</strong>.
       </p>
 
-      {#if leadSnapshot}
-        <div id="lead-context" class="mt-5 rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-left">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Dados da sua proposta</p>
-              <p class="mt-1 text-sm font-semibold text-white">{leadSnapshot.customer?.name ?? "Lead em atendimento"}</p>
-              <p class="text-xs text-white/60">{leadSnapshot.customer?.phone ?? leadSnapshot.customer?.email ?? "Dados de contato ainda não informados"}</p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onclick={() => { selectedMethod = "pix"; }}
+          class={`min-h-12 rounded-xl border p-3.5 text-left transition ${
+            selectedMethod === "pix"
+              ? "border-[#00734d] bg-[#00734d]/5 ring-2 ring-[#00734d]/20"
+              : "border-black/15 bg-white hover:border-black/30"
+          }`}
+        >
+          <p class="text-sm font-bold text-[#0b1220]">{PAYMENT_LABEL.pix}</p>
+          <p class="text-xs text-slate-600 mt-0.5">
+            {pixPriceText ? `${pixPriceText} — compensação imediata` : "Compensação imediata"}
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onclick={() => { selectedMethod = "card"; }}
+          class={`min-h-12 rounded-xl border p-3.5 text-left transition ${
+            selectedMethod === "card"
+              ? "border-[#002776] bg-[#002776]/5 ring-2 ring-[#002776]/20"
+              : "border-black/15 bg-white hover:border-black/30"
+          }`}
+        >
+          <p class="text-sm font-bold text-[#0b1220]">{PAYMENT_LABEL.card}</p>
+          <p class="text-xs text-slate-600 mt-0.5">Parcelamento calculado no checkout seguro</p>
+        </button>
+      </div>
+
+      {#if needsCpf || needsEmail}
+        <form onsubmit={handleProfileSubmit} class="rounded-2xl border border-[#ffc400]/50 bg-[#ffc400]/10 p-4 space-y-4">
+          <div>
+            <h2 class="text-sm font-bold text-[#0b1220]">Complete seu cadastro para emitir a cobrança</h2>
+            <p class="text-xs text-slate-700 mt-0.5">
+              Estes dados são obrigatórios para registrar sua matrícula escolar.
+            </p>
+          </div>
+
+          {#if needsCpf}
+            <div class="space-y-2">
+              <label for="lead-cpf" class="block text-xs font-bold uppercase tracking-wide text-slate-700">
+                CPF do aluno
+              </label>
+              <input
+                id="lead-cpf"
+                type="text"
+                inputmode="numeric"
+                value={cpfInput}
+                oninput={(e) => { cpfInput = maskCpf((e.currentTarget as HTMLInputElement).value); }}
+                placeholder="000.000.000-00"
+                disabled={busy}
+                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+              />
+              <TurnstileWidget
+                resetKey={turnstileResetKey}
+                onToken={(tok) => { turnstileToken = tok; }}
+              />
             </div>
-            <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70">{leadSnapshot.status ?? "lead"}</span>
-          </div>
-          <div class="mt-3 grid gap-2 text-xs text-white/70 sm:grid-cols-2">
-            <p><strong class="text-white/90">Polo:</strong> {leadSnapshot.hub?.name ?? "Não informado pelo servidor"}</p>
-            {#if leadSnapshot.hub?.coordinator_name}<p><strong class="text-white/90">Coordenador:</strong> {leadSnapshot.hub.coordinator_name}</p>{/if}
-            {#if leadSnapshot.customer?.cpf}<p><strong class="text-white/90">CPF:</strong> {leadSnapshot.customer.cpf}</p>{/if}
-            {#if leadSnapshot.customer?.email}<p><strong class="text-white/90">E-mail:</strong> {leadSnapshot.customer.email}</p>{/if}
-          </div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            {#if leadSnapshot.hub?.contact_url && /^https:\/\/wa\.me\/\d+(\?.*)?$/.test(leadSnapshot.hub.contact_url)}<a class="secondary" href={leadSnapshot.hub.contact_url} target="_blank" rel="noopener noreferrer">Falar com polo</a>{/if}
-          </div>
-          <p class="mt-2 text-[11px] text-white/50">Os valores da proposta são calculados pelo servidor e permanecem vinculados a esta cobrança.</p>
-        </div>
-      {/if}
-
-      {#if discountBadge}
-        <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-bold border border-emerald-500/30 shadow-sm">
-          <span class="text-emerald-400">★</span>
-          <span>{discountBadge}</span>
-        </div>
-      {/if}
-    </div>
-
-    <!-- Modal Canônico de Erro (Shadcn AlertDialog / ErrorDialog) -->
-    <ErrorDialog
-      isOpen={isErrorDialogOpen}
-      error={errorMessage}
-      primaryAction={recoveryAction === "retry"
-        ? { label: "Consultar Proposta Novamente", action: () => { isErrorDialogOpen = false; void refreshLead(); } }
-        : recoveryAction === "login"
-          ? { label: "Entrar na Minha Conta", action: () => { window.location.href = "/"; } }
-          : { label: "Abrir Meu Ambiente", action: () => { window.location.href = "/"; } }}
-      onClose={() => { isErrorDialogOpen = false; }}
-    />
-
-    <!-- 2 Cards de Escolha de Modalidade com Física Zero-G -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Card PIX (Asaas Oficial com Destaque Dourado/Esmeralda) -->
-      <div class="payment-card-zero-g payment-card-pix p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group">
-        <div class="absolute -right-8 -top-8 size-28 bg-[var(--yellow)]/10 rounded-full blur-2xl pointer-events-none"></div>
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--yellow)] text-[var(--ink)] text-[10px] font-black uppercase tracking-wider mb-3">
-            <PixIcon class="size-3 text-[var(--ink)]" />
-            <span>PIX · CONFIRMAÇÃO PELO SERVIDOR</span>
-          </div>
-          <h2 class="text-xl sm:text-2xl font-display text-white flex items-center gap-2">
-            <span>Pagamento via PIX</span>
-          </h2>
-          <p class="text-xs text-white/70 mt-1">Valor informado pelo servidor de pagamentos.</p>
-
-          <div class="mt-6 mb-4">
-            {#if livePricing}
-              <span class="text-3xl sm:text-4xl font-display text-emerald-400 font-black tracking-tight">{pixPrice}</span>
-            {:else}
-              <div class="flex items-center my-1">
-                <Skeleton class="h-10 w-36 rounded-xl" />
-              </div>
-            {/if}
-            <span class="text-xs text-white/50 block mt-1">taxa única sem mensalidades futuras</span>
-          </div>
-
-          <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
-              <span>QR Code e código copia-e-cola vinculados à proposta</span>
-            </li>
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
-              <span>Confirmação após o retorno do gateway de pagamentos</span>
-            </li>
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">✓</span>
-              <span>Matrícula liberada após a conclusão no servidor</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="mt-8 pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onclick={selectPix}
-            disabled={busy || !canPay}
-            class="btn w-full min-h-[48px] py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-extrabold text-sm uppercase tracking-wider shadow-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <PixIcon class="size-4 text-[var(--ink)]" />
-            <span>{busy && selectedModality === "pix" ? "Conectando ao PIX..." : "Pagar com PIX Oficial →"}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Card Cartão de Crédito (InfinitePay Oficial) -->
-      <div class="payment-card-zero-g payment-card-card p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group">
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 text-[10px] font-bold uppercase tracking-wider mb-3">
-            <CreditCardIcon class="size-3 text-white" />
-            <span>PAGAMENTO NO CARTÃO</span>
-          </div>
-          <h2 class="text-xl sm:text-2xl font-display text-white">Cartão de Crédito</h2>
-          <p class="text-xs text-white/70 mt-1">Condições de pagamento apresentadas pela InfinitePay.</p>
-
-          <div class="mt-6 mb-4">
-            {#if quotedCard?.total || livePricing}
-              <div class="flex flex-col">
-                <span class="text-3xl sm:text-4xl font-display text-white font-bold tracking-tight">12x de {creditInstallmentPrice}</span>
-                <span class="text-xs text-white/70 mt-0.5">ou {creditPrice} à vista no cartão</span>
-              </div>
-            {:else}
-              <div class="flex items-center my-1">
-                <Skeleton class="h-10 w-36 rounded-xl" />
-              </div>
-            {/if}
-            <span class="text-xs text-[var(--muted-on-dark)] block mt-1">Parcelamento em até 12x sem juros no cartão de crédito.</span>
-          </div>
-
-          <ul class="text-xs text-white/80 space-y-2.5 mt-4 text-left">
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
-              <span>Pagamento seguro via gateway InfinitePay</span>
-            </li>
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
-              <span>As taxas da operadora são repassadas ao comprador no checkout</span>
-            </li>
-            <li class="flex items-center gap-2.5">
-              <span class="flex size-4 items-center justify-center rounded-full bg-white/10 text-white/80 text-[11px] font-bold">✓</span>
-              <span>Certificação emitida pela instituição parceira conforme a documentação vigente</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="mt-8 pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onclick={selectCredit}
-            disabled={busy || !canPay}
-            class="w-full min-h-[48px] py-3.5 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 active:scale-[0.985] text-white text-sm font-bold uppercase tracking-wider cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <CreditCardIcon class="size-4 text-white" />
-            <span>{busy && selectedModality === "credit_card" ? "Abrindo InfinitePay..." : "Pagar no Cartão (InfinitePay) ↗"}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tríade de Confiança Decisória de supletivo.net.br com Selos Vetoriais -->
-    <div class="mt-8 pt-4 border-t border-white/10">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto text-left">
-        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-          <div class="shrink-0 size-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <div class="text-xs">
-            <strong class="text-white block font-bold">Certificado Oficial</strong>
-            <span class="text-white/60 leading-tight block mt-0.5">A instituição parceira informa as regras aplicáveis e os registros após a conclusão.</span>
-          </div>
-        </div>
-
-        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-          <div class="shrink-0 size-8 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400">
-            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M2 12h20" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
-          </div>
-          <div class="text-xs">
-            <strong class="text-white block font-bold">Validade Nacional</strong>
-            <span class="text-white/60 leading-tight block mt-0.5">O uso do documento depende das regras da instituição e do órgão que o receber.</span>
-          </div>
-        </div>
-
-        <div class="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-          <div class="shrink-0 size-8 rounded-xl bg-[var(--yellow)]/15 flex items-center justify-center text-[var(--yellow)]">
-            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div class="text-xs">
-            <strong class="text-white block font-bold">Garantia 7 Dias</strong>
-            <span class="text-white/60 leading-tight block mt-0.5">Devolução de 100% do valor caso desista (Art. 49 do CDC).</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="text-center mt-6">
-        <a
-          href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=Ol%C3%A1%2C%20estou%20na%20tela%20de%20escolha%20de%20pagamento%20do%20Supletivo%20e%20tenho%20d%C3%BAvidas.`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-white/70 text-xs font-medium hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
-        >
-          <svg class="size-3.5 fill-emerald-400" viewBox="0 0 24 24">
-            <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"/>
-          </svg>
-          <span>Dúvidas sobre o curso ou valores? Fale conosco no WhatsApp</span>
-        </a>
-      </div>
-    </div>
-
-  {:else if mode === "preparing"}
-    <!-- Loop de Preparação & Conexão Segura com Vetores -->
-    <div class="max-w-md mx-auto p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl text-center space-y-6 bg-white/[0.03]" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
-      <div class="relative size-20 mx-auto flex items-center justify-center">
-        <!-- Radar Pulse Animação -->
-        <span class="absolute inset-0 rounded-full bg-[var(--yellow)]/20 animate-ping"></span>
-        <span class="relative flex size-14 rounded-full bg-[var(--yellow)] text-[var(--ink)] items-center justify-center shadow-lg font-bold">
-          {#if selectedModality === "pix"}
-            <PixIcon class="size-7 text-[var(--ink)]" />
-          {:else}
-            <CreditCardIcon class="size-7 text-[var(--ink)]" />
           {/if}
-        </span>
-      </div>
 
-      <div class="space-y-2">
-        <h2 class="text-xl font-display text-white">{preparingTitle}</h2>
-        <p class="text-xs text-white/70">{preparingMessage}</p>
-      </div>
+          {#if needsEmail}
+            <div class="space-y-1.5">
+              <label for="lead-email" class="block text-xs font-bold uppercase tracking-wide text-slate-700">
+                E-mail pessoal
+              </label>
+              <input
+                id="lead-email"
+                type="email"
+                bind:value={emailInput}
+                placeholder="seuemail@exemplo.com"
+                disabled={busy}
+                class="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#0b1220] focus:border-[#002776] focus:outline-none"
+              />
+              {#if emailHint}
+                <button
+                  type="button"
+                  onclick={() => { emailInput = emailHint; }}
+                  class="text-xs font-semibold text-[#002776] underline"
+                >
+                  Você quis dizer {emailHint}? Clique para corrigir
+                </button>
+              {/if}
+            </div>
+          {/if}
 
-      <!-- Barra de Progresso / Stepper -->
-      <div class="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-        <div
-          class="h-full bg-gradient-to-r from-[var(--green,#00734d)] via-[var(--yellow,#ffc400)] to-emerald-400 transition-all duration-500 rounded-full"
-          style={`width: ${preparingStep === 1 ? "35%" : preparingStep === 2 ? "70%" : "100%"}`}
-        ></div>
-      </div>
-
-      <div class="text-[11px] text-white/50 flex items-center justify-center gap-2">
-        <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Conexão criptografada de ponta a ponta</span>
-      </div>
-
-      <div class="pt-2">
-        <button
-          type="button"
-          onclick={backToSelection}
-          disabled={busy}
-          class="text-xs text-white/60 hover:text-white transition-colors cursor-pointer underline underline-offset-4"
-        >
-          Voltar às opções
-        </button>
-      </div>
-    </div>
-
-  {:else if mode === "profile"}
-    <!-- Preenchimento de Dados Pendentes (PROFILE_INCOMPLETE) -->
-    <div class="max-w-md mx-auto p-6 sm:p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl space-y-6">
-      <div class="text-center space-y-2">
-        <div class="inline-flex size-12 rounded-2xl bg-[var(--yellow)]/20 text-[var(--yellow)] items-center justify-center text-xl">
-          📋
-        </div>
-        <h2 class="text-xl font-display text-white">Confirmação Cadastral</h2>
-        <p class="text-xs text-white/70">
-          Para emitir sua cobrança oficial e registrar sua matrícula conforme as normas educacionais, confirme seus dados abaixo:
-        </p>
-      </div>
-
-
-
-      <div class="space-y-4 text-left">
-        {#if missingFields.includes("cpf")}
-          <div>
-            <label for="profile-cpf" class="block text-xs font-semibold text-white/80 mb-1">Seu CPF</label>
-            <input
-              id="profile-cpf"
-              type="text"
-              bind:value={profileCpf}
-              placeholder="000.000.000-00"
-              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
-            />
-          </div>
-        {/if}
-
-        {#if missingFields.includes("email")}
-          <div>
-            <label for="profile-email" class="block text-xs font-semibold text-white/80 mb-1">Seu E-mail</label>
-            <input
-              id="profile-email"
-              type="email"
-              bind:value={profileEmail}
-              placeholder="seu-email@exemplo.com"
-              class="w-full px-4 py-2.5 rounded-xl border border-white/15 bg-black/40 text-white text-sm focus:outline-none focus:border-[var(--yellow)] focus-visible:ring-2 focus-visible:ring-[var(--yellow)]/30"
-            />
-          </div>
-        {/if}
-
-        <button
-          type="button"
-          onclick={submitProfileCompletion}
-          disabled={profileBusy}
-          class="w-full py-3 rounded-xl bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 transition-[opacity,transform] duration-200 cursor-pointer disabled:opacity-50 mt-2 touch-manipulation"
-        >
-          {profileBusy ? "Salvando Dados…" : "Confirmar e Ir para o Pagamento →"}
-        </button>
-
-        <button
-          type="button"
-          onclick={backToSelection}
-          class="w-full text-center text-xs text-white/60 hover:text-white transition-colors"
-        >
-          Voltar às opções
-        </button>
-      </div>
-    </div>
-
-  {:else if mode === "pix"}
-    <!-- Checkout PIX Nativo (Fase 2) -->
-    <div class="space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-white/10">
-        <button
-          type="button"
-          onclick={backToSelection}
-          class="inline-flex items-center gap-2 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
-        >
-          ← Voltar para as opções de pagamento
-        </button>
-        <span class="text-xs text-emerald-400 font-bold">PIX Bancário Oficial</span>
-      </div>
-
-      <PixCheckout token="default" initialData={checkoutData} />
-    </div>
-
-  {:else if mode === "card_waiting"}
-    <!-- Retorno da InfinitePay / Aguardando Compensação -->
-    <div class="max-w-md mx-auto p-6 sm:p-8 rounded-3xl glass-panel border border-white/20 shadow-2xl text-center space-y-6 bg-white/[0.03]">
-      <div class="inline-flex size-14 rounded-full bg-emerald-500/20 text-emerald-400 items-center justify-center text-2xl border border-emerald-500/40">
-        💳
-      </div>
-
-      <div class="space-y-2" role="status">
-        <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider">
-          Retorno do Gateway Seguro
-        </span>
-        <h2 class="text-xl font-display text-white">{paymentTitle}</h2>
-        <p class="text-xs text-[var(--muted-on-dark)] leading-relaxed">
-          {paymentStage === "provider_confirmed" ? "O provedor confirmou o pagamento. Aguarde a conclusão da matrícula; não é necessário pagar novamente."
-            : paymentStage === "review" ? "O pagamento precisa ser conferido pelo atendimento. Não faça outro pagamento para esta proposta."
-            : paymentStage === "completed" ? "Entre na sua conta para abrir o ambiente autorizado pelo servidor."
-            : "O servidor ainda não confirmou o pagamento. Se já pagou, acompanhe a consulta e evite pagar novamente."}
-        </p>
-        <p class="text-[11px] text-[var(--muted-on-dark)]">Última consulta ao servidor: {lastCheckedAt ?? "ainda não concluída"}</p>
-        {#if leadSnapshot?.payment_status?.paid_amount}
-          <p class="text-sm text-white">Valor pago confirmado: {formatMoney(leadSnapshot.payment_status.paid_amount)}</p>
-        {/if}
-        {#if leadSnapshot?.payment_status?.actual_capture_method}
-          <p class="text-xs text-[var(--muted-on-dark)]">Meio confirmado: {leadSnapshot.payment_status.actual_capture_method === "pix" ? "PIX" : leadSnapshot.payment_status.actual_capture_method === "credit_card" ? "Cartão de crédito" : leadSnapshot.payment_status.actual_capture_method}</p>
-        {/if}
-      </div>
-
-
-
-      <div class="space-y-3 pt-2">
-        <button
-          type="button"
-          onclick={checkCardPaymentStatus}
-          disabled={querying}
-          class="btn w-full min-h-12 py-3.5 rounded-full bg-[var(--yellow)] text-[var(--ink)] font-bold text-xs uppercase tracking-wide hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer shadow-lg disabled:opacity-50"
-        >
-          {querying ? "Consultando pagamento…" : "Consultar pagamento novamente"}
-        </button>
-
-        {#if checkoutData?.receipt_url}
-          <a href={checkoutData.receipt_url} target="_blank" rel="noopener noreferrer" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Ver comprovante ↗</a>
-        {/if}
-        {#if paymentStage === "completed" || recoveryAction !== "retry"}
-          <a href="/" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Abrir minha conta</a>
-        {/if}
-        {#if paymentStage === "review"}
-          <a href={`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" class="inline-flex w-full min-h-12 items-center justify-center text-sm text-[var(--muted-on-dark)] underline">Falar com o atendimento</a>
-        {/if}
-        {#if paymentStage === "pending" && recoveryAction === "retry" && checkoutUrl(checkoutData)}
-          <a
-            href={checkoutUrl(checkoutData)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex w-full min-h-12 items-center justify-center py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+          <button
+            type="submit"
+            disabled={busy}
+            class="min-h-11 w-full rounded-xl bg-[#0b1220] px-4 text-sm font-bold text-white hover:opacity-95 disabled:opacity-50"
           >
-            Reabrir checkout vigente ↗
-          </a>
-        {/if}
+            {busy ? "Validando dados..." : "Salvar dados e ir para pagamento"}
+          </button>
+        </form>
+      {:else}
+        <div class="flex flex-col gap-3 pt-1">
+          <button
+            type="button"
+            onclick={startCheckout}
+            disabled={busy || paidConfirmed}
+            class="min-h-12 w-full rounded-xl bg-[#ffc400] px-5 text-base font-extrabold text-[#0b1220] shadow-sm transition hover:brightness-95 disabled:opacity-50"
+          >
+            {busy
+              ? "Abrindo checkout InfinitePay..."
+              : checkoutUrl
+              ? "Abrir checkout InfinitePay novamente"
+              : "Ir para pagamento seguro InfinitePay"}
+          </button>
 
-        {#if paymentStage === "pending"}
-        <button
-          type="button"
-          onclick={backToSelection}
-          class="w-full min-h-12 text-center text-xs text-[var(--muted-on-dark)] hover:text-white transition-colors pt-1 cursor-pointer"
-        >
-          Revisar forma de pagamento
-        </button>
-        {/if}
-      </div>
+          {#if checkoutUrl}
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 bg-[#f6f6f2] p-3">
+              <span class="text-xs text-slate-700">Já concluiu o Pix ou cartão na InfinitePay?</span>
+              <button
+                type="button"
+                onclick={handleManualRecheck}
+                disabled={busy}
+                class="min-h-10 rounded-lg border border-[#00734d] px-3 text-xs font-bold text-[#00734d] hover:bg-[#00734d] hover:text-white disabled:opacity-50"
+              >
+                Verificar pagamento agora
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </Card>
+
+    <div class="text-center text-xs text-slate-500">
+      Dúvidas sobre a taxa ou parcelamento?
+      <a href={supportHref} class="font-semibold text-[#002776] underline">
+        Falar com atendimento por e-mail
+      </a>
     </div>
   {/if}
-</div>
-
-<style>
-  /* Aleta de Alerta no Card — Estilo idêntico ao supletivo.net.br / Pricing.astro */
-  .card-aleta {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    position: relative;
-    z-index: 10;
-  }
-
-  .aleta-flag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.5rem 1.25rem;
-    background: linear-gradient(90deg, #7f1d1d 0%, var(--danger, #b91c1c) 50%, #7f1d1d 100%);
-    border: 1.8px solid var(--yellow, #ffc400);
-    border-radius: 9999px;
-    box-shadow:
-      0 4px 24px rgba(185, 28, 28, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    color: #ffffff;
-    font-size: clamp(0.72rem, 2.2vw, 0.82rem);
-    font-weight: 900;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  .aleta-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--yellow, #ffc400);
-    box-shadow: 0 0 10px var(--yellow, #ffc400), 0 0 18px var(--yellow, #ffc400);
-    flex-shrink: 0;
-    animation: aletaBlink 1.2s infinite ease-in-out;
-  }
-
-  @keyframes aletaBlink {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.35;
-      transform: scale(0.85);
-    }
-  }
-
-  /* Tríade de Confiança Decisória */
-  .trust-triad {
-    list-style: none;
-    padding: 0;
-    margin: 2rem auto 1rem;
-    max-width: 34rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    text-align: left;
-  }
-
-  .trust-triad li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    font-size: 0.84rem;
-    line-height: 1.4;
-    color: var(--muted-on-dark, #b9c3db);
-  }
-
-  .trust-triad li svg {
-    width: 1.15rem;
-    height: 1.15rem;
-    flex: none;
-    margin-top: 0.15rem;
-    color: var(--green, #00734d);
-  }
-
-  .trust-triad li strong {
-    color: #ffffff;
-  }
-</style>
+</section>

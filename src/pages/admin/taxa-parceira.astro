@@ -1,0 +1,8 @@
+---
+import RootLayout from "../../layouts/RootLayout.astro";
+import AdminFeesView from "../../components/interactive/admin/AdminFeesView.svelte";
+export const prerender = false;
+---
+<RootLayout title="Administração — Taxa Parceira Asaas | Supletivo Brasil">
+  <AdminFeesView client:load />
+</RootLayout>

@@ -81,12 +81,12 @@
 {#if tabs && tabs.length > 0}
   <div class="w-full flex flex-col items-center {containerClassName}">
     <!-- Barra de Abas na Parte Superior (WAI-ARIA Tablist) -->
-    <div class="w-full flex justify-center {tablistWrapperClassName}">
+    <div class="w-full overflow-x-auto no-visible-scrollbar {tablistWrapperClassName}">
       <div
         role="tablist"
         aria-label={ariaLabel}
         aria-orientation="horizontal"
-        class="relative flex flex-row items-center justify-start sm:justify-center p-1.5 rounded-full bg-[var(--ink)]/80 backdrop-blur-md border border-white/10 shadow-[var(--shadow-glass)] overflow-x-auto no-visible-scrollbar max-w-full touch-pan-x gap-1 {tablistClassName}"
+        class="relative mx-auto flex w-max flex-row items-center justify-center p-1.5 rounded-full bg-[var(--ink)]/80 backdrop-blur-md border border-white/10 shadow-[var(--shadow-glass)] touch-pan-x gap-1 {tablistClassName}"
         style="-webkit-tap-highlight-color: transparent;"
       >
         {#each tabs as tab, idx (tab.value)}
