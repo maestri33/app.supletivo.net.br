@@ -30,11 +30,6 @@ const shouldGuardAuth = requireAuth !== undefined ? requireAuth : (!isPublicAuth
 const shouldGuardRole = shouldGuardAuth && /^\/(student|admin)\//.test(pathname);
 
 const initialRole: "student" | "admin" = pathname.startsWith('/admin') ? "admin" : "student";
-const fullSearch = Astro.url.search;
-const returnToParam = encodeURIComponent(pathname + fullSearch);
-const authRedirectTarget = (pathname === '/' || pathname === '/student' || pathname === '/admin')
-  ? "/"
-  : `/?return_to=${returnToParam}`;
 ---
 
 <!doctype html>
@@ -68,20 +63,8 @@ const authRedirectTarget = (pathname === '/' || pathname === '/student' || pathn
     <title>{title}</title>
     <meta name="description" content={description} />
     {shouldGuardAuth && (
-      <script is:inline define:vars={{ authRedirectTarget }}>
-        try {
-          const raw = localStorage.getItem("supletivo.login");
-          if (!raw) {
-            window.location.replace(authRedirectTarget);
-          } else {
-            const session = JSON.parse(raw);
-            if (!session || !session.access_token) {
-              window.location.replace(authRedirectTarget);
-            }
-          }
-        } catch (e) {
-          window.location.replace(authRedirectTarget);
-        }
+      <script is:inline>
+        document.documentElement.dataset.authChecking = "true";
       </script>
     )}
   </head>

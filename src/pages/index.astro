@@ -6,11 +6,11 @@ export const prerender = false;
 
 const searchParams = Astro.url.searchParams;
 const isExplicitSwitch = searchParams.has("trocar") || searchParams.has("switch") || searchParams.has("tel") || searchParams.has("logout");
-const authCookie = Astro.cookies.get("supletivo.auth")?.value;
 if (isExplicitSwitch) {
   Astro.cookies.delete("supletivo.auth", { path: "/" });
-} else if (authCookie) {
-  return Astro.redirect(authCookie === "admin" ? '/admin/dashboard' : '/student', 302);
+  Astro.cookies.delete("supletivo.auth", { path: "/", domain: ".supletivo.net.br" });
+  Astro.cookies.delete("supletivo_rt", { path: "/" });
+  Astro.cookies.delete("supletivo_rt", { path: "/", domain: ".supletivo.net.br" });
 }
 ---
 

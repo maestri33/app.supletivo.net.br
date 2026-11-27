@@ -673,4 +673,10 @@ textarea {
   to { stroke-dashoffset: 0; }
 }
 
+/* Anti-FOUC durante restauração silenciosa de sessão (supletivo_rt) */
+html[data-auth-checking="true"] main#conteudo {
+  visibility: hidden;
+  opacity: 0;
+}
+
 

@@ -4,15 +4,14 @@
     ApiError,
     confirmCardPayment,
     confirmIdentity,
-    createCheckout,
     fetchContact,
     fetchPricing,
     getCheckoutStatus,
-    getCurrentPayment,
     getErrorMessage,
+    getUnifiedCheckout,
     setLeadEmail,
     whoami,
-    type StudentCurrentPayment,
+    type UnifiedCheckoutResponse,
     type WhoAmI,
   } from "@/lib/api";
   import { resolveSupportHref, type InstitutionalContact } from "@/lib/config";
@@ -39,7 +38,7 @@
   let me = $state<WhoAmI | null>(null);
   let pricing = $state<Pricing | null>(null);
   let contact = $state<InstitutionalContact | null>(null);
-  let currentPayment = $state<StudentCurrentPayment | null>(null);
+  let currentPayment = $state<UnifiedCheckoutResponse | null>(null);
 
   let selectedMethod = $state<PaymentMethod>("pix");
   let checkoutUrl = $state<string | null>(null);
@@ -144,7 +143,7 @@
         whoami().catch(() => null),
         fetchPricing().catch(() => null),
         fetchContact().catch(() => null),
-        getCurrentPayment().catch(() => null),
+        getUnifiedCheckout().catch(() => null),
       ]);
 
       me = userRes;
@@ -282,20 +281,18 @@
 
     busy = true;
     try {
-      const idemp =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `chk-${Date.now()}`;
-      const res = await createCheckout(selectedMethod, idemp);
+      const res = await getUnifiedCheckout();
       activePaymentId = res.payment_id;
       checkoutUrl = res.checkout_url;
-      saveCheckout({
-        payment_id: res.payment_id,
-        checkout_url: res.checkout_url,
-        payment_method: selectedMethod,
-      });
+      if (res.checkout_url) {
+        saveCheckout({
+          payment_id: res.payment_id,
+          checkout_url: res.checkout_url,
+          payment_method: selectedMethod,
+        });
+      }
 
-      if (res.status === "paid") {
+      if (res.mode === "paid" || res.status === "paid") {
         paidConfirmed = true;
         await refreshSessionAndAdvance();
         return;
@@ -336,9 +333,9 @@
           return;
         }
       }
-      const pay = await getCurrentPayment().catch(() => null);
+      const pay = await getUnifiedCheckout().catch(() => null);
       currentPayment = pay;
-      if (pay?.status === "paid") {
+      if (pay?.mode === "paid" || pay?.status === "paid") {
         paidConfirmed = true;
         await refreshSessionAndAdvance("/student/enrollment");
         return;

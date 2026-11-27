@@ -245,6 +245,24 @@ test("media and API proxies reject out-of-prefix traversal and force private no-
     });
     assert.equal(errApiRes.status, 404);
     assert.equal(errApiRes.headers.get("cache-control"), "private, no-store");
+
+    // Preserve multiple Set-Cookie headers on auth endpoints via getSetCookie()
+    globalThis.fetch = async () => {
+      const headers = new Headers({ "content-type": "application/json" });
+      headers.append("set-cookie", "supletivo_rt=rt123; HttpOnly; SameSite=Lax; Domain=.supletivo.net.br; Path=/");
+      headers.append("set-cookie", "extra_cookie=abc; Path=/");
+      return new Response(JSON.stringify({ access_token: "acc" }), { status: 200, headers });
+    };
+    const authLoginReq = new Request("https://app.supletivo.net.br/api/v1/auth/otp/verify", { method: "POST" });
+    const authLoginRes = await apiMod.ALL({
+      request: authLoginReq,
+      url: new URL(authLoginReq.url),
+    });
+    assert.equal(authLoginRes.status, 200);
+    assert.equal(authLoginRes.headers.get("cache-control"), "private, no-store");
+    const returnedCookies = authLoginRes.headers.getSetCookie?.() ?? [];
+    assert.equal(returnedCookies.length, 2);
+    assert.match(returnedCookies[0], /supletivo_rt=rt123/);
   } finally {
     globalThis.fetch = origFetch;
   }

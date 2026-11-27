@@ -1,12 +1,16 @@
 <script lang="ts">
   import { getAccessToken, subscribeStorage, clearSession } from "@/lib/session";
-  import { whoami } from "@/lib/api";
+  import { whoami, logoutSession } from "@/lib/api";
   import { onMount } from "svelte";
 
   let firstName = $state<string | null>(null);
   let authenticated = $state(false);
   let { showLogout = true }: { showLogout?: boolean } = $props();
-  function logout() { clearSession(); window.location.assign("/"); }
+  async function logout() {
+    await logoutSession().catch(() => null);
+    clearSession();
+    window.location.assign("/");
+  }
 
   onMount(() => {
     function update() {
