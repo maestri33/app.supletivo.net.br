@@ -9,6 +9,12 @@
 
   async function checkAccess() {
     error = null;
+    const failsafeTimer =
+      typeof window !== 'undefined'
+        ? window.setTimeout(() => {
+            delete document.documentElement.dataset.authChecking;
+          }, 8000)
+        : null;
     try {
       const identity = await whoami();
       saveLogin({ ...getLogin(), ...identity });
@@ -33,6 +39,9 @@
       }
       delete document.documentElement.dataset.roleAccess;
       error = failure instanceof Error ? failure.message : getErrorMessage(failure);
+    } finally {
+      if (failsafeTimer !== null) window.clearTimeout(failsafeTimer);
+      delete document.documentElement.dataset.authChecking;
     }
   }
 

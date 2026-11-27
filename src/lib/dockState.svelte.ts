@@ -1,5 +1,5 @@
-import { getAccessToken, clearSession, getLogin } from "./session";
-import { whoami, getEnrollmentStatus, getStudentMe } from "./api";
+import { getAccessToken, getLogin } from "./session";
+import { whoami, getEnrollmentStatus, getStudentMe, logoutAndRedirect } from "./api";
 import type { RoleIdentity } from "./roles";
 import type {
   UserRole,
@@ -139,10 +139,7 @@ class DockStateStore {
   }
 
   logout() {
-    clearSession();
-    if (typeof window !== "undefined") {
-      window.location.assign("/");
-    }
+    return logoutAndRedirect();
   }
 }
 

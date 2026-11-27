@@ -106,6 +106,7 @@ async function requestOnce<T>(path: string, opts: RequestOptions = {}): Promise<
         method: opts.method ?? (body !== undefined ? "POST" : "GET"),
         headers,
         body,
+        credentials: "include",
         signal: controller.signal,
       });
 
@@ -152,11 +153,8 @@ async function doRefreshAuthTokens(failedToken?: string): Promise<LoginResponse>
 
   if (!refreshPromise) {
     const refresh = getRefreshToken();
-    if (!refresh) {
-      throw new ApiError("Sessão expirada. Entre novamente.", 401);
-    }
     refreshPromise = request<LoginResponse>("/api/v1/auth/refresh", {
-      json: { refresh_token: refresh },
+      json: refresh ? { refresh_token: refresh } : {},
     })
       .then((tokens) => {
         saveLogin({ ...getLogin(), ...tokens });
@@ -178,33 +176,48 @@ async function refreshAuthTokens(failedToken?: string): Promise<LoginResponse> {
   return doRefreshAuthTokens(failedToken);
 }
 
+async function refreshAndRetryAuth<T>(
+  path: string,
+  opts: RequestOptions,
+  deadline: number,
+  failedToken?: string
+): Promise<T> {
+  let tokens: LoginResponse;
+  try {
+    tokens = await withDeadline(
+      () => refreshAuthTokens(failedToken),
+      deadline - Date.now()
+    );
+  } catch (failure) {
+    if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
+      clearSession();
+      throw new ApiError("Sessão expirada. Entre novamente.", 401);
+    }
+    throw failure;
+  }
+  if (!tokens.access_token) {
+    clearSession();
+    throw new ApiError("Sessão expirada. Entre novamente.", 401);
+  }
+  if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+  return request<T>(path, {
+    ...opts,
+    timeoutMs: deadline - Date.now(),
+    token: tokens.access_token,
+  });
+}
+
 export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
   const token = getAccessToken();
-  if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
+  if (!token) {
+    return refreshAndRetryAuth<T>(path, opts, deadline);
+  }
   try {
     return await request<T>(path, { ...opts, token });
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    let tokens: LoginResponse;
-    try {
-      tokens = await withDeadline(
-        () => refreshAuthTokens(token),
-        deadline - Date.now()
-      );
-    } catch (failure) {
-      if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
-        clearSession();
-        throw new ApiError("Sessão expirada. Entre novamente.", 401);
-      }
-      throw failure;
-    }
-    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
-    return await request<T>(path, {
-      ...opts,
-      timeoutMs: deadline - Date.now(),
-      token: tokens.access_token,
-    });
+    return refreshAndRetryAuth<T>(path, opts, deadline, token);
   }
 }
 
@@ -472,6 +485,54 @@ export interface StudentCurrentPayment {
 
 export function getCurrentPayment(): Promise<StudentCurrentPayment> {
   return requestAuth<StudentCurrentPayment>("/api/v1/student/payment/current");
+}
+
+export interface UnifiedCheckoutResponse {
+  success: boolean;
+  mode: "pending" | "paid";
+  payment_id: string;
+  payment_attempt_id: string;
+  order_nsu: string;
+  checkout_url: string | null;
+  amount_cents: number;
+  amount: string;
+  provider: string;
+  payment_method?: string | null;
+  status: string;
+  expires_at?: string | null;
+  receipt_url?: string | null;
+  paid_at?: number | null;
+  renewed?: boolean;
+  role_status?: string;
+}
+
+export function getUnifiedCheckout(): Promise<UnifiedCheckoutResponse> {
+  return requestAuth<UnifiedCheckoutResponse>("/api/v1/checkout", {
+    method: "GET",
+    timeoutMs: 30_000,
+  });
+}
+
+export function logoutSession(): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>("/api/v1/auth/logout", {
+    method: "POST",
+    json: {},
+  });
+}
+
+export async function logoutAndRedirect(): Promise<void> {
+  await logoutSession().catch(() => null);
+  clearSession();
+  if (typeof window !== "undefined") {
+    window.location.assign("/");
+  }
+}
+
+export function exchangeSessionLink(token: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/v1/auth/session-link/exchange", {
+    method: "POST",
+    json: { token },
+  });
 }
 
 export interface CardPaymentReferences {

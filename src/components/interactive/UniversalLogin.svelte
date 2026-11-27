@@ -22,7 +22,9 @@
   onMount(async () => {
     mounted = true;
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has("trocar") || urlParams.has("switch") || urlParams.has("logout")) {
+    const isExplicitSwitch =
+      urlParams.has("trocar") || urlParams.has("switch") || urlParams.has("logout");
+    if (isExplicitSwitch) {
       clearSession();
     }
     const telParam = urlParams.get("tel");
@@ -30,17 +32,22 @@
       phone = formatPhone(telParam);
     }
 
-    if (getAccessToken()) {
+    if (!isExplicitSwitch) {
+      const hadLocalToken = Boolean(getAccessToken());
       checkingSession = true;
       try {
         const who = await whoami();
         const target = getRoleDestination(who);
-        if (!target) throw new Error("Não foi possível identificar a etapa da sua conta. Tente novamente.");
+        if (!target) {
+          throw new Error("Não foi possível identificar a etapa da sua conta. Tente novamente.");
+        }
         const safeReturn = safeReturnTo(urlParams.get("return_to"));
         window.location.replace(safeReturn || target);
+        return;
       } catch (failure) {
-        if (failure instanceof ApiError && failure.status === 401) clearSession();
-        else {
+        if (failure instanceof ApiError && failure.status === 401) {
+          clearSession();
+        } else if (hadLocalToken) {
           errorMessage =
             failure instanceof Error ? failure.message : "Não foi possível consultar sua conta.";
           isErrorDialogOpen = true;

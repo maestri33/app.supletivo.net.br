@@ -41,3 +41,55 @@ test('a transport failure on a read can recover without replaying a mutation', a
   assert.deepEqual((await api.whoami()).role_statuses, { student: 'lead' });
   assert.equal(attempts, 2);
 });
+
+test('requestAuth restores session via HttpOnly cookie refresh when localStorage is empty', async () => {
+  session.clearSession();
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, method: init?.method, credentials: init?.credentials, auth: init?.headers?.Authorization });
+    if (String(url).endsWith('/api/v1/auth/refresh')) {
+      return new Response(
+        JSON.stringify({
+          access_token: 'restored-access',
+          refresh_token: 'restored-refresh',
+          token_type: 'Bearer',
+          roles: ['client'],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return new Response(
+      JSON.stringify({ authenticated: true, roles: ['client'], role_statuses: { client: 'pre_enrolled' } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  };
+
+  const who = await api.whoami();
+  assert.equal(who.authenticated, true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, '/api/v1/auth/refresh');
+  assert.equal(calls[0].credentials, 'include');
+  assert.equal(calls[1].url, '/api/v1/auth/whoami');
+  assert.equal(calls[1].auth, 'Bearer restored-access');
+});
+
+test('getUnifiedCheckout, exchangeSessionLink and logoutSession call canonical endpoints with credentials', async () => {
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    seen.push({ url, method: init?.method, credentials: init?.credentials });
+    return new Response(JSON.stringify({ success: true, mode: 'pending', access_token: 'tok' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await api.getUnifiedCheckout();
+  await api.exchangeSessionLink('magic_token_1234567890');
+  await api.logoutSession();
+
+  assert.deepEqual(seen, [
+    { url: '/api/v1/checkout', method: 'GET', credentials: 'include' },
+    { url: '/api/v1/auth/session-link/exchange', method: 'POST', credentials: 'include' },
+    { url: '/api/v1/auth/logout', method: 'POST', credentials: 'include' },
+  ]);
+});

@@ -76,6 +76,15 @@ export const ALL: APIRoute = async (context) => {
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-length');
 
+    const getSetCookie = (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie;
+    const setCookies = typeof getSetCookie === 'function' ? getSetCookie.call(res.headers) : [];
+    if (setCookies.length > 0) {
+      responseHeaders.delete('set-cookie');
+      for (const cookieHeader of setCookies) {
+        responseHeaders.append('set-cookie', cookieHeader);
+      }
+    }
+
     const isPublicCatalog =
       request.method === 'GET' &&
       res.ok &&
@@ -86,7 +95,12 @@ export const ALL: APIRoute = async (context) => {
         'Cache-Control',
         'public, max-age=30, s-maxage=300, stale-while-revalidate=60'
       );
-    } else if (request.headers.has('authorization') || !res.ok) {
+    } else if (
+      targetPath.startsWith('/v1/auth/') ||
+      setCookies.length > 0 ||
+      request.headers.has('authorization') ||
+      !res.ok
+    ) {
       responseHeaders.set('Cache-Control', 'private, no-store');
     }
 
