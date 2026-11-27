@@ -176,57 +176,48 @@ async function refreshAuthTokens(failedToken?: string): Promise<LoginResponse> {
   return doRefreshAuthTokens(failedToken);
 }
 
-export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
-  let token = getAccessToken();
-  if (!token) {
-    try {
-      const tokens = await withDeadline(
-        () => refreshAuthTokens(),
-        deadline - Date.now()
-      );
-      token = tokens.access_token;
-    } catch (failure) {
-      if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
-        clearSession();
-        throw new ApiError("Sessão expirada. Entre novamente.", 401);
-      }
-      throw failure;
-    }
-    if (!token) {
+async function refreshAndRetryAuth<T>(
+  path: string,
+  opts: RequestOptions,
+  deadline: number,
+  failedToken?: string
+): Promise<T> {
+  let tokens: LoginResponse;
+  try {
+    tokens = await withDeadline(
+      () => refreshAuthTokens(failedToken),
+      deadline - Date.now()
+    );
+  } catch (failure) {
+    if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
       clearSession();
       throw new ApiError("Sessão expirada. Entre novamente.", 401);
     }
-    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
-    return await request<T>(path, {
-      ...opts,
-      timeoutMs: deadline - Date.now(),
-      token,
-    });
+    throw failure;
+  }
+  if (!tokens.access_token) {
+    clearSession();
+    throw new ApiError("Sessão expirada. Entre novamente.", 401);
+  }
+  if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
+  return request<T>(path, {
+    ...opts,
+    timeoutMs: deadline - Date.now(),
+    token: tokens.access_token,
+  });
+}
+
+export async function requestAuth<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deadline = Date.now() + (opts.timeoutMs ?? API_TIMEOUT_MS);
+  const token = getAccessToken();
+  if (!token) {
+    return refreshAndRetryAuth<T>(path, opts, deadline);
   }
   try {
     return await request<T>(path, { ...opts, token });
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    let tokens: LoginResponse;
-    try {
-      tokens = await withDeadline(
-        () => refreshAuthTokens(token),
-        deadline - Date.now()
-      );
-    } catch (failure) {
-      if (failure instanceof ApiError && [400, 401, 403].includes(failure.status)) {
-        clearSession();
-        throw new ApiError("Sessão expirada. Entre novamente.", 401);
-      }
-      throw failure;
-    }
-    if (Date.now() >= deadline) throw new DOMException("Tempo esgotado.", "AbortError");
-    return await request<T>(path, {
-      ...opts,
-      timeoutMs: deadline - Date.now(),
-      token: tokens.access_token,
-    });
+    return refreshAndRetryAuth<T>(path, opts, deadline, token);
   }
 }
 
@@ -527,6 +518,14 @@ export function logoutSession(): Promise<{ success: boolean }> {
     method: "POST",
     json: {},
   });
+}
+
+export async function logoutAndRedirect(): Promise<void> {
+  await logoutSession().catch(() => null);
+  clearSession();
+  if (typeof window !== "undefined") {
+    window.location.assign("/");
+  }
 }
 
 export function exchangeSessionLink(token: string): Promise<LoginResponse> {
